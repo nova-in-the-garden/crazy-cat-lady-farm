@@ -1,0 +1,106 @@
+/* Crazy Cat Lady's Farm: cozy pastel UI */
+:root {
+  --cream: #fff8ef;
+  --ink: #5b4256;
+  --rose: #e8798f;
+  --rose-dark: #c95c74;
+  --mint: #9fd8c4;
+  --lav: #c9b6ee;
+  --shadow: 0 10px 30px rgba(91, 66, 86, 0.25);
+  font-family: 'Fredoka', 'Nunito', 'Trebuchet MS', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #f9d9c4; color: var(--ink); }
+#game { position: fixed; inset: 0; touch-action: none; }
+#game canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+#game canvas:active { cursor: grabbing; }
+.hidden { display: none !important; }
+
+kbd {
+  display: inline-block; min-width: 1.6em; padding: 0.05em 0.4em; margin: 0 0.1em;
+  border-radius: 6px; background: #fff; border: 2px solid #ead7e4; border-bottom-width: 3px;
+  font: 600 0.85em 'Fredoka', system-ui, sans-serif; color: var(--ink); text-align: center;
+}
+
+/* ---------- Title overlay ---------- */
+.overlay {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(255, 240, 230, 0.15), rgba(120, 80, 110, 0.35));
+  transition: opacity 0.6s ease; z-index: 20; padding: 16px;
+}
+@media (min-aspect-ratio: 11/10) { .overlay { justify-content: flex-start; padding-left: 6vw; background: linear-gradient(90deg, rgba(120, 80, 110, 0.35), rgba(255, 240, 230, 0) 60%); } }
+@media (max-aspect-ratio: 11/10) { .overlay { align-items: flex-end; padding-bottom: 28px; background: linear-gradient(0deg, rgba(120, 80, 110, 0.35), rgba(255, 240, 230, 0) 60%); } .card { padding: 28px 20px 20px; } .lede { font-size: 0.95rem; margin-bottom: 14px; } }
+.overlay.fade { opacity: 0; pointer-events: none; }
+.card {
+  position: relative; max-width: 520px; width: 100%; text-align: center;
+  background: rgba(255, 248, 239, 0.94); border-radius: 28px; padding: 34px 32px 26px;
+  box-shadow: var(--shadow); border: 4px solid #fff;
+  outline: 3px dashed #f3c6d2; outline-offset: -14px;
+}
+.card-paw { width: 54px; position: absolute; top: -26px; left: 50%; transform: translateX(-50%) rotate(-12deg);
+  background: #fff; border-radius: 50%; padding: 9px; box-shadow: var(--shadow); }
+.eyebrow { margin: 6px 0 4px; letter-spacing: 0.16em; text-transform: uppercase; font-size: 0.8rem; color: #a8869d; font-weight: 600; }
+h1 { margin: 0 0 12px; font-size: clamp(1.5rem, 4.6vw, 2.3rem); line-height: 1.15; font-weight: 600; }
+h1 span { color: var(--rose-dark); font-weight: 700; }
+.lede { margin: 0 auto 20px; max-width: 400px; font-size: 1.05rem; line-height: 1.45; color: #7a6175; }
+#start-btn {
+  font: 600 1.25rem 'Fredoka', system-ui, sans-serif; color: #fff; cursor: pointer;
+  background: linear-gradient(#f18ba1, var(--rose)); border: none; border-radius: 999px;
+  padding: 14px 40px; box-shadow: 0 5px 0 var(--rose-dark), 0 10px 20px rgba(201, 92, 116, 0.35);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+#start-btn:hover { transform: translateY(-2px); }
+#start-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--rose-dark); }
+.hint { margin-top: 20px; font-size: 0.9rem; color: #8d7388; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
+.touch-hint { display: none; }
+@media (pointer: coarse) { .keys-hint { display: none; } .touch-hint { display: block; } }
+
+/* ---------- Host UI (nameplate + speech bubble) ---------- */
+#host-ui { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 10; transform: translate(-50%, -100%); will-change: transform; }
+#nameplate {
+  margin: 0 auto; width: max-content; display: flex; align-items: center; gap: 5px;
+  background: rgba(255, 248, 239, 0.92); color: var(--rose-dark); font-weight: 600; font-size: 14px;
+  padding: 3px 11px 3px 7px; border-radius: 999px; border: 2px solid #f6c9d4; box-shadow: 0 3px 8px rgba(91, 66, 86, 0.18);
+}
+#nameplate img { width: 16px; height: 16px; }
+#bubble {
+  position: relative; margin: 0 auto 10px; width: max-content; max-width: min(300px, 70vw);
+  background: #fff; color: var(--ink); font-size: 15.5px; line-height: 1.35; text-align: center;
+  padding: 10px 15px; border-radius: 18px; box-shadow: 0 6px 18px rgba(91, 66, 86, 0.22);
+  animation: pop 0.35s cubic-bezier(.2, 1.6, .5, 1);
+}
+#bubble::after {
+  content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+  border: 10px solid transparent; border-top-color: #fff; border-bottom: 0;
+}
+@keyframes pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#host-ui.far #nameplate { font-size: 12px; }
+#host-ui.offscreen { display: none; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; right: 14px; top: 14px; z-index: 12; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+#hud-toggle {
+  width: 36px; height: 36px; border-radius: 50%; border: 3px solid #fff; background: var(--rose);
+  color: #fff; font: 700 1.1rem 'Fredoka', system-ui; cursor: pointer; box-shadow: var(--shadow);
+}
+#hud-body {
+  background: rgba(255, 248, 239, 0.9); border-radius: 16px; padding: 10px 14px; font-size: 0.88rem;
+  line-height: 1.75; box-shadow: var(--shadow); border: 3px solid #fff;
+}
+#hud.collapsed #hud-body { display: none; }
+.hud-title { font-weight: 600; color: var(--rose-dark); }
+@media (pointer: coarse) { #hud-body { display: none; } }
+
+/* ---------- Joystick ---------- */
+#joystick {
+  position: fixed; left: 26px; bottom: 26px; width: 120px; height: 120px; border-radius: 50%;
+  background: rgba(255, 248, 239, 0.45); border: 3px solid rgba(255, 255, 255, 0.85); z-index: 12; touch-action: none;
+}
+#joy-knob {
+  position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%;
+  background: var(--rose); border: 3px solid #fff; box-shadow: 0 4px 10px rgba(91, 66, 86, 0.3);
+}
+
+#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+  background: #f9e3d3; z-index: 30; transition: opacity 0.5s; }
+#loading.done { opacity: 0; pointer-events: none; }
