@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import { mulberry32, mat, mesh, canvasTexture, drawPaw, signTexture } from './util.js';
 import { PLAY_RADIUS, addCircle, addBox, raised, resolve, groundHeight } from './collision.js';
 import { buildClinic } from './clinic.js';
+import { fadeable, makeFader } from './building.js';
+import { buildCottageInterior } from './kitchen.js';
 
 export const PALETTE = {
   grass: '#a9d98b', grassDark: '#8fca78', grassLight: '#c2e5a0',
@@ -233,52 +235,84 @@ function pathRibbon(points, width, material, y = 0.02) {
 /* ------------------------------------------------------------------ */
 function buildCottage(scene, smokePuffs) {
   const house = new THREE.Group();
-  const HX = 0, HZ = -9, W = 7, D = 5, H = 2.8, F = 0.3; // F = foundation height
+  const HX = 0, HZ = -9, W = 7, D = 5, H = 2.8, F = 0.3; // F = foundation height (= floor height inside)
+  const T = 0.2, DOOR = 1.4, FLOOR = 0.32;
   house.position.set(HX, 0, HZ);
   scene.add(house);
 
   house.add(mesh(new THREE.BoxGeometry(W + 0.3, F, D + 0.3), mat(PALETTE.stone), { y: F / 2 }));
-  house.add(mesh(new THREE.BoxGeometry(W, H, D), mat(PALETTE.wall), { y: F + H / 2 }));
-  // corner trim
-  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) =>
-    house.add(mesh(new THREE.BoxGeometry(0.18, H, 0.18), mat(PALETTE.trim), { x: sx * W / 2, y: F + H / 2, z: sz * D / 2 })));
 
-  // Gable roof (ridge runs along x)
+  /* --- Walls: four groups that can fade (outer cream skin, inner wallpaper, windows) --- */
+  const walls = [];
+  const wallGroup = (normal, half) => { const g = new THREE.Group(); house.add(g); walls.push({ g, normal, half }); return g; };
+  const inner = mat('#fff1e4', { flatShading: false }), wains = mat('#cfe9dc'), outer = mat(PALETTE.wall);
+  // A straight wall segment between two points along x (front/back) or z (sides), with an inside face
+  const segX = (g, x1, x2, z, out, y0 = F, y1 = F + H) => {
+    const len = x2 - x1, cx = (x1 + x2) / 2, cy = (y0 + y1) / 2, h = y1 - y0;
+    g.add(mesh(new THREE.BoxGeometry(len, h, T * 0.6), outer, { x: cx, y: cy, z: z - out * T * 0.3 }));
+    g.add(mesh(new THREE.BoxGeometry(len, h, T * 0.4), inner, { x: cx, y: cy, z: z - out * T * 0.8 }));
+    if (y0 <= F) g.add(mesh(new THREE.BoxGeometry(len, 0.8, 0.03), wains, { x: cx, y: F + 0.4, z: z - out * (T + 0.01), cast: false }));
+  };
+  const segZ = (g, z1, z2, x, out) => {
+    const len = z2 - z1, cz = (z1 + z2) / 2;
+    g.add(mesh(new THREE.BoxGeometry(T * 0.6, H, len), outer, { x: x - out * T * 0.3, y: F + H / 2, z: cz }));
+    g.add(mesh(new THREE.BoxGeometry(T * 0.4, H, len - 2 * T), inner, { x: x - out * T * 0.8, y: F + H / 2, z: cz }));
+    g.add(mesh(new THREE.BoxGeometry(0.03, 0.8, len - 2 * T), wains, { x: x - out * (T + 0.01), y: F + 0.4, z: cz, cast: false }));
+  };
+  const front = wallGroup(new THREE.Vector3(0, 0, 1), D / 2);
+  const back = wallGroup(new THREE.Vector3(0, 0, -1), D / 2);
+  const left = wallGroup(new THREE.Vector3(-1, 0, 0), W / 2);
+  const right = wallGroup(new THREE.Vector3(1, 0, 0), W / 2);
+  segX(front, -W / 2, -DOOR / 2, D / 2, 1); segX(front, DOOR / 2, W / 2, D / 2, 1);
+  segX(front, -DOOR / 2, DOOR / 2, D / 2, 1, F + 2.15, F + H);
+  segX(back, -W / 2, W / 2, -D / 2, -1);
+  segZ(left, -D / 2, D / 2, -W / 2, -1);
+  segZ(right, -D / 2, D / 2, W / 2, 1);
+  // corner trim belongs to the side walls
+  [[-1, -1, left], [1, -1, right], [-1, 1, left], [1, 1, right]].forEach(([sx, sz, g]) =>
+    g.add(mesh(new THREE.BoxGeometry(0.18, H, 0.18), mat(PALETTE.trim), { x: sx * W / 2, y: F + H / 2, z: sz * D / 2 })));
+  // wall collisions
+  const sideLen = (W - DOOR) / 2;
+  addBox(HX - (DOOR / 2 + sideLen / 2), HZ + D / 2 - T / 2, sideLen, T + 0.05);
+  addBox(HX + (DOOR / 2 + sideLen / 2), HZ + D / 2 - T / 2, sideLen, T + 0.05);
+  addBox(HX, HZ - D / 2 + T / 2, W, T + 0.05);
+  addBox(HX - W / 2 + T / 2, HZ, T + 0.05, D);
+  addBox(HX + W / 2 - T / 2, HZ, T + 0.05, D);
+  raised.push({ minX: HX - W / 2, maxX: HX + W / 2, minZ: HZ - D / 2, maxZ: HZ + D / 2, h: FLOOR });
+
+  /* --- Roof group (fades away when she's inside) --- */
+  const roof = new THREE.Group(); house.add(roof);
   const top = F + H, rise = 1.9, over = 0.45;
   const half = D / 2 + over;
   const slope = Math.hypot(half, rise);
   const ang = Math.atan2(rise, half);
   [-1, 1].forEach((s) => {
-    house.add(mesh(new THREE.BoxGeometry(W + 0.9, 0.16, slope), mat(PALETTE.roof), {
+    roof.add(mesh(new THREE.BoxGeometry(W + 0.9, 0.16, slope), mat(PALETTE.roof), {
       y: top + rise / 2 + 0.05, z: (s * half) / 2, rx: s * ang,
     }));
-    // scalloped shingle rows for charm
-    for (let r = 1; r < 4; r++) {
+    for (let r = 1; r < 4; r++) { // scalloped shingle rows for charm
       const t = r / 4;
-      house.add(mesh(new THREE.BoxGeometry(W + 0.92, 0.05, 0.08), mat(PALETTE.roofDark), {
+      roof.add(mesh(new THREE.BoxGeometry(W + 0.92, 0.05, 0.08), mat(PALETTE.roofDark), {
         y: top + rise * (1 - t) + 0.16, z: s * half * t, rx: s * ang, cast: false,
       }));
     }
   });
-  house.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, W + 1, 8), mat(PALETTE.roofDark), { y: top + rise + 0.12, rz: Math.PI / 2 }));
-  // gable triangles
+  roof.add(mesh(new THREE.CylinderGeometry(0.13, 0.13, W + 1, 8), mat(PALETTE.roofDark), { y: top + rise + 0.12, rz: Math.PI / 2 }));
   const tri = new THREE.Shape();
   tri.moveTo(-D / 2, 0); tri.lineTo(D / 2, 0); tri.lineTo(0, rise); tri.closePath();
   const triGeo = new THREE.ExtrudeGeometry(tri, { depth: 0.05, bevelEnabled: false });
   [-1, 1].forEach((s) => {
-    const g = mesh(triGeo, mat(PALETTE.wall), { x: s * (W / 2) - (s > 0 ? 0 : 0.05), y: top, ry: Math.PI / 2 });
-    house.add(g);
-    // round attic window
-    const win = mesh(new THREE.CircleGeometry(0.32, 16), mat(PALETTE.glass, { emissive: '#ffd98a', emissiveIntensity: 0.35, flatShading: false }), {
+    roof.add(mesh(triGeo, mat(PALETTE.wall), { x: s * (W / 2) - (s > 0 ? 0 : 0.05), y: top, ry: Math.PI / 2 }));
+    roof.add(mesh(new THREE.CircleGeometry(0.32, 16), mat(PALETTE.glass, { emissive: '#ffd98a', emissiveIntensity: 0.35, flatShading: false }), {
       x: s * (W / 2 + 0.06), y: top + 0.7, ry: s * Math.PI / 2, cast: false,
-    });
-    house.add(win);
-    house.add(mesh(new THREE.TorusGeometry(0.33, 0.05, 6, 16), mat(PALETTE.trim), { x: s * (W / 2 + 0.06), y: top + 0.7, ry: Math.PI / 2 }));
+    }));
+    roof.add(mesh(new THREE.TorusGeometry(0.33, 0.05, 6, 16), mat(PALETTE.trim), { x: s * (W / 2 + 0.06), y: top + 0.7, ry: Math.PI / 2 }));
   });
-
+  // ceiling seen from below is just the roof underside; add a cozy ceiling beam
+  roof.add(mesh(new THREE.BoxGeometry(W - 0.2, 0.15, 0.2), mat(PALETTE.woodDark), { y: top - 0.08 }));
   // Chimney with smoke
-  house.add(mesh(new THREE.BoxGeometry(0.7, 2.2, 0.7), mat(PALETTE.brick), { x: 2.2, y: top + 1.5, z: -1.1 }));
-  house.add(mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), mat('#b46d5a'), { x: 2.2, y: top + 2.65, z: -1.1 }));
+  roof.add(mesh(new THREE.BoxGeometry(0.7, 2.2, 0.7), mat(PALETTE.brick), { x: 2.2, y: top + 1.5, z: -1.1 }));
+  roof.add(mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), mat('#b46d5a'), { x: 2.2, y: top + 2.65, z: -1.1 }));
   const smokeMat = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.7, roughness: 1, flatShading: true });
   for (let i = 0; i < 6; i++) {
     const puff = mesh(new THREE.IcosahedronGeometry(0.25, 1), smokeMat.clone(), { cast: false, receive: false });
@@ -286,19 +320,20 @@ function buildCottage(scene, smokePuffs) {
     scene.add(puff); smokePuffs.push(puff);
   }
 
-  // Front face details (front = +z)
+  /* --- Front: open door, wreath, windows --- */
   const fz = D / 2 + 0.03;
-  // door
-  house.add(mesh(new THREE.BoxGeometry(1.25, 2.15, 0.12), mat(PALETTE.trim), { y: F + 1.07, z: fz }));
-  house.add(mesh(new THREE.BoxGeometry(1.05, 2.0, 0.14), mat(PALETTE.door), { y: F + 1.0, z: fz + 0.01 }));
-  house.add(mesh(new THREE.CircleGeometry(0.2, 14), mat(PALETTE.glass, { emissive: '#ffd98a', emissiveIntensity: 0.3 }), { y: F + 1.5, z: fz + 0.09, cast: false }));
-  house.add(mesh(new THREE.SphereGeometry(0.06, 8, 6), mat('#f2c75c', { metalness: 0.4, roughness: 0.4 }), { x: 0.35, y: F + 0.95, z: fz + 0.1 }));
-  // cat flap on the door!
-  house.add(mesh(new THREE.BoxGeometry(0.42, 0.36, 0.03), mat('#6aa3bf'), { y: F + 0.25, z: fz + 0.08 }));
-  // heart wreath
-  house.add(mesh(new THREE.TorusGeometry(0.16, 0.05, 6, 14), mat('#7fc67c'), { y: F + 1.85, z: fz + 0.12 }));
+  [-1, 1].forEach((s) => front.add(mesh(new THREE.BoxGeometry(0.12, 2.2, T + 0.08), mat(PALETTE.trim), { x: s * DOOR / 2, y: F + 1.1, z: D / 2 - T / 2 })));
+  front.add(mesh(new THREE.BoxGeometry(DOOR + 0.24, 0.12, T + 0.08), mat(PALETTE.trim), { y: F + 2.2, z: D / 2 - T / 2 }));
+  const door = new THREE.Group();
+  door.add(mesh(new THREE.BoxGeometry(1.25, 2.05, 0.08), mat(PALETTE.door), { x: 0.62, y: 1.02 }));
+  door.add(mesh(new THREE.CircleGeometry(0.18, 14), mat(PALETTE.glass, { emissive: '#ffd98a', emissiveIntensity: 0.3 }), { x: 0.62, y: 1.5, z: 0.045, cast: false }));
+  door.add(mesh(new THREE.SphereGeometry(0.05, 8, 6), mat('#f2c75c', { metalness: 0.4, roughness: 0.4 }), { x: 1.05, y: 0.95, z: 0.06 }));
+  door.add(mesh(new THREE.BoxGeometry(0.4, 0.34, 0.03), mat('#6aa3bf'), { x: 0.62, y: 0.25, z: 0.05 })); // cat flap!
+  door.position.set(-DOOR / 2 + 0.06, F, D / 2 - T); door.rotation.y = -1.75; // swung open, inward
+  front.add(door);
+  front.add(mesh(new THREE.TorusGeometry(0.16, 0.05, 6, 14), mat('#7fc67c'), { x: 1.15, y: F + 1.85, z: fz + 0.03 })); // heart wreath beside the door
 
-  const windowAt = (x, y, z, ry) => {
+  const windowAt = (parent, x, y, z, ry) => {
     const w = new THREE.Group();
     w.position.set(x, y, z); w.rotation.y = ry;
     w.add(mesh(new THREE.BoxGeometry(1.15, 1.05, 0.1), mat(PALETTE.trim)));
@@ -306,20 +341,22 @@ function buildCottage(scene, smokePuffs) {
     w.add(mesh(new THREE.BoxGeometry(0.06, 0.85, 0.15), mat(PALETTE.trim), { cast: false }));
     w.add(mesh(new THREE.BoxGeometry(0.95, 0.06, 0.15), mat(PALETTE.trim), { cast: false }));
     [-1, 1].forEach((s) => w.add(mesh(new THREE.BoxGeometry(0.36, 1.05, 0.06), mat(PALETTE.shutter), { x: s * 0.78, z: 0.02 })));
-    // flower box
     w.add(mesh(new THREE.BoxGeometry(1.15, 0.22, 0.28), mat(PALETTE.wood), { y: -0.62, z: 0.14 }));
     const r = mulberry32(Math.floor(x * 10 + z * 3 + 50));
     for (let i = 0; i < 6; i++) {
       w.add(mesh(new THREE.SphereGeometry(0.09, 6, 5), mat(PALETTE.flowers[i % PALETTE.flowers.length]), { x: -0.45 + i * 0.18, y: -0.46 + r() * 0.05, z: 0.15, cast: false }));
     }
-    house.add(w);
+    // the same window seen from inside (pale sky glass + white frame)
+    w.add(mesh(new THREE.BoxGeometry(1.0, 0.9, 0.02), mat('#d6f0fb', { emissive: '#cdeeff', emissiveIntensity: 0.35 }), { z: -T - 0.04, cast: false }));
+    w.add(mesh(new THREE.BoxGeometry(1.1, 0.06, 0.12), mat(PALETTE.trim), { y: -0.47, z: -T - 0.05, cast: false }));
+    parent.add(w);
   };
-  windowAt(-2.15, F + 1.45, fz + 0.02, 0);
-  windowAt(2.15, F + 1.45, fz + 0.02, 0);
-  windowAt(-W / 2 - 0.02, F + 1.45, 0, -Math.PI / 2);
-  windowAt(W / 2 + 0.02, F + 1.45, 0.6, Math.PI / 2);
-  windowAt(-1.6, F + 1.45, -D / 2 - 0.02, Math.PI);
-  windowAt(1.6, F + 1.45, -D / 2 - 0.02, Math.PI);
+  windowAt(front, -2.15, F + 1.45, fz + 0.02, 0);
+  windowAt(front, 2.15, F + 1.45, fz + 0.02, 0);
+  windowAt(left, -W / 2 - 0.02, F + 1.45, 0, -Math.PI / 2);
+  windowAt(right, W / 2 + 0.02, F + 1.45, 0.6, Math.PI / 2);
+  windowAt(back, -1.6, F + 1.45, -D / 2 - 0.02, Math.PI);
+  windowAt(back, 1.6, F + 1.45, -D / 2 - 0.02, Math.PI);
 
   // Porch (walkable deck)
   const PD = 2.4, deckH = 0.32;
@@ -338,8 +375,9 @@ function buildCottage(scene, smokePuffs) {
     house.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.3, 8), mat(PALETTE.trim), { x, y: deckH + 1.15, z: D / 2 + PD - 0.15 }));
     addCircle(HX + x, HZ + D / 2 + PD - 0.15, 0.16);
   });
-  house.add(mesh(new THREE.BoxGeometry(W + 0.8, 0.12, PD + 0.4), mat(PALETTE.roof), { y: deckH + 2.45, z: pz + 0.1, rx: 0.16 }));
-  house.add(mesh(new THREE.BoxGeometry(W + 0.2, 0.15, 0.15), mat(PALETTE.trim), { y: deckH + 2.28, z: D / 2 + PD - 0.15 }));
+  const porchRoof = new THREE.Group(); house.add(porchRoof); // fades too, so you can see in through the door
+  porchRoof.add(mesh(new THREE.BoxGeometry(W + 0.8, 0.12, PD + 0.4), mat(PALETTE.roof), { y: deckH + 2.45, z: pz + 0.1, rx: 0.16 }));
+  porchRoof.add(mesh(new THREE.BoxGeometry(W + 0.2, 0.15, 0.15), mat(PALETTE.trim), { y: deckH + 2.28, z: D / 2 + PD - 0.15 }));
   // railings (gap between the middle posts)
   const rail = (x1, x2) => {
     const len = x2 - x1, cx = (x1 + x2) / 2, z = D / 2 + PD - 0.15;
@@ -401,7 +439,21 @@ function buildCottage(scene, smokePuffs) {
   const rand = mulberry32(31);
   [-3.9, 3.9].forEach((x) => { const b = makeBush(rand, 0.9); b.position.set(HX + x, 0, HZ + D / 2 + 0.5); scene.add(b); addCircle(HX + x, HZ + D / 2 + 0.5, 0.5); });
 
-  addBox(HX, HZ, W + 0.3, D + 0.3);
+  /* --- Inside: the Cat Food Kitchen and her bedroom corner --- */
+  const interior = buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR });
+
+  /* --- Fading --- */
+  const isInside = (x, z) => Math.abs(x - HX) < W / 2 && Math.abs(z - HZ) < D / 2;
+  const fader = makeFader({
+    cx: HX, cz: HZ,
+    walls: walls.map((w) => Object.assign(fadeable(w.g), { normal: w.normal, half: w.half })),
+    roofs: [fadeable(roof), fadeable(porchRoof)],
+  });
+  return {
+    isInside,
+    ...interior,
+    update(dt, t, ladyPos, camera) { fader(dt, ladyPos && isInside(ladyPos.x, ladyPos.z), camera); interior.animate(dt, t); },
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -479,37 +531,24 @@ function buildBarn(scene) {
 /* ------------------------------------------------------------------ */
 /* Garden plot                                                         */
 /* ------------------------------------------------------------------ */
+const seedBox = {};
 function buildGarden(scene) {
   const GX = -11, GZ = 2, W = 7, D = 6;
   const rand = mulberry32(5);
   const g = new THREE.Group(); g.position.set(GX, 0, GZ); scene.add(g);
-  // soil patch
-  g.add(mesh(new THREE.BoxGeometry(W - 0.4, 0.06, D - 0.4), mat('#b7865f'), { y: 0.03, cast: false }));
-  // three raised beds with crops
-  const crops = ['carrot', 'cabbage', 'pumpkin'];
-  for (let i = 0; i < 3; i++) {
-    const z = -1.8 + i * 1.8;
-    g.add(mesh(new THREE.BoxGeometry(5, 0.28, 1.0), mat(PALETTE.wood), { y: 0.14, z }));
-    g.add(mesh(new THREE.BoxGeometry(4.8, 0.06, 0.82), mat(PALETTE.soilDark), { y: 0.29, z, cast: false }));
-    addBox(GX, GZ + z, 5, 1.0);
-    for (let k = 0; k < 7; k++) {
-      const x = -2.1 + k * 0.7 + (rand() - 0.5) * 0.1;
-      const c = crops[i];
-      if (c === 'carrot') {
-        g.add(mesh(new THREE.ConeGeometry(0.07, 0.18, 6), mat('#f59a4f'), { x, y: 0.36, z, rx: Math.PI }));
-        for (let l = 0; l < 3; l++) g.add(mesh(new THREE.ConeGeometry(0.04, 0.3, 4), mat('#6fbf5c'), { x: x + (l - 1) * 0.04, y: 0.55, z, rz: (l - 1) * 0.35 }));
-      } else if (c === 'cabbage') {
-        g.add(mesh(new THREE.IcosahedronGeometry(0.2, 1), mat('#9edb7f'), { x, y: 0.45, z, sy: 0.8 }));
-        g.add(mesh(new THREE.IcosahedronGeometry(0.14, 1), mat('#c4ec9f'), { x, y: 0.52, z }));
-      } else if (k % 2 === 0) {
-        const p = new THREE.SphereGeometry(0.24, 10, 8);
-        g.add(mesh(p, mat('#f5a35c'), { x, y: 0.5, z, sy: 0.75 }));
-        g.add(mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.12, 5), mat('#7a8a45'), { x, y: 0.7, z }));
-      } else {
-        g.add(mesh(new THREE.IcosahedronGeometry(0.16, 0), mat('#7fc67c'), { x, y: 0.42, z, sy: 0.5 }));
-      }
-    }
-  }
+  // (the crop tiles themselves are built by js/garden.js)
+  // Seed box by the gate: a crate of seed packets that refills every morning
+  const box = new THREE.Group(); box.position.set(GX + W / 2 + 0.9, 0, GZ + 2.3); box.rotation.y = -0.3; scene.add(box);
+  box.add(mesh(new THREE.BoxGeometry(0.9, 0.5, 0.6), mat(PALETTE.wood), { y: 0.25 }));
+  [-0.15, 0.15].forEach((y) => box.add(mesh(new THREE.BoxGeometry(0.92, 0.06, 0.62), mat(PALETTE.woodDark), { y: 0.25 + y, cast: false })));
+  const packets = new THREE.Group(); box.add(packets);
+  ['#f59a4f', '#9edb7f', '#f5a35c', '#f7a8c4', '#c8aaf2'].forEach((c, i) => packets.add(mesh(new THREE.BoxGeometry(0.16, 0.22, 0.03), mat(c), { x: -0.3 + i * 0.15, y: 0.58, z: (i % 2) * 0.12 - 0.06, rz: (i - 2) * 0.12, cast: false })));
+  box.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), mat(PALETTE.woodDark), { x: 0.5, y: 0.45, z: -0.2 }));
+  const seedSignTex = signTexture(['Free seeds', 'every morning'], { w: 256, h: 128, font: 40, paws: false, bg: '#fff3e0', fg: '#8f6446' });
+  box.add(mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshStandardMaterial({ map: seedSignTex, roughness: 0.9 }), { x: 0.5, y: 0.95, z: -0.17, cast: false }));
+  addCircle(GX + W / 2 + 0.9, GZ + 2.3, 0.5);
+  seedBox.position = new THREE.Vector3(GX + W / 2 + 0.9, 0, GZ + 2.3);
+  seedBox.packets = packets;
   // fence around it, with an opening on the +x side facing the path
   const x0 = GX - W / 2, x1 = GX + W / 2, z0 = GZ - D / 2, z1 = GZ + D / 2;
   fenceLine(scene, x0, z0, x1, z0);
@@ -518,7 +557,7 @@ function buildGarden(scene) {
   fenceLine(scene, x1, z0, x1, GZ - 0.8);
   fenceLine(scene, x1, GZ + 0.8, x1, z1);
   // Scarecrow wearing cat ears
-  const s = new THREE.Group(); s.position.set(GX - 2.9, 0, GZ - 2.4); s.rotation.y = 0.7;
+  const s = new THREE.Group(); s.position.set(GX - 4.4, 0, GZ - 2.2); s.rotation.y = 0.7;
   s.add(mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 5), mat(PALETTE.woodDark), { y: 0.9 }));
   s.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 5), mat(PALETTE.woodDark), { y: 1.35, rz: Math.PI / 2 }));
   s.add(mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.6, 7), mat('#9fd0ef'), { y: 1.25 }));
@@ -527,12 +566,6 @@ function buildGarden(scene) {
   s.add(mesh(new THREE.TorusGeometry(0.05, 0.015, 4, 10), mat('#5b4256'), { x: -0.07, y: 1.78, z: 0.2 }));
   s.add(mesh(new THREE.TorusGeometry(0.05, 0.015, 4, 10), mat('#5b4256'), { x: 0.07, y: 1.78, z: 0.2 }));
   scene.add(s);
-  // watering can by the gate
-  const can = new THREE.Group(); can.position.set(x1 + 0.6, 0, GZ + 1.3);
-  can.add(mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.3, 10), mat('#9fd6bf', { metalness: 0.3, roughness: 0.5 }), { y: 0.15 }));
-  can.add(mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.35, 5), mat('#9fd6bf'), { x: 0.2, y: 0.25, rz: -0.9 }));
-  can.add(mesh(new THREE.TorusGeometry(0.1, 0.02, 4, 10, Math.PI), mat('#9fd6bf'), { y: 0.3 }));
-  scene.add(can);
 }
 
 /* ------------------------------------------------------------------ */
@@ -698,7 +731,7 @@ function buildButterflies(scene) {
 /* ------------------------------------------------------------------ */
 export function buildWorld(scene) {
   scene.fog = new THREE.Fog('#ffe6d6', 45, 140);
-  buildSky(scene);
+  const sky = buildSky(scene);
   buildGround(scene);
   const clouds = buildClouds(scene);
 
@@ -712,7 +745,7 @@ export function buildWorld(scene) {
   const rand = mulberry32(3);
   [[2.2, 9.2], [3.4, 9.7], [4.6, 9.5], [5.6, 9.0]].forEach(([x, z]) => scene.add(mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 7), mat(PALETTE.stone), { x, y: 0.03, z, ry: rand() * 3 })));
 
-  buildCottage(scene, smokePuffs);
+  const cottage = buildCottage(scene, smokePuffs);
   buildBarn(scene);
   buildGarden(scene);
   const pond = buildPond(scene, lilies);
@@ -725,7 +758,7 @@ export function buildWorld(scene) {
   const keepOut = [
     { x: 0, z: -7.5, w: 10, d: 10 }, { x: 12, z: -6, w: 10, d: 10 }, { x: -11, z: 2, w: 9, d: 8 },
     { x: 9, z: 7.5, w: 9, d: 7 }, { x: 0, z: 6, w: 3.2, d: 26 }, { x: 5, z: 0, w: 8, d: 3 }, { x: -4, z: 4, w: 7, d: 3 },
-    { x: 0, z: 17, w: 44, d: 1.5 }, { x: 3, z: 16, w: 2, d: 2 }, { x: 0, z: 2, w: 6, d: 6 },
+    { x: 0, z: 17, w: 44, d: 1.5 }, { x: 3, z: 16, w: 2, d: 2 }, { x: 0, z: 2, w: 6, d: 6 }, { x: -6.6, z: 4.3, w: 2, d: 2 },
     { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 },
   ];
   scatter(scene, keepOut);
@@ -734,6 +767,7 @@ export function buildWorld(scene) {
   // Named places the cat lady likes to talk about
   const zones = [
     { id: 'clinicInside', test: (x, z) => clinic.isInside(x, z) },
+    { id: 'kitchen', test: (x, z) => cottage.isInside(x, z) },
     { id: 'clinic', x: -12, z: -4, r: 4 },
     { id: 'porch', x: 0, z: -5.3, r: 3.5 },
     { id: 'garden', x: -11, z: 2, r: 5 },
@@ -744,6 +778,7 @@ export function buildWorld(scene) {
 
   function update(t, dt, ladyPos, camera) {
     clinic.update(dt, ladyPos, camera);
+    cottage.update(dt, t, ladyPos, camera);
     for (const p of smokePuffs) {
       const k = (t * 0.18 + p.userData.phase) % 1;
       p.position.copy(p.userData.base).add(new THREE.Vector3(Math.sin(k * 6 + p.userData.phase * 9) * 0.3 + k * 0.8, k * 3.2, 0));
@@ -764,5 +799,5 @@ export function buildWorld(scene) {
     }
   }
 
-  return { resolve, groundHeight, zones, update, clinic, spawn: new THREE.Vector3(0, 0, 3.5) };
+  return { resolve, groundHeight, zones, update, clinic, cottage, sky, seedBox, pond, spawn: new THREE.Vector3(0, 0, 3.5) };
 }

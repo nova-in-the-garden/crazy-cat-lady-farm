@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { mulberry32, mat, mesh, canvasTexture, drawPaw } from './util.js';
 import { addBox, addCircle } from './collision.js';
+import { fadeable, setOpacity, makeFader } from './building.js';
 
 export const CLINIC = { x: -12, z: -9.5, w: 8, d: 7, h: 3 }; // center, width (x), depth (z), wall height
 
@@ -61,28 +62,6 @@ function posterTexture(kind) {
       ctx.fillText('heart: very big', 128, 300); ctx.fillText('purr: healing', 128, 324);
     }
   });
-}
-
-/** Make every material inside a group unique so the group can fade on its own. */
-function fadeable(group) {
-  const mats = [];
-  group.traverse((o) => {
-    if (!o.isMesh) return;
-    o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
-    (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.userData.baseOpacity = m.opacity; mats.push(m); });
-    o.userData.origCast = o.castShadow;
-  });
-  return { group, mats, opacity: 1 };
-}
-function setOpacity(f, a) {
-  f.opacity = a;
-  f.group.visible = a > 0.03;
-  for (const m of f.mats) {
-    m.opacity = m.userData.baseOpacity * a;
-    m.transparent = a < 0.999 || m.userData.baseOpacity < 1;
-    m.depthWrite = a > 0.6;
-  }
-  f.group.traverse((o) => { if (o.isMesh) o.castShadow = a > 0.6 && o.userData.origCast; });
 }
 
 export function buildClinic(scene) {
@@ -361,22 +340,9 @@ export function buildClinic(scene) {
 
   /* --- Fading logic --- */
   const isInside = (x, z) => Math.abs(x - CX) < W / 2 && Math.abs(z - CZ) < D / 2;
-  const v = new THREE.Vector3();
-  function update(dt, ladyPos, camera) {
-    const ins = ladyPos && isInside(ladyPos.x, ladyPos.z);
-    const k = Math.min(1, dt * 6);
-    setOpacity(roofFade, roofFade.opacity + ((ins ? 0 : 1) - roofFade.opacity) * k);
-    for (const w of walls) {
-      let target = 1;
-      if (ins && camera) {
-        v.set(camera.position.x - CX, 0, camera.position.z - CZ);
-        // fade walls on the camera's side of the room
-        if (v.dot(w.normal) > (w.normal.x ? W / 2 : D / 2) * 0.4) target = 0;
-      }
-      const a = w.opacity + (target - w.opacity) * k;
-      if (Math.abs(a - w.opacity) > 0.001) setOpacity(w, a);
-    }
-  }
+  walls.forEach((w) => (w.half = w.normal.x ? W / 2 : D / 2));
+  const fader = makeFader({ cx: CX, cz: CZ, walls, roofs: [roofFade] });
+  function update(dt, ladyPos, camera) { fader(dt, ladyPos && isInside(ladyPos.x, ladyPos.z), camera); }
 
   return { update, isInside };
 }

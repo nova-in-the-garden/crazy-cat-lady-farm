@@ -89,7 +89,6 @@ h1 span { color: var(--rose-dark); font-weight: 700; }
 }
 #hud.collapsed #hud-body { display: none; }
 .hud-title { font-weight: 600; color: var(--rose-dark); }
-@media (pointer: coarse) { #hud-body { display: none; } }
 
 /* ---------- Joystick ---------- */
 #joystick {
@@ -104,3 +103,56 @@ h1 span { color: var(--rose-dark); font-weight: 700; }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
   background: #f9e3d3; z-index: 30; transition: opacity 0.5s; }
 #loading.done { opacity: 0; pointer-events: none; }
+
+/* ---------- Garden sim UI ---------- */
+.gpanel { position: fixed; left: 14px; top: 14px; z-index: 12; background: rgba(255, 248, 239, 0.92); border: 3px solid #fff;
+  border-radius: 18px; padding: 10px 14px; box-shadow: var(--shadow); font-size: 0.95rem; min-width: 210px; }
+.gpanel .row { display: flex; align-items: center; gap: 7px; }
+.gpanel .row + .row { margin-top: 6px; }
+.gpanel .clock .time { margin-left: auto; font-weight: 600; color: var(--rose-dark); }
+.gpanel .pantry .food-count { margin-left: auto; font-weight: 700; font-size: 1.15rem; color: var(--rose-dark); }
+.gpanel .pantry-note { font-size: 0.78rem; color: #8d7388; margin: 1px 0 2px 29px; }
+.gpanel .crops { justify-content: space-between; padding-top: 6px; border-top: 2px dashed #f0dce4; margin-top: 6px; }
+.gpanel .crop { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
+.gpanel svg { flex: none; }
+#hotbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; z-index: 12; }
+#hotbar .slot { position: relative; width: 84px; height: 84px; border-radius: 18px; border: 3px solid #fff; background: rgba(255, 248, 239, 0.92);
+  box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px 2px 6px;
+  font: 500 0.7rem 'Fredoka', system-ui, sans-serif; color: var(--ink); transition: transform 0.12s ease; }
+#hotbar .slot.active { border-color: var(--rose); background: #fff; transform: translateY(-6px); box-shadow: 0 0 0 3px rgba(232, 121, 143, 0.35), var(--shadow); }
+#hotbar .slot.empty .ico { opacity: 0.45; }
+#hotbar .key { position: absolute; top: 3px; left: 7px; font-weight: 700; color: #b49aac; font-size: 0.75rem; }
+#hotbar .name { line-height: 1.05; text-align: center; white-space: nowrap; }
+#hotbar .extra { position: absolute; top: 3px; right: 5px; display: flex; align-items: center; gap: 1px; font-weight: 700; font-size: 0.75rem; }
+#hotbar .bar { display: block; width: 26px; height: 7px; border-radius: 4px; background: #e3eef2; overflow: hidden; margin-top: 4px; }
+#hotbar .bar span { display: block; height: 100%; background: #6cc4ef; }
+#prompt { position: fixed; left: 50%; bottom: 116px; transform: translateX(-50%); z-index: 12; background: rgba(91, 66, 86, 0.86); color: #fff;
+  padding: 7px 16px 7px 8px; border-radius: 999px; font-size: 1rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; box-shadow: var(--shadow); }
+#prompt.info { padding-left: 16px; background: rgba(91, 66, 86, 0.68); font-size: 0.92rem; }
+#prompt kbd { border-color: var(--rose); }
+#act-btn { position: fixed; right: 22px; bottom: 120px; width: 84px; height: 84px; border-radius: 50%; border: 4px solid #fff; z-index: 13;
+  background: var(--rose); color: #fff; font: 700 1.2rem 'Fredoka', system-ui; box-shadow: var(--shadow); touch-action: none; }
+#act-btn.dim { opacity: 0.55; }
+#floaters { position: fixed; inset: 0; pointer-events: none; z-index: 14; }
+.floater { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 1.05rem;
+  background: rgba(255, 255, 255, 0.9); padding: 3px 10px 3px 6px; border-radius: 999px; box-shadow: 0 3px 10px rgba(91, 66, 86, 0.2);
+  animation: floatUp 1.6s ease-out forwards; }
+@keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -240%); } }
+#sleep-fade { position: fixed; inset: 0; z-index: 25; background: #1d2148; opacity: 0; pointer-events: none; transition: opacity 1s ease;
+  display: flex; align-items: center; justify-content: center; }
+#sleep-fade.on { opacity: 1; }
+#sleep-fade .zzz { color: #fff; font-size: 2rem; font-weight: 600; letter-spacing: 0.1em; }
+.hud-buttons { display: flex; gap: 6px; margin-top: 8px; }
+.hud-buttons button { font: 600 0.8rem 'Fredoka', system-ui; border: 2px solid #ead7e4; background: #fff; color: var(--ink); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.hud-buttons button.danger { color: var(--rose-dark); }
+@media (max-width: 640px), (pointer: coarse) {
+  .gpanel { font-size: 0.82rem; min-width: 0; padding: 8px 10px; left: 8px; top: 8px; }
+  .gpanel .pantry-note { display: none; }
+  #hotbar { bottom: 8px; gap: 5px; }
+  #hotbar .slot { width: 64px; height: 64px; border-radius: 14px; font-size: 0.6rem; }
+  #hotbar .slot svg { width: 26px; height: 26px; }
+  #hotbar .name { display: none; }
+  #prompt { bottom: 82px; font-size: 0.85rem; max-width: 52vw; white-space: normal; text-align: center; }
+  #joystick { bottom: 92px; left: 14px; width: 104px; height: 104px; }
+  #act-btn { bottom: 100px; width: 74px; height: 74px; }
+}

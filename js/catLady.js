@@ -62,12 +62,14 @@ export function createCatLady() {
 
   /* --- Arms (pivot at the shoulder) --- */
   const arms = [];
+  let handAnchor = null;
   [-1, 1].forEach((s) => {
     const sh = new THREE.Group(); sh.position.set(s * 0.24, 1.2, 0);
     const inner = new THREE.Group(); inner.rotation.z = s * 0.14; sh.add(inner);
     inner.add(mesh(new THREE.CapsuleGeometry(0.065, 0.3, 4, 10), mat(C.cardigan, { flatShading: false }), { y: -0.2 }));
     inner.add(mesh(new THREE.TorusGeometry(0.06, 0.022, 6, 12), mat(C.cardiganDark), { y: -0.38, rx: Math.PI / 2 }));
     inner.add(mesh(new THREE.SphereGeometry(0.06, 10, 8), mat(C.skin, { flatShading: false }), { y: -0.44 }));
+    if (s > 0) { const hand = new THREE.Group(); hand.position.y = -0.46; inner.add(hand); handAnchor = hand; }
     body.add(sh); arms.push(sh);
   });
 
@@ -136,8 +138,28 @@ export function createCatLady() {
   const blob = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ color: '#4a3a3a', transparent: true, opacity: 0.18, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6 }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = 0.025; group.add(blob);
 
+  /* --- Garden tools she can hold (shown in her right hand) --- */
+  const tools = {};
+  const wood = mat('#b98a5e');
+  tools.hoe = new THREE.Group();
+  tools.hoe.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.0, 6), wood, { y: -0.05, rx: 0 }));
+  tools.hoe.add(mesh(new THREE.BoxGeometry(0.2, 0.03, 0.12), mat('#cfd6dc', { metalness: 0.5, roughness: 0.4 }), { y: -0.55, z: 0.05 }));
+  tools.hoe.rotation.x = 0.5;
+  tools.seeds = new THREE.Group();
+  tools.seeds.add(mesh(new THREE.BoxGeometry(0.14, 0.18, 0.04), mat('#f7a8c4'), { y: -0.08, z: 0.05 }));
+  tools.seeds.add(mesh(new THREE.BoxGeometry(0.1, 0.06, 0.045), mat('#ffffff'), { y: -0.06, z: 0.05, cast: false }));
+  tools.can = new THREE.Group();
+  tools.can.add(mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.2, 10), mat('#9fd6bf', { metalness: 0.3, roughness: 0.5, flatShading: false }), { y: -0.14, z: 0.06 }));
+  tools.can.add(mesh(new THREE.CylinderGeometry(0.015, 0.022, 0.26, 6), mat('#9fd6bf'), { y: -0.1, z: 0.24, rx: 1.0 }));
+  tools.can.add(mesh(new THREE.TorusGeometry(0.07, 0.015, 4, 10, Math.PI), mat('#9fd6bf'), { y: -0.03, z: 0.06, ry: Math.PI / 2 }));
+  tools.basket = new THREE.Group();
+  tools.basket.add(mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.12, 10), mat('#d9ad7f'), { y: -0.16, z: 0.04 }));
+  tools.basket.add(mesh(new THREE.TorusGeometry(0.11, 0.012, 4, 12, Math.PI), mat('#b98a5e'), { y: -0.1, z: 0.04, ry: Math.PI / 2 }));
+  Object.values(tools).forEach((t) => { t.visible = false; t.traverse((o) => { if (o.isMesh) o.userData.isLady = true; }); handAnchor.add(t); });
+  function setTool(name) { for (const k in tools) tools[k].visible = k === name; }
+
   /* --- Animation --- */
-  let phase = 0, t = 0, blinkTimer = 2, waveTime = 0;
+  let phase = 0, t = 0, blinkTimer = 2, waveTime = 0, actTime = 0;
   function update(dt, move, running) {
     t += dt;
     const stride = running ? 13 : 9;
@@ -159,6 +181,12 @@ export function createCatLady() {
       const k = Math.min(1, waveTime * 3, (2.2 - waveTime) * 4);
       arms[1].rotation.x = -0.2 * k; arms[1].rotation.z = (2.6 + Math.sin(t * 12) * 0.35) * k + 0.05 * (1 - k);
     }
+    // using a tool (quick arm swing / tip forward)
+    if (actTime > 0) {
+      actTime -= dt;
+      const k = Math.sin((1 - actTime / 0.5) * Math.PI);
+      arms[1].rotation.x = -1.1 * k; body.rotation.x = 0.15 * k;
+    }
     // blink
     blinkTimer -= dt;
     const closed = blinkTimer < 0.12;
@@ -166,7 +194,8 @@ export function createCatLady() {
     if (blinkTimer < 0) blinkTimer = 2 + Math.random() * 3;
   }
   function wave() { waveTime = 2.2; }
+  function act() { actTime = 0.5; }
 
   group.traverse((o) => { if (o.isMesh) o.userData.isLady = true; });
-  return { group, headAnchor, update, wave };
+  return { group, headAnchor, update, wave, act, setTool };
 }

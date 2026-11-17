@@ -6,6 +6,7 @@ import { buildWorld } from './world.js';
 import { createCatLady } from './catLady.js';
 import { Controls } from './controls.js';
 import { Host } from './host.js';
+import { Game } from './game.js';
 
 const WALK_SPEED = 2.8, RUN_SPEED = 5.4, LADY_RADIUS = 0.35;
 
@@ -27,9 +28,9 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 700);
 
 /* --- Warm, soft lighting --- */
-scene.add(new THREE.HemisphereLight('#fff3e3', '#9fcf8a', 1.35));
+const hemi = new THREE.HemisphereLight('#fff3e3', '#9fcf8a', 1.35);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight('#fff0d8', 2.3);
-const SUN_OFFSET = new THREE.Vector3(14, 26, 12);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 80 });
@@ -49,6 +50,7 @@ scene.add(lady.group);
 
 const controls = new Controls(renderer.domElement, camera);
 const host = new Host(lady, camera, world);
+const game = new Game({ scene, world, lady, host, camera, lights: { sun, hemi, fill } });
 
 /* --- Game state --- */
 const state = { playing: false, heading: 0, speed: 0, time: 0 };
@@ -74,6 +76,8 @@ function start() {
   controls.showJoystickIfTouch();
   controls.yaw = 0; controls.pitch = 0.4; controls.distance = 8;
   host.sayKind('start', 6); lady.wave();
+  game.start();
+  if (game.touch) document.getElementById('hud').classList.add('collapsed');
   renderer.domElement.focus?.();
 }
 document.getElementById('start-btn').addEventListener('click', start);
@@ -112,7 +116,7 @@ function frame(now) {
     lady.group.rotation.y = state.heading;
     moveAmount = Math.min(state.speed / WALK_SPEED, 1);
     focus.set(pos.x, pos.y + 1.3, pos.z);
-    const indoors = world.clinic.isInside(pos.x, pos.z);
+    const indoors = world.clinic.isInside(pos.x, pos.z) || world.cottage.isInside(pos.x, pos.z);
     controls.updateCamera(dt, focus, false, indoors ? { minPitch: 0.75, maxDist: 9 } : {});
   } else {
     // Title screen: slow, cinematic drift around her, with the cottage behind
@@ -125,12 +129,13 @@ function frame(now) {
   }
 
   lady.update(dt, moveAmount, running && moveAmount > 0.5);
+  game.update(dt, state.time);
   world.update(state.time, dt, pos, camera);
   host.update(dt, moveAmount > 0.1, state.playing);
 
   // shadows follow her so they stay crisp
   sun.target.position.set(pos.x, 0, pos.z);
-  sun.position.copy(sun.target.position).add(SUN_OFFSET);
+  sun.position.copy(sun.target.position).add(game.day.sunOffset);
 
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -146,7 +151,8 @@ document.getElementById('loading').classList.add('done');
 requestAnimationFrame(frame);
 
 // Handy hooks for testing in the browser console (and for future features)
+window.game = game.api();
 window.ccl = {
-  ready: true, scene, camera, lady, world, controls, host, state, start,
+  ready: true, game, scene, camera, lady, world, controls, host, state, start,
   teleport(x, z, heading = state.heading) { lady.group.position.set(x, world.groundHeight(x, z), z); state.heading = heading; controls.updateCamera(0, new THREE.Vector3(x, 1.3, z), true); },
 };

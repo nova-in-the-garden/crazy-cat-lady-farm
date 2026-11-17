@@ -9,7 +9,7 @@ const LINES = {
     "Oh! A visitor! Come in, come in, mind the yarn.",
   ],
   start: [
-    "We're getting the sanctuary ready for the cats. Shall I show you around?",
+    "We're getting the sanctuary ready for the cats. Let's grow some cat food! Start with the garden.",
     'Take a stroll with me! WASD to walk, Shift if you fancy a trot.',
   ],
   idle: [
@@ -25,6 +25,8 @@ const LINES = {
     "Cats choose you, you know. I'm just making it easy for them.",
     'I put the kibble out every morning. Any day now...',
     "The sanctuary's nearly ready. Just a few more cushions to fluff!",
+    'No cats can go hungry here. Keep that garden growing, dearie!',
+    'Need water? The pond is just past the path. Fill the can and the crops will thank you.',
     "Have you seen my new animal hospital? It's just past the garden.",
     "Purring is the best sound in the whole wide world.",
   ],
@@ -42,8 +44,16 @@ const LINES = {
     'The cat flap on the door is for very important guests only.',
   ],
   garden: [
-    "My veggie garden! Carrots, cabbages, pumpkins... and catnip, eventually.",
+    'My garden! Plow, sow, water, harvest. Every crop becomes cat food.',
+    "Crops never wilt here, dearie. Once they're ripe, they'll wait for you.",
     'Mr. Whiskerscrow keeps the birds away. He has ears like me!',
+    "Remember: crops only grow on days you water them. The soil dries every dawn.",
+  ],
+  kitchen: [
+    "Welcome to my Cat Food Kitchen! Bring me crops and I'll cook them at the stove.",
+    'One carrot makes one portion, a cabbage makes two, and a pumpkin makes four!',
+    "The pantry shelf fills up with cans as we cook. The cats will be so pleased.",
+    'Tired? My bed is right there. Sleep and the garden keeps growing overnight.',
   ],
   barn: [
     "The old barn. Hay bales make purr-fect napping spots.",
