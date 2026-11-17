@@ -231,6 +231,12 @@ export function buildClinic(scene) {
   // Recovery kennels along the right wall (2 x 2), each with a cozy blanket
   const kennels = new THREE.Group(); kennels.position.set(W / 2 - 0.55, 0, -1.4); kennels.rotation.y = -Math.PI / 2; inside.add(kennels);
   const blankets = ['#f7a8c4', '#9fd0ef', '#ffd76e', '#c8aaf2'];
+  const kennelSlots = [];
+  const cardTex = (name) => canvasTexture(192, 104, (ctx, w, h) => {
+    ctx.fillStyle = '#fff6e8'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#ef7f95'; ctx.lineWidth = 8; ctx.strokeRect(4, 4, w - 8, h - 8);
+    ctx.fillStyle = '#5b4256'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${name && name.length > 7 ? 30 : 38}px Fredoka, sans-serif`; ctx.fillText(name || 'free', w / 2, h / 2 + 2);
+  });
   for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) {
     const k = new THREE.Group(); k.position.set(-0.5 + c * 1.0, r * 0.8, 0); kennels.add(k);
     k.add(mesh(new THREE.BoxGeometry(0.95, 0.06, 0.8), mat('#ffffff'), { y: 0.03 }));
@@ -241,8 +247,15 @@ export function buildClinic(scene) {
     for (let b = 0; b < 6; b++) k.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.68, 4), steel, { x: -0.36 + b * 0.145, y: 0.39, z: 0.39, cast: false }));
     k.add(mesh(new THREE.BoxGeometry(0.75, 0.08, 0.6), mat(blankets[r * 2 + c]), { y: 0.1, z: -0.02, rz: 0.05 }));
     k.add(mesh(new THREE.SphereGeometry(0.13, 8, 6), mat(blankets[(r * 2 + c + 1) % 4]), { x: -0.2, y: 0.16, sy: 0.5 })); // pillow
-    // name card
-    k.add(mesh(new THREE.BoxGeometry(0.22, 0.12, 0.01), mat('#fff6e8'), { x: 0.25, y: 0.62, z: 0.41, cast: false }));
+    // name card (shows who is staying in this kennel)
+    const card = mesh(new THREE.PlaneGeometry(0.3, 0.16), new THREE.MeshStandardMaterial({ map: cardTex(''), roughness: 0.8 }), { x: 0.22, y: 0.62, z: 0.42, cast: false });
+    k.add(card);
+    // world position of the kennel floor (the group is rotated -90 degrees: local x -> world z, local z -> world -x)
+    const wx = CX + W / 2 - 0.55, wz = CZ - 1.4 + (-0.5 + c * 1.0);
+    kennelSlots.push({
+      spot: new THREE.Vector3(wx, 0.16 + r * 0.8, wz), front: new THREE.Vector3(wx - 1.0, 0, wz), card, name: '',
+      setName(n) { if (this.name === (n || '')) return; this.name = n || ''; card.material.map.dispose(); card.material.map = cardTex(this.name); card.material.needsUpdate = true; },
+    });
   }
   addBox(CX + W / 2 - 0.55, CZ - 1.4, 0.85, 2.0);
   // Reception desk near the door (right) with computer, clipboard and treat jar
@@ -344,7 +357,7 @@ export function buildClinic(scene) {
   const fader = makeFader({ cx: CX, cz: CZ, walls, roofs: [roofFade] });
   function update(dt, ladyPos, camera) { fader(dt, ladyPos && isInside(ladyPos.x, ladyPos.z), camera); }
 
-  return { update, isInside };
+  return { update, isInside, kennels: kennelSlots };
 }
 
 const PALETTE_WOOD = '#c1906a';

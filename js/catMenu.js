@@ -23,8 +23,9 @@ export class CatMenu {
   choose(id) {
     const c = this.cat, item = this.items.find((i) => i.id === id);
     if (!c || !item || !item.ok) return;
+    if (id === 'stats') { this.close(); this.game.statsCard.open(c); return; }
     this.game.cats.doCare(c, id);
-    if (id === 'clinic' || id === 'followup') this.close(); else this.render();
+    if (id === 'clinic') this.close(); else this.render();
     this.game.save();
   }
   key(n) { const it = this.items && this.items[n - 1]; if (it) this.choose(it.id); }

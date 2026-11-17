@@ -34,6 +34,17 @@ export const ICONS = {
   dice: '<rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="#fff" stroke="#e8798f" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1.6" fill="#5b4256"/><circle cx="15.5" cy="15.5" r="1.6" fill="#5b4256"/><circle cx="12" cy="12" r="1.6" fill="#5b4256"/><circle cx="15.5" cy="8.5" r="1.6" fill="#5b4256"/><circle cx="8.5" cy="15.5" r="1.6" fill="#5b4256"/>',
   book: '<path d="M3 5 q4.5 -2 9 1 q4.5 -3 9 -1 v14 q-4.5 -2 -9 1 q-4.5 -3 -9 -1 Z" fill="#f7a8c4"/><path d="M12 6 v14" stroke="#fff" stroke-width="1.4"/><path d="M5.5 9 q2.5 -1 4.5 0.4 M5.5 12 q2.5 -1 4.5 0.4 M14 9.4 q2 -1.4 4.5 -0.4" stroke="#fff" stroke-width="1.1" fill="none"/>',
   moon: '<path d="M15 3 a9 9 0 1 0 6 13 a7 7 0 0 1 -6 -13 Z" fill="#c8c6ff"/>',
+  coin: '<circle cx="12" cy="12" r="9" fill="#ffd35c" stroke="#e0a82e" stroke-width="1.6"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f2bf3f" stroke-width="1.2"/><ellipse cx="12" cy="13.5" rx="2.2" ry="1.8" fill="#c98a1e"/><circle cx="9.3" cy="10.3" r="1" fill="#c98a1e"/><circle cx="11" cy="9" r="1" fill="#c98a1e"/><circle cx="13" cy="9" r="1" fill="#c98a1e"/><circle cx="14.7" cy="10.3" r="1" fill="#c98a1e"/>',
+  catnip: '<path d="M12 21 V8" stroke="#6fbf5c" stroke-width="1.8"/><ellipse cx="8" cy="14" rx="4" ry="2.4" fill="#8fd36f" transform="rotate(-25 8 14)"/><ellipse cx="16" cy="12" rx="4" ry="2.4" fill="#8fd36f" transform="rotate(25 16 12)"/><ellipse cx="8.5" cy="9" rx="3.4" ry="2" fill="#a6e38a" transform="rotate(-30 8.5 9)"/><circle cx="12" cy="5" r="1.6" fill="#c8aaf2"/><circle cx="10.6" cy="6.6" r="1.4" fill="#c8aaf2"/><circle cx="13.4" cy="6.6" r="1.4" fill="#c8aaf2"/><circle cx="12" cy="3.4" r="1.2" fill="#b58fe6"/>',
+  syringe: '<path d="M5 19 L8 16" stroke="#9fb0c4" stroke-width="2" stroke-linecap="round"/><rect x="7.5" y="8" width="5" height="11" rx="1.2" transform="rotate(45 10 13.5)" fill="#e8f6ff" stroke="#6b9fc4" stroke-width="1.4"/><rect x="8.6" y="11" width="2.8" height="6" transform="rotate(45 10 13.5)" fill="#9fe0b8"/><path d="M14 10 L18.5 5.5 M16.5 3.5 L20.5 7.5" stroke="#6b9fc4" stroke-width="2" stroke-linecap="round"/>',
+  pill: '<rect x="3.5" y="8.5" width="17" height="7" rx="3.5" transform="rotate(-35 12 12)" fill="#fff" stroke="#e8798f" stroke-width="1.4"/><path d="M12 6 a4 4 0 0 1 0 0 L12 18" transform="rotate(-35 12 12)" stroke="#e8798f" stroke-width="1.2"/><path d="M3.5 12 h8.5 v3.5 h-5 a3.5 3.5 0 0 1 -3.5 -3.5 Z" transform="rotate(-35 12 12)" fill="#f7a8c4"/>',
+  bandage: '<rect x="2.5" y="8" width="19" height="8" rx="4" transform="rotate(-30 12 12)" fill="#fff6ec" stroke="#e2b98d" stroke-width="1.3"/><rect x="9" y="8" width="6" height="8" transform="rotate(-30 12 12)" fill="#f7c6d2"/><circle cx="11" cy="12" r="0.7" fill="#e8798f"/><circle cx="13" cy="11" r="0.7" fill="#e8798f"/>',
+  shop: '<path d="M3 9 L5 4 H19 L21 9 Z" fill="#ef7f95"/><path d="M3 9 h18 v1.2 a2.2 2.2 0 0 1 -4.5 0 a2.2 2.2 0 0 1 -4.5 0 a2.2 2.2 0 0 1 -4.5 0 a2.2 2.2 0 0 1 -4.5 0 Z" fill="#fff6ec"/><rect x="4.5" y="11" width="15" height="9" rx="1" fill="#9fd6bf"/><rect x="10" y="14" width="4" height="6" fill="#fff6ec"/>',
+  stats: '<rect x="4" y="3" width="16" height="18" rx="3" fill="#fff6ec" stroke="#e8798f" stroke-width="1.5"/><rect x="7" y="7" width="10" height="2" rx="1" fill="#f26d8f"/><rect x="7" y="11" width="7" height="2" rx="1" fill="#9fe0b8"/><rect x="7" y="15" width="8.5" height="2" rx="1" fill="#9fd0ef"/>',
+  bolt: '<path d="M13 2 L5 13.5 H11 L10 22 L19 9.5 H13 Z" fill="#ffd35c" stroke="#e0a82e" stroke-width="1"/>',
+  meal: '<ellipse cx="12" cy="15" rx="9" ry="4" fill="#fff"/><ellipse cx="12" cy="14" rx="6.5" ry="2.6" fill="#f59a4f"/><circle cx="9.5" cy="13.2" r="1.3" fill="#9edb7f"/><circle cx="13.5" cy="13" r="1.3" fill="#9edb7f"/><path d="M8 9 q1 -3 0 -5 M12 9 q1 -3 0 -5 M16 9 q1 -3 0 -5" stroke="#d6c7d6" stroke-width="1.3" fill="none"/>',
+  kennel: '<rect x="3" y="5" width="18" height="15" rx="2" fill="#fff" stroke="#9fb0c4" stroke-width="1.4"/><path d="M7 8 v10 M10 8 v10 M13 8 v10 M16 8 v10" stroke="#b9c4cc" stroke-width="1.2"/><path d="M12 3 v3 M10.3 4.5 h3.4" stroke="#ef7f95" stroke-width="1.8" stroke-linecap="round"/>',
+  door: '<rect x="6" y="3" width="12" height="18" rx="2" fill="#e2b98d"/><circle cx="15" cy="12.5" r="1.2" fill="#8d7388"/><path d="M3 21 h18" stroke="#8d7388" stroke-width="1.6"/>',
 };
 export const icon = (name, size = 24) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -51,12 +62,14 @@ export class GameUI {
     this.status = el('div', 'gpanel hidden'); this.status.id = 'status';
     this.status.innerHTML = `
       <div class="row clock"><span class="clock-icon"></span><b class="day"></b><span class="time"></span></div>
+      <div class="row coins-row">${icon('coin', 22)}<b>Coins</b><span class="coins-count">0</span></div>
       <div class="row pantry">${icon('food', 22)}<b>Cat food</b><span class="food-count">0</span></div>
       <div class="pantry-note"></div>
+      <div class="row lady-row" title="Your own hunger and energy: cook meals in the cottage, sleep at night"><span class="lady-ico">${icon('meal', 20)}</span><span class="mini"><i class="hunger"></i></span><span class="lady-ico">${icon('bolt', 18)}</span><span class="mini"><i class="energy"></i></span><span class="meals-count" title="Home-cooked meals ready"></span></div>
       <div class="row cats-row">${icon('paw', 20)}<b>Cats</b><span class="cats-count">0</span></div>
       <div class="cats-note"></div>
       <div class="bedtime-note hidden">${icon('moon', 18)}<span>Bedtime! Sleep in the cottage bed.</span></div>
-      <div class="row crops">${CROP_IDS.map((c) => `<span class="crop" title="${CROPS[c].plural} (cook them in the kitchen)">${icon(c, 20)}<span data-crop="${c}">0</span></span>`).join('')}</div>`;
+      <div class="row crops">${CROP_IDS.map((c) => `<span class="crop" title="${CROPS[c].plural} (${CROPS[c].herb ? 'for remedies' : CROPS[c].treat ? 'a cat treat' : 'cook them into your meals'})">${icon(c, 20)}<span data-crop="${c}">0</span></span>`).join('')}</div>`;
     document.body.appendChild(this.status);
     this.journalBtn = el('button', 'hidden', `${icon('book', 22)}<span>Journal</span><kbd>J</kbd>`); this.journalBtn.id = 'journal-btn'; this.journalBtn.type = 'button';
     this.journalBtn.addEventListener('click', (e) => { e.stopPropagation(); onJournal && onJournal(); });
@@ -130,7 +143,14 @@ export class GameUI {
     if (bed !== this._bed) { this._bed = bed; q('.bedtime-note').classList.toggle('hidden', !bed); this.status.classList.toggle('bedtime', bed); this.sleepBtn.classList.toggle('bedtime', bed); }
     q('.time').textContent = dayCycle.label();
     q('.food-count').textContent = state.food;
-    q('.pantry-note').textContent = state.food === 0 && state.cats && state.cats.some((c) => c.joined) ? 'Pantry empty. The cats are peckish!' : state.food === 0 ? 'Pantry empty. Grow crops and cook them!' : state.food < 10 ? 'A little food stocked for the cats' : 'Pantry well stocked for the cats!';
+    q('.coins-count').textContent = state.coins;
+    const nCats = state.cats ? state.cats.filter((c) => c.joined).length : 0;
+    q('.pantry-note').textContent = state.food === 0 && nCats ? 'Out of cat food! Buy a bag at the Supply Shelf' : state.food < nCats * 2 ? 'Cat food running low: Supply Shelf sells bags' : 'Cat food stocked for the bowls';
+    const L = state.lady || { hunger: 100, energy: 100 };
+    const hb = q('.lady-row .hunger'), eb = q('.lady-row .energy');
+    hb.style.width = `${Math.round(L.hunger)}%`; eb.style.width = `${Math.round(L.energy)}%`;
+    hb.classList.toggle('low', L.hunger < 30); eb.classList.toggle('low', L.energy < 25);
+    q('.meals-count').textContent = `${state.meals || 0} meal${state.meals === 1 ? '' : 's'}`;
     CROP_IDS.forEach((c) => (q(`[data-crop="${c}"]`).textContent = state.crops[c]));
     this.slots.forEach((s, i) => {
       s.classList.toggle('active', i === state.tool);

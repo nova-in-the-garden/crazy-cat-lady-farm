@@ -11,7 +11,8 @@ import { buildClinic } from './clinic.js';
 import { fadeable, makeFader } from './building.js';
 import { buildCottageInterior } from './kitchen.js';
 import { buildCatsHouse } from './catsHouse.js';
-import { STARTER_CATS } from './catData.js';
+import { MAX_CATS } from './catData.js';
+import { buildSupplyStall } from './shop.js';
 
 export const PALETTE = {
   grass: '#a9d98b', grassDark: '#8fca78', grassLight: '#c2e5a0',
@@ -463,7 +464,7 @@ function buildCottage(scene, smokePuffs) {
 /* ------------------------------------------------------------------ */
 function buildBarn(scene) {
   // the old red barn is now the Cats' House (enterable: food bowls, litter boxes, named beds)
-  const catsHouse = buildCatsHouse(scene, STARTER_CATS.map((c) => c.id));
+  const catsHouse = buildCatsHouse(scene, MAX_CATS);
 
   // hay bales by the barn
   const hay = mat('#f0cf73'), hayLine = mat('#d9b158');
@@ -615,7 +616,7 @@ function scatter(scene, keepOut) {
 
   // Hand-placed yard trees
   [[-6.5, -14, 1, false], [7, -15, 1.1, false], [-20, -13, 1.0, true], [19, 3, 1.1, false], [-18, 11, 1.0, false],
-   [15, 13, 0.9, true], [-5, 12, 0.85, true], [5.5, -3.5, 0.75, true], [-19, -2, 1.05, false], [20, -13, 1.0, false]].forEach(([x, z, s, b]) => {
+   [15, 13, 0.9, true], [-5, 12, 0.85, true], [3.9, -1.2, 0.7, true], [-19, -2, 1.05, false], [20, -13, 1.0, false]].forEach(([x, z, s, b]) => {
     const t = makeTree(rand, { blossom: b, scale: s }); t.position.set(x, 0, z); scene.add(t); addCircle(x, z, 0.45 * s);
   });
   // Forest ring around the edge (outside the walkable area plus a few just inside)
@@ -707,6 +708,7 @@ export function buildWorld(scene) {
   const pond = buildPond(scene, lilies);
   buildEntrance(scene);
   const clinic = buildClinic(scene);
+  const supplyStall = buildSupplyStall(scene);
   // path from the main path to the clinic door
   scene.add(pathRibbon([[0.1, -0.5], [-3.5, -2.3], [-8, -3.6], [-12, -4.6], [-12, -5.6]], 1.4, pathMat).mesh);
 
@@ -715,7 +717,7 @@ export function buildWorld(scene) {
     { x: 0, z: -7.5, w: 10, d: 10 }, { x: 12, z: -6, w: 10, d: 10 }, { x: -11, z: 2, w: 9, d: 8 },
     { x: 9, z: 7.5, w: 9, d: 7 }, { x: 0, z: 6, w: 3.2, d: 26 }, { x: 5, z: 0, w: 8, d: 3 }, { x: -4, z: 4, w: 7, d: 3 },
     { x: 0, z: 17, w: 44, d: 1.5 }, { x: 3, z: 16, w: 2, d: 2 }, { x: 0, z: 2, w: 6, d: 6 }, { x: -6.6, z: 4.3, w: 2, d: 2 },
-    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 },
+    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 }, { x: 5.8, z: -4.6, w: 3.6, d: 3.6 },
   ];
   scatter(scene, keepOut);
   const butterflies = buildButterflies(scene);
@@ -729,6 +731,7 @@ export function buildWorld(scene) {
     { id: 'garden', x: -11, z: 2, r: 5 },
     { id: 'catsHouse', test: (x, z) => catsHouse.isInside(x, z) },
     { id: 'barn', x: 8.5, z: -6, r: 3 },
+    { id: 'shop', x: 5.8, z: -3.6, r: 2.2 },
     { id: 'pond', x: pond.x, z: pond.z, r: 5 },
     { id: 'gate', x: 0, z: 16, r: 3.5 },
   ];
@@ -757,5 +760,5 @@ export function buildWorld(scene) {
     }
   }
 
-  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, sky, seedBox, pond, spawn: new THREE.Vector3(0, 0, 3.5) };
+  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, supplyStall, sky, seedBox, pond, spawn: new THREE.Vector3(0, 0, 3.5) };
 }

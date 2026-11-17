@@ -61,6 +61,14 @@ function cropModel(crop, stage, growth) {
       f.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.012, 10), mat('#ffffff'), { cast: false }));
       f.add(mesh(new THREE.SphereGeometry(0.028, 6, 4), mat('#ffc93c'), { y: 0.01, sy: 0.6, cast: false }));
     }
+  } else if (crop === 'catnip') { // bushy mint-green leaves with lavender flower spikes
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2, r = 0.06 + (i % 2) * 0.05;
+      const h = (0.18 + (i % 3) * 0.05) * k;
+      g.add(mesh(new THREE.CylinderGeometry(0.01, 0.014, h, 4), leaf(), { x: Math.cos(a) * r, y: h / 2, z: Math.sin(a) * r }));
+      [0.45, 0.8].forEach((f, j) => g.add(mesh(new THREE.SphereGeometry(0.06 - j * 0.012, 6, 4), j ? leafLight() : mat('#8fd36f'), { x: Math.cos(a) * (r + 0.05), y: h * f, z: Math.sin(a) * (r + 0.05), sy: 0.35, rx: Math.sin(a) * 0.6, rz: -Math.cos(a) * 0.6 })));
+      if (stage === 3 && i % 2 === 0) for (let b = 0; b < 4; b++) g.add(mesh(new THREE.SphereGeometry(0.028 - b * 0.004, 6, 4), mat(b % 2 ? '#c8aaf2' : '#b58fe6'), { x: Math.cos(a) * r, y: h + 0.02 + b * 0.035, z: Math.sin(a) * r, cast: false }));
+    }
   } else { // pumpkin
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2 + 0.5;

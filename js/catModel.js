@@ -7,6 +7,14 @@ import { mat, mesh, canvasTexture, drawPaw } from './util.js';
 export const LOOKS = {
   orangeTabby: { base: '#f2a65a', stripe: '#d27a35', belly: '#fff1dc', muzzle: '#fff1dc', ear: '#f2a65a', socks: '#f2a65a', tail: '#f2a65a', tailTip: '#d27a35', legs: '#f2a65a', nose: '#f08aa0', pattern: 'tabby' },
   tuxedo: { base: '#34303a', stripe: null, belly: '#ffffff', muzzle: '#ffffff', ear: '#34303a', socks: '#ffffff', tail: '#34303a', tailTip: '#34303a', legs: '#34303a', nose: '#f29bb0', pattern: 'tuxedo' },
+  greyTabby: { base: '#a9adb8', stripe: '#6f7380', belly: '#eef0f4', muzzle: '#eef0f4', ear: '#a9adb8', socks: '#eef0f4', tail: '#a9adb8', tailTip: '#6f7380', legs: '#a9adb8', nose: '#f29bb0', pattern: 'tabby' },
+  brownTabby: { base: '#a8794f', stripe: '#5e4030', belly: '#f1e2c8', muzzle: '#f1e2c8', ear: '#a8794f', socks: '#a8794f', tail: '#a8794f', tailTip: '#5e4030', legs: '#a8794f', nose: '#d98a8a', pattern: 'tabby' },
+  creamTabby: { base: '#f3d9a8', stripe: '#e0b676', belly: '#fff6e6', muzzle: '#fff6e6', ear: '#f3d9a8', socks: '#fff6e6', tail: '#f3d9a8', tailTip: '#e0b676', legs: '#f3d9a8', nose: '#f29bb0', pattern: 'tabby' },
+  calico: { base: '#fbf5ec', stripe: null, patch1: '#f0a050', patch2: '#3d3540', belly: '#ffffff', muzzle: '#ffffff', ear: '#f0a050', socks: '#ffffff', tail: '#3d3540', tailTip: '#f0a050', legs: '#fbf5ec', nose: '#f29bb0', pattern: 'patches' },
+  tortie: { base: '#4a3530', stripe: null, patch1: '#c8743a', patch2: '#e0a060', belly: '#5a4038', muzzle: '#5a4038', ear: '#c8743a', socks: '#4a3530', tail: '#4a3530', tailTip: '#c8743a', legs: '#4a3530', nose: '#a86a6a', pattern: 'patches' },
+  black: { base: '#2c2830', stripe: null, belly: '#38333c', muzzle: '#38333c', ear: '#2c2830', socks: '#2c2830', tail: '#2c2830', tailTip: '#2c2830', legs: '#2c2830', nose: '#5b4256', pattern: 'solid' },
+  white: { base: '#fbfaf7', stripe: null, belly: '#ffffff', muzzle: '#ffffff', ear: '#fbfaf7', socks: '#ffffff', tail: '#fbfaf7', tailTip: '#fbfaf7', legs: '#fbfaf7', nose: '#f7a8b8', pattern: 'solid' },
+  russianBlue: { base: '#8a96a8', stripe: null, belly: '#97a3b4', muzzle: '#97a3b4', ear: '#8a96a8', socks: '#8a96a8', tail: '#8a96a8', tailTip: '#7a8698', legs: '#8a96a8', nose: '#7a6878', pattern: 'solid' },
   creamPoint: { base: '#f5ead6', stripe: null, belly: '#fff8ec', muzzle: '#7a5544', ear: '#6b4a3a', socks: '#6b4a3a', tail: '#a07a62', tailTip: '#6b4a3a', legs: '#c9a88e', nose: '#8a5d4c', pattern: 'point' },
 };
 
@@ -21,6 +29,9 @@ function bodyTexture(look) {
         ctx.beginPath();
         ctx.moveTo(56, y); ctx.quadraticCurveTo(96, y - 4, 136, y); ctx.lineTo(136, y + 3.5); ctx.quadraticCurveTo(96, y - 0.5, 56, y + 3.5); ctx.fill();
       }
+    }
+    if (look.pattern === 'patches') { // calico / tortie: soft blotches
+      [[80, 12, 22, look.patch1], [110, 34, 18, look.patch2], [70, 46, 16, look.patch2], [100, 56, 14, look.patch1], [22, 30, 10, look.patch1], [120, 8, 12, look.patch1]].forEach(([x, y, r, c]) => { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, r * 1.3, r, 0.4, 0, 7); ctx.fill(); });
     }
     if (look.pattern === 'point') { // darker toward the tail end
       const g = ctx.createLinearGradient(0, 30, 0, 64); g.addColorStop(0, 'rgba(160,122,98,0)'); g.addColorStop(1, 'rgba(160,122,98,0.55)');
@@ -64,6 +75,9 @@ function iconTexture(kind) {
       if (kind === 'tummy') { ctx.strokeStyle = '#c38bd8'; ctx.lineWidth = 7; ctx.beginPath(); for (let a = 0; a < 14; a += 0.2) { const r = 4 + a * 2.4; ctx.lineTo(64 + Math.cos(a) * r, 54 + Math.sin(a) * r); } ctx.stroke(); }
       if (kind === 'itch') { ctx.fillStyle = '#5b4256'; [[44, 40], [70, 34], [86, 58], [56, 66], [76, 76], [40, 62]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill(); }); ctx.strokeStyle = '#e8798f'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(30, 84); ctx.lineTo(50, 80); ctx.moveTo(78, 88); ctx.lineTo(98, 82); ctx.stroke(); }
       if (kind === 'cloud') { ctx.fillStyle = '#9fb0d6'; [[48, 58, 18], [70, 50, 22], [88, 62, 15], [60, 66, 16]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }); ctx.strokeStyle = '#6cc4ef'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(52, 84); ctx.lineTo(48, 94); ctx.moveTo(72, 84); ctx.lineTo(68, 94); ctx.stroke(); }
+      if (kind === 'sneeze') { ctx.fillStyle = '#6b9fc4'; ctx.font = 'bold 34px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Achoo!', 64, 50); ctx.fillStyle = '#9fd0ef'; [[40, 74], [62, 80], [86, 72]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill(); }); }
+      if (kind === 'limp') { ctx.save(); ctx.translate(64, 54); ctx.rotate(-0.6); ctx.fillStyle = '#fff6ec'; ctx.strokeStyle = '#e8798f'; ctx.lineWidth = 4; ctx.beginPath(); ctx.roundRect(-40, -15, 80, 30, 14); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#f7c6d2'; ctx.fillRect(-12, -15, 24, 30); ctx.restore(); }
+      if (kind === 'ear') { ctx.fillStyle = '#f4a3b5'; ctx.beginPath(); ctx.moveTo(40, 82); ctx.lineTo(64, 18); ctx.lineTo(90, 82); ctx.fill(); ctx.fillStyle = '#ef6f86'; ctx.beginPath(); ctx.moveTo(52, 76); ctx.lineTo(64, 38); ctx.lineTo(78, 76); ctx.fill(); }
       if (kind === 'question') { ctx.fillStyle = '#e8798f'; ctx.font = 'bold 72px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', 64, 58); }
     }
   });
@@ -154,6 +168,10 @@ export function createCat(lookName, scale = 1) {
   };
   const front = [makeLeg(hip, -0.085, -0.02, 0.38), makeLeg(hip, 0.085, -0.02, 0.38)];
   const back = [makeLeg(rig, -0.09, 0.2, -0.17), makeLeg(rig, 0.09, 0.2, -0.17)];
+  // a soft white bandage wrap with pink stripes (shown while a hurt cat heals)
+  const bandage = new THREE.Group(); bandage.visible = false; front[0].children[0].add(bandage);
+  bandage.add(mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.13, 10), mat('#ffffff', { flatShading: false }), { y: -0.1, cast: false }));
+  [-0.06, -0.1, -0.14].forEach((y) => bandage.add(mesh(new THREE.TorusGeometry(0.047, 0.008, 4, 12), mat('#f7a8c4'), { y, rx: Math.PI / 2, cast: false })));
   [...back].forEach((g) => g.add(mesh(new THREE.SphereGeometry(0.075, 10, 8), base, { y: -0.02, z: 0.02, sy: 1.1 }))); // haunches
 
   // tail: a chain of segments so it can sway and curl
@@ -264,5 +282,6 @@ export function createCat(lookName, scale = 1) {
   }
   function showTag(v) { tag.visible = v && !!tagText; }
 
-  return { group, rig, head, update, setAnim, get anim() { return anim; }, pounce, setTag, setIcon, showTag, scale };
+  function setBandage(v) { bandage.visible = !!v; }
+  return { group, rig, head, update, setAnim, get anim() { return anim; }, pounce, setTag, setIcon, showTag, setBandage, scale };
 }

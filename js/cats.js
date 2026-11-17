@@ -2,12 +2,20 @@
 // Nothing here is ever punishing: neglect only makes a cat a little less happy and lively.
 import * as THREE from 'three';
 import { createCat } from './catModel.js';
-import { STARTER_CATS, PERSONALITIES, SPOTS, TOYS, BOND_LEVELS, bondLevel, ISSUES, pron } from './catData.js';
+import { STARTER_CATS, PERSONALITIES, SPOTS, TOYS, BOND_LEVELS, bondLevel, ISSUES, pron, makeCatDef, MAX_CATS } from './catData.js';
 import { sound } from './sound.js';
 
-const NEED_KEYS = ['hunger', 'fun', 'clean', 'affection'];
+const NEED_KEYS = ['hunger', 'fun', 'clean', 'affection', 'energy'];
 export const NEED_LABELS = { hunger: 'Full tummy', fun: 'Fun', clean: 'Clean & tidy', affection: 'Affection' };
 const MIN_NEED = 8; // needs never hit zero: cats just get a bit mopey
+
+/**
+ * Wellbeing / neglect. For now everything is cozy: health only drifts down to a soft floor and
+ * nothing bad ever happens. The owner plans real stakes later (a cat can decline and pass away
+ * from long neglect). To add that: set NEGLECT.enabled = true, lower NEGLECT.floor to 0 and fill
+ * in CatManager.onDecline(c), which is already called whenever a neglected cat's health hits the floor.
+ */
+export const NEGLECT = { enabled: false, floor: 30 };
 
 // Doors and the porch steps: cats walk through these to get in and out of buildings.
 const LINKS = {
@@ -25,7 +33,7 @@ export function defaultCatState(def) {
   return {
     id: def.id, arrived: false, named: false, name: '', joined: false, joinedDay: 0, trust: 0,
     pos: { x: def.spawn.x, z: def.spawn.z },
-    needs: { hunger: 70, fun: 60, clean: 60, affection: 50 },
+    needs: { hunger: 70, fun: 60, clean: 60, affection: 50, energy: 80 }, health: 92, slot: -1,
     bondXP: 0, discovered: { toy: false, spot: false, treat: false },
     firsts: {}, cd: {}, lastGiftDay: 0, mode: 'new',
   };
@@ -36,16 +44,31 @@ export class CatManager {
     this.game = game;
     const s = game.state;
     this.defs = Object.fromEntries(STARTER_CATS.map((d) => [d.id, d]));
-    // make sure every starter cat has a save entry (old saves get them added)
-    s.cats = STARTER_CATS.map((d) => ({ ...defaultCatState(d), ...(s.cats || []).find((c) => c.id === d.id) }));
-    // the Cats' House: one litter box per two cats, one bowl per cat (old saves had a single cottage litter box)
+    s.adopted ||= [];
+    const gone = new Set(s.adopted.map((a) => a.id));
+    // the three starter cats always get a save entry (old saves get them added), unless adopted out;
+    // later arrivals are generated and carry their own def in the save
+    const old = s.cats || [];
+    const extra = old.filter((c) => c.def && !this.defs[c.id]);
+    extra.forEach((c) => (this.defs[c.id] = c.def));
+    s.cats = [...STARTER_CATS.filter((d) => !gone.has(d.id)).map((d) => ({ ...defaultCatState(d), ...old.find((c) => c.id === d.id) })), ...extra];
+    // the Cats' House: one litter box per two cats, one bowl and bed per slot (old saves had a single cottage litter box)
     const house = game.world.catsHouse;
-    if (!Array.isArray(s.litterBoxes)) s.litterBoxes = house.litter.map(() => s.litter || 0);
+    if (!Array.isArray(s.litterBoxes)) s.litterBoxes = [];
+    while (s.litterBoxes.length < house.litter.length) s.litterBoxes.push(s.litter && !s.litterBoxes.length ? s.litter : 0);
     s.bowls ||= {};
-    s.cats.forEach((c) => { c.needs = { ...defaultCatState(this.defs[c.id]).needs, ...c.needs }; c.discovered ||= {}; c.firsts ||= {}; c.cd ||= {}; });
+    s.cats.forEach((c) => {
+      const base = defaultCatState(this.defs[c.id]);
+      c.needs = { ...base.needs, ...c.needs }; c.discovered ||= {}; c.firsts ||= {}; c.cd ||= {};
+      if (c.health === undefined) c.health = base.health;
+      if (c.slot === undefined) c.slot = -1;
+    });
+    // give joined cats from older saves a Cats' House slot
+    s.cats.filter((c) => c.joined && c.slot < 0).forEach((c) => (c.slot = this.freeSlot()));
     this.list = [];
+    this.departing = [];
     s.cats.forEach((c) => c.arrived && this.spawn(c));
-    s.cats.forEach((c) => { house.setBowl(c.id, s.bowls[c.id]); if (c.named) house.setBedName(c.id, c.name); });
+    s.cats.forEach((c) => { if (c.slot >= 0) { house.setBowl(c.slot, s.bowls[c.id]); if (c.named) house.setBedName(c.slot, c.name); } });
     house.setLitter(s.litterBoxes);
     this.arrivalTimer = 0;
     this.prevHour = s.hour;
@@ -55,6 +78,11 @@ export class CatManager {
   }
 
   get state() { return this.game.state; }
+  /** First free bed/bowl slot in the Cats' House (0..9). */
+  freeSlot() { const used = new Set(this.state.cats.map((c) => c.slot)); for (let i = 0; i < MAX_CATS; i++) if (!used.has(i)) return i; return MAX_CATS - 1; }
+  /** Cats living here right now (arrived and not adopted out), including ones waiting for their Welcome Vet Check. */
+  residents() { return this.state.cats.filter((c) => c.arrived).length; }
+  roomForMore() { return this.state.cats.length < MAX_CATS; }
   absHours() { return this.state.day * 24 + this.state.hour; }
   def(c) { return this.defs[c.data ? c.data.id : c.id]; }
   joined() { return this.list.filter((c) => c.data.joined); }
@@ -64,7 +92,7 @@ export class CatManager {
   personality(c) { return PERSONALITIES[this.def(c).personality]; }
   happiness(c) {
     const n = (c.data || c).needs;
-    let h = 0.3 * n.hunger + 0.25 * n.fun + 0.2 * n.clean + 0.25 * n.affection;
+    let h = 0.28 * n.hunger + 0.24 * n.fun + 0.18 * n.clean + 0.22 * n.affection + 0.08 * (n.energy ?? 80);
     if (this.game.vet && this.game.vet.activeCase((c.data || c).id)) h -= 10;
     return THREE.MathUtils.clamp(h, 0, 100);
   }
@@ -82,6 +110,7 @@ export class CatManager {
     const c = { data, def, model, pos: model.group.position, heading: Math.random() * 6, task: null, timer: 1 + Math.random() * 2, speed: 0, path: [], stuck: 0, lastD: 0, perch: 0, iconT: 0, iconKind: null };
     this.list.push(c);
     this.refreshTag(c);
+    model.group.traverse((o) => { if (o.isMesh && o.userData.isCat) o.userData.catId = data.id; });
     return c;
   }
 
@@ -95,13 +124,44 @@ export class CatManager {
     const s = this.state;
     if (!this.game.playing) return;
     const waiting = s.cats.find((c) => !c.arrived);
-    if (!waiting) return;
+    if (!waiting) { this.maybeNewArrival(dt); return; }
     const def = this.defs[waiting.id];
     const prevAll = s.cats.slice(0, s.cats.indexOf(waiting)).every((c) => c.joined);
     if (!prevAll || s.day < def.arriveDay || s.hour < 7 || s.hour > 19) { this.arrivalTimer = 0; return; }
     this.arrivalTimer += dt;
     if (this.arrivalTimer < (def.arriveDay === 1 ? 10 : 4)) return;
     this.arrive(waiting);
+  }
+  /**
+   * After the three starter cats: while there's room (up to 10), new cats keep turning up:
+   * rescues, shelter transfers, strays and neighbors' fosters. At most one a day, never while
+   * another newcomer still waits for a Welcome Vet Check.
+   */
+  maybeNewArrival(dt) {
+    const s = this.state;
+    if (!this.roomForMore() || s.cats.some((c) => c.arrived && !c.joined)) return;
+    if (s.day < 4 || s.hour < 9 || s.hour > 17) return;
+    if (s.flags.arrivalRollDay === s.day) return;
+    this.arrivalTimer += dt;
+    if (this.arrivalTimer < 25) return; // a little while into the day
+    this.arrivalTimer = 0;
+    s.flags.arrivalRollDay = s.day;
+    // busier when the sanctuary has lots of room, quieter when it's nearly full
+    const chance = s.cats.length <= 4 ? 0.85 : s.cats.length <= 7 ? 0.6 : 0.4;
+    if (Math.random() < chance) this.newArrival();
+  }
+  /** Create a brand-new cat and have it arrive now. Returns its save data. */
+  newArrival() {
+    const s = this.state;
+    if (!this.roomForMore()) return null;
+    const id = `cat${s.nextCat || 4}`; s.nextCat = (s.nextCat || 4) + 1;
+    const taken = [...s.cats.map((c) => c.name), ...s.adopted.map((a) => a.name)];
+    const def = makeCatDef(id, taken);
+    this.defs[id] = def;
+    const data = { ...defaultCatState(def), def };
+    s.cats.push(data);
+    this.arrive(data);
+    return data;
   }
 
   arrive(data) {
@@ -112,8 +172,9 @@ export class CatManager {
     c.task = { type: data.mode === 'stray' ? 'hide' : 'wait' };
     const g = this.game;
     sound.play('meow');
+    if (def.starterIssue && ['cold', 'injury', 'ear'].includes(def.starterIssue)) setTimeout(() => g.host.say(`Poor thing looks a little poorly. The Welcome Vet Check will find out what's wrong, and the clinic kennels are ready.`, 6), 9500);
     if (data.mode === 'stray') {
-      g.host.say(`Oh! There's a shy little stray hiding by the garden. Go slowly, dearie. Sit with ${def.sex === 'girl' ? 'her' : 'him'} quietly so ${def.sex === 'girl' ? 'she' : 'he'} learns to trust you.`, 9);
+      g.host.say(`Oh! There's a shy little stray hiding nearby (look for the ?). Go slowly, dearie. Sit with ${def.sex === 'girl' ? 'her' : 'him'} quietly so ${def.sex === 'girl' ? 'she' : 'he'} learns to trust you.`, 9);
     } else {
       g.host.say(`A new arrival at the gate! ${def.sourceLabel}. Every new kitty gets a Welcome Vet Check first, so let's walk ${def.sex === 'girl' ? 'her' : 'him'} to the clinic.`, 9);
     }
@@ -128,7 +189,8 @@ export class CatManager {
     d.needs.affection = Math.max(d.needs.affection, 60);
     this.addBond(c, 2, true);
     this.refreshTag(c);
-    this.game.world.catsHouse.setBedName(id, name);
+    if (d.slot < 0) d.slot = this.freeSlot();
+    this.game.world.catsHouse.setBedName(d.slot, name);
     c.task = null; c.timer = 0.5;
     this.game.journal.log(`Welcome home, ${name}! ${pron(`{She} joined the sanctuary after {his} Welcome Vet Check.`, this.def(c))}`, id);
   }
@@ -146,6 +208,7 @@ export class CatManager {
       sound.play('bond');
     }
   }
+  cooldownReady(c, key, hours) { return this.absHours() - (c.data.cd[key] ?? -99) >= hours; }
   cooldownOk(c, key, hours) {
     const now = this.absHours(), last = c.data.cd[key] ?? -99;
     if (now - last < hours) return false;
@@ -156,16 +219,18 @@ export class CatManager {
   menuFor(c) {
     const s = this.state, d = c.data, vet = this.game.vet, cs = vet.activeCase(d.id);
     const fav = this.def(c).favToy;
+    const nip = s.crops.catnip || 0;
+    const nipOk = nip > 0 && this.cooldownReady(c, 'catnip', 6);
     const items = [
-      { id: 'feed', label: s.bowls[d.id] ? `Dinner's waiting in ${d.name}'s bowl at the Cats' House` : "Feed at the Cats' House feeding station", icon: 'food', ok: false },
       { id: 'pet', label: 'Pet', icon: 'heart', ok: true },
       { id: 'wand', label: `Play: ${TOYS.wand}`, icon: 'wand', ok: true },
       { id: 'yarn', label: `Play: ${TOYS.yarn}`, icon: 'yarn', ok: true },
       { id: 'groom', label: 'Brush & groom', icon: 'brush', ok: true },
+      { id: 'catnip', label: nip ? (nipOk ? `Catnip treat (${nip} left)` : 'Catnip treat (had one recently)') : 'Catnip treat (grow catnip!)', icon: 'catnip', ok: nipOk },
+      { id: 'stats', label: 'Stats card', icon: 'stats', ok: true },
     ];
     if (cs) {
       if (cs.stage === 'noticed') items.push({ id: 'clinic', label: 'Take to the clinic', icon: 'clinic', ok: true, highlight: true });
-      if (cs.stage === 'followup') items.push({ id: 'followup', label: 'Follow-up check', icon: 'sparkle', ok: true, highlight: true });
     }
     void fav;
     return items;
@@ -227,8 +292,23 @@ export class CatManager {
         sound.play('brush');
         break;
       }
+      case 'catnip': {
+        if ((s.crops.catnip || 0) <= 0 || !this.cooldownOk(c, 'catnip', 6)) { c.task = null; return; }
+        s.crops.catnip--;
+        n.fun = Math.min(100, n.fun + 35); n.affection = Math.min(100, n.affection + 15);
+        c.task = { type: 'interact', t: 3.4, anim: 'pounce' };
+        c.model.pounce(); setTimeout(() => c.model.pounce(), 700); setTimeout(() => c.model.pounce(), 1400);
+        g.particles.emit(c.pos.clone().setY(c.pos.y + 0.4), { color: '#8fd36f', count: 10, speed: 0.8, up: 1.6, gravity: 0.5, size: 0.04, emissive: true, life: 1.3 });
+        g.particles.emit(c.pos.clone().setY(c.pos.y + 0.5), { color: '#c8aaf2', count: 8, speed: 0.6, up: 1.4, gravity: 0.4, size: 0.035, emissive: true, life: 1.3 });
+        this.flashIcon(c, 'sparkle', 1.8);
+        g.floatAt(c.pos, `${name} rolls around in the catnip, blissed out!`, '#5f9f4c', 'catnip');
+        this.addBond(c, 2);
+        if (!d.firsts.catnip) { d.firsts.catnip = true; g.journal.log(`${name} tried garden-grown catnip for the first time and did three zoomies laps.`, d.id); }
+        sound.play('purr');
+        break;
+      }
+      case 'stats': c.task = null; g.statsCard.open(c); break;
       case 'clinic': this.escort(c); break;
-      case 'followup': g.vet.followUp(c); break;
       default: break;
     }
     void p; void s;
@@ -288,30 +368,106 @@ export class CatManager {
     this.lastLadyPos.copy(lp);
     for (const c of this.list) this.brain(c, dt, t);
     this.separate();
+    this.updateDeparting(dt, t);
+  }
+
+  /* ---------------- adoption ---------------- */
+  /** Is this cat ready to go to a forever home? Returns { ok, why }. */
+  adoptable(c) {
+    const d = c.data, cs = this.game.vet.activeCase(d.id);
+    if (!d.joined) return { ok: false, why: 'Still settling in' };
+    if (cs) return { ok: false, why: cs.stage === 'kennel' || cs.stage === 'healed' ? 'Still in the clinic' : 'Needs a vet check first' };
+    if (this.level(c) < 3) return { ok: false, why: `Needs 3 bond hearts (has ${this.level(c)})` };
+    if (d.health < 75) return { ok: false, why: 'Needs to be healthier' };
+    if (this.happiness(c) < 55) return { ok: false, why: 'Needs to be happier' };
+    return { ok: true, why: 'Healthy, happy & bonded' };
+  }
+  /** Adoption fee: higher for healthier, happier, more bonded cats (and a bonus for a perfect match). */
+  adoptionFee(c, wants) {
+    const match = this.def(c).personality === wants;
+    return Math.round(30 + this.level(c) * 12 + this.happiness(c) * 0.3 + c.data.health * 0.2 + (match ? 20 : 0));
+  }
+  /** Say goodbye: the cat leaves with the adopter, coins are paid and the slot frees up. */
+  adoptOut(c, adopter, fee) {
+    const g = this.game, s = this.state, d = c.data, def = this.def(c);
+    s.coins += fee;
+    s.adopted.push({ id: d.id, name: d.name, day: s.day, family: adopter.name, fee, look: def.look, coat: def.coat, personality: def.personality, bond: this.level(c), def });
+    s.cats = s.cats.filter((x) => x !== d);
+    delete s.bowls[d.id];
+    if (d.slot >= 0) { g.world.catsHouse.setBedName(d.slot, ''); g.world.catsHouse.setBowl(d.slot, false); }
+    this.list = this.list.filter((x) => x !== c);
+    if (g.catMenu.cat === c) g.catMenu.close();
+    if (g.statsCard?.cat === c) g.statsCard.close();
+    c.leaving = { follow: adopter.npc, t: 0 };
+    c.model.setIcon('heart'); c.model.setTag(`${d.name} ♥ ${adopter.name}`, 'name');
+    this.departing.push(c);
+    g.journal.log(`Goodbye, ${d.name}! ${pron('{She}', def)} went home with ${adopter.name}, ${adopter.who}. Adoption fee: ${fee} coins.`, d.id, { photo: { id: d.id, name: d.name, look: def.look, family: adopter.name } });
+    s.stats.adopted = (s.stats.adopted || 0) + 1;
+    sound.play('bond');
+    g.save();
+  }
+  updateDeparting(dt, t) {
+    for (const c of this.departing) {
+      const L = c.leaving, tgt = L.follow ? L.follow.position : new THREE.Vector3(0, 0, 16);
+      const dx = tgt.x - c.pos.x, dz = tgt.z - c.pos.z, dist = Math.hypot(dx, dz);
+      let anim = 'sit';
+      if (dist > 0.9) { c.heading = Math.atan2(dx, dz); const st = Math.min(dist - 0.9, 2.2 * dt); c.pos.x += Math.sin(c.heading) * st; c.pos.z += Math.cos(c.heading) * st; anim = 'walk'; }
+      c.pos.y += (this.game.world.groundHeight(c.pos.x, c.pos.z) - c.pos.y) * Math.min(1, dt * 10);
+      c.model.group.rotation.y = c.heading;
+      c.model.setAnim(anim); c.model.update(dt, t, anim === 'walk' ? 2.2 : 0);
+      L.t += dt;
+      if (L.done || L.t > 40) { this.game.scene.remove(c.model.group); c.gone = true; }
+    }
+    this.departing = this.departing.filter((c) => !c.gone);
   }
 
   simulate(hours) {
     if (hours <= 0) return;
     const s = this.state;
     const joined = this.joined();
-    // each litter box gets used by the (up to two) cats assigned to it
-    joined.forEach((c) => { const b = this.boxOf(c); s.litterBoxes[b] = Math.min(1, (s.litterBoxes[b] || 0) + hours * 0.03); });
+    // each litter box gets used by the (up to two) cats assigned to it (cats in the clinic kennels use the kennel tray)
+    joined.forEach((c) => { if (this.inKennel(c)) return; const b = this.boxOf(c); s.litterBoxes[b] = Math.min(1, (s.litterBoxes[b] || 0) + hours * 0.03); });
     for (const c of joined) {
-      const n = c.data.needs, p = this.personality(c), asleep = c.model.anim === 'sleep' ? 0.5 : 1;
+      const n = c.data.needs, p = this.personality(c), sleeping = c.model.anim === 'sleep', asleep = sleeping ? 0.5 : 1;
+      const kennel = this.inKennel(c);
       n.hunger -= hours * 4 * (p.hungerDecay || 1) * asleep;
-      n.fun -= hours * 3.2 * (p.funDecay || 1) * asleep;
-      n.clean -= hours * (s.litterBoxes[this.boxOf(c)] > 0.6 ? 3.2 : 1.6);
+      n.fun -= hours * 3.2 * (p.funDecay || 1) * asleep * (kennel ? 0.5 : 1);
+      n.clean -= hours * (kennel ? 1.2 : s.litterBoxes[this.boxOf(c)] > 0.6 ? 3.2 : 1.6);
       n.affection -= hours * 2.8 * (p.affectionDecay || 1) * asleep;
+      n.energy += hours * (sleeping ? 14 : -3.2 * (p.energyDecay || 1));
       NEED_KEYS.forEach((k) => (n[k] = THREE.MathUtils.clamp(n[k], MIN_NEED, 100)));
+      this.wellbeing(c, hours);
       c.data.pos.x = c.pos.x; c.data.pos.z = c.pos.z;
     }
     this.game.world.catsHouse.setLitter(s.litterBoxes);
   }
 
-  /** Which litter box a cat uses (one box for every two cats). */
-  boxOf(c) { const i = STARTER_CATS.findIndex((d) => d.id === (c.data || c).id); return Math.min(this.game.world.catsHouse.litter.length - 1, Math.floor(Math.max(0, i) / 2)); }
-  bowl(c) { return this.game.world.catsHouse.bowls.find((b) => b.id === c.data.id); }
-  bed(c) { return this.game.world.catsHouse.beds.find((b) => b.id === c.data.id); }
+  /**
+   * Health: drifts up when a cat is fed, clean and loved, and down with neglect or while sick.
+   * Cozy for now: it never falls below NEGLECT.floor. onDecline is the hook for future stakes.
+   */
+  wellbeing(c, hours) {
+    const d = c.data, n = d.needs, cs = this.game.vet.activeCase(d.id);
+    const neglected = n.hunger < 20 || n.clean < 20 || (n.affection < 15 && n.fun < 15);
+    let target = 100;
+    if (cs && cs.issue && cs.stage !== 'retry') target = 45 + Math.min(100, cs.heal || 0) * 0.5; // sick: health follows the healing bar
+    else if (cs && cs.issue) target = 60;
+    if (neglected) target = Math.min(target, 40);
+    const rate = d.health > target ? (neglected ? 2.5 : 4) : 3;
+    d.health += THREE.MathUtils.clamp(target - d.health, -rate * hours, rate * hours);
+    if (d.health <= NEGLECT.floor) { d.health = NEGLECT.floor; if (neglected) this.onDecline(c, hours); }
+    d.health = Math.min(100, d.health);
+  }
+  /** FUTURE: real consequences of long neglect (decline, and later passing away). Intentionally does nothing yet. */
+  onDecline(c, hours) { if (!NEGLECT.enabled) return; void c; void hours; }
+
+  /** Which litter box a cat uses (one box for every two slots). */
+  boxOf(c) { const slot = Math.max(0, (c.data || c).slot ?? 0); return Math.min(this.game.world.catsHouse.litter.length - 1, Math.floor(slot / 2)); }
+  bowl(c) { return this.game.world.catsHouse.bowls[c.data.slot]; }
+  bed(c) { return this.game.world.catsHouse.beds[Math.max(0, c.data.slot)]; }
+  /** Is this cat staying in a clinic kennel right now (admitted for treatment)? */
+  inKennel(c) { const cs = this.game.vet.activeCase((c.data || c).id); return !!(cs && (cs.stage === 'kennel' || cs.stage === 'healed')); }
+  inRecovery(c) { return this.inKennel(c); }
 
   /** Fill the bowls in the Cats' House from the pantry; the cats then trot over to eat.
    *  scheduled = the 8 AM / 6 PM meal (only hungry cats get a bowl). Returns how many bowls were filled. */
@@ -322,15 +478,15 @@ export class CatManager {
     let filled = 0;
     for (const c of want) {
       if (g.api_food.consume(1) < 1) break;
-      if (this.inRecovery(c)) { // resting at the clinic: the meal is brought to the recovery bed
+      if (this.inKennel(c)) { // staying at the clinic: the meal is brought to the kennel
         const ill = g.vet.activeCase(c.data.id)?.issue === 'stomach';
-        c.data.needs.hunger = Math.min(100, c.data.needs.hunger + (ill ? 20 : 45));
-      } else { s.bowls[c.data.id] = true; house.setBowl(c.data.id, true); }
+        c.data.needs.hunger = Math.min(100, c.data.needs.hunger + (ill ? 25 : 45));
+      } else { s.bowls[c.data.id] = true; house.setBowl(c.data.slot, true); }
       filled++;
     }
     const meal = hour < 12 ? 'Breakfast' : 'Supper';
     if (scheduled) {
-      if (filled < want.length) g.host.say(`${meal} time, but the pantry ran out. The kitties are a bit peckish. Let's cook more cat food, dearie!`, 7);
+      if (filled < want.length) g.host.say(`${meal} time, but we ran out of cat food. The kitties are a bit peckish. Let's buy a bag at the Supply Shelf, dearie!`, 7);
       else g.host.say(`${meal} is served in the Cats' House! ${filled} bowl${filled > 1 ? 's' : ''} filled from the pantry.`, 5);
     }
     if (filled) sound.play('pickup');
@@ -341,10 +497,13 @@ export class CatManager {
 
   /** When she sleeps: favorite (high-bond) cats pile onto her bed, the rest curl up in their own beds in the Cats' House. */
   pileForNight() {
-    const cats = this.joined().filter((c) => !this.inRecovery(c) && !c.escort);
+    this.joined().forEach((c) => (c.data.needs.energy = 100)); // a good night's sleep for everyone
+    const cats = this.joined().filter((c) => !this.inKennel(c) && !c.escort);
     // anything left in the bowls gets eaten before bed
-    cats.forEach((c) => { if (this.state.bowls[c.data.id]) { this.state.bowls[c.data.id] = false; this.game.world.catsHouse.setBowl(c.data.id, false); c.data.needs.hunger = Math.min(100, c.data.needs.hunger + 40); } });
-    const pile = cats.filter((c) => this.level(c) >= 3), own = cats.filter((c) => this.level(c) < 3);
+    cats.forEach((c) => { if (this.state.bowls[c.data.id]) { this.state.bowls[c.data.id] = false; this.game.world.catsHouse.setBowl(c.data.slot, false); c.data.needs.hunger = Math.min(100, c.data.needs.hunger + 40); } });
+    // the three closest friends (bond 3+) get her bed; everyone else has their own bed in the Cats' House
+    const friends = cats.filter((c) => this.level(c) >= 3).sort((a, b) => b.data.bondXP - a.data.bondXP);
+    const pile = friends.slice(0, BED_PILE.length), own = cats.filter((c) => !pile.includes(c));
     pile.forEach((c, i) => {
       const spot = BED_PILE[i % BED_PILE.length];
       c.pos.set(spot[0], spot[1], spot[2]); c.path = [];
@@ -360,7 +519,6 @@ export class CatManager {
     if (own.length) this.game.journal.log(`${names(own)} slept snug in ${own.length > 1 ? 'their own beds' : 'their own bed'} at the Cats' House.`, own.length === 1 ? own[0].data.id : null);
   }
 
-  inRecovery(c) { const cs = this.game.vet.activeCase(c.data.id); return cs && cs.treatment === 'rest' && cs.stage === 'recovering'; }
 
   isNight() { const h = this.state.hour; return h >= 21 || h < 6; }
 
@@ -385,10 +543,22 @@ export class CatManager {
     } else if (d.mode === 'new') {
       anim = 'sit';
       if (dist < 5) c.heading = Math.atan2(lp.x - c.pos.x, lp.z - c.pos.z);
-    } else if (this.inRecovery(c)) {
-      moveTo = this.goTo(c, RECOVERY_SPOT, 0.1); anim = moveTo ? 'walk' : 'sleep';
-      if (!moveTo && c.pos.distanceTo(RECOVERY_SPOT) > 2) c.pos.copy(RECOVERY_SPOT);
+    } else if (this.inKennel(c)) {
+      // admitted: walk to the kennel, hop in and rest there until healed
+      const k = g.vet.kennelOf(cs);
+      if (!c.caged) {
+        moveTo = this.goTo(c, k.front, 0.7); speed = 1.3;
+        if (!moveTo || c.pos.distanceTo(k.front) > 30 || c.stuck > 1.5) { c.caged = true; moveTo = null; this.hop(c); c.path = []; c.stuck = 0; }
+      }
+      if (c.caged) {
+        moveTo = null;
+        c.pos.lerp(k.spot, Math.min(1, dt * 6)); c.heading = -Math.PI / 2;
+        c.kT = (c.kT || 0) - dt;
+        if (c.kT <= 0) { c.kT = 6 + Math.random() * 8; c.kAnim = cs.stage === 'healed' ? (Math.random() < 0.5 ? 'stand' : 'sit') : ['sleep', 'sleep', 'sit', ISSUES[cs.issue]?.anim || 'sit'][Math.floor(Math.random() * 4)]; }
+        anim = c.kAnim || 'sleep';
+      }
     } else {
+      if (c.caged) { c.caged = false; }
       // regular free-roaming cat: a full bowl in the Cats' House beats everything else
       if (this.state.bowls[d.id] && (!c.task || (c.task.type !== 'eat' && c.task.type !== 'interact'))) c.task = { type: 'eat', t: 90 };
       if (!c.task || (c.task.t !== undefined && (c.task.t -= dt) <= 0)) c.task = this.decide(c, dist, cs);
@@ -451,7 +621,7 @@ export class CatManager {
         else { c.pos.x = moveTo.x; c.pos.z = moveTo.z; this.hop(c); }
       }
     } else c.speed = 0;
-    if (g.vet.examCat !== c) {
+    if (g.vet.examCat !== c && !c.caged) {
       const sp0 = c.task && c.task.spot, perched = sp0 && sp0.y > 0.45 && Math.hypot(sp0.x - c.pos.x, sp0.z - c.pos.z) < 0.35;
       if (!perched) this.game.world.resolve(c.pos, 0.2);
       // height: floors, and hopping up onto perches (bed, hay, cat bed) when standing on them
@@ -470,9 +640,11 @@ export class CatManager {
     if (c.iconT > 0) { c.iconT -= dt; icon = c.iconKind; }
     else if (!d.joined) icon = d.mode === 'stray' ? 'question' : 'new';
     else if (cs && cs.stage === 'noticed') icon = ISSUES[cs.issue].thought;
-    else if (cs && cs.stage === 'followup') icon = 'sparkle';
+    else if (cs && cs.stage === 'healed') icon = 'sparkle';
+    else if (cs && cs.stage === 'kennel' && g.vet.careDue(cs) && dist < 10) icon = 'heart';
     else if (c.model.anim === 'sleep' && dist < 9) icon = 'zzz';
     c.model.setIcon(g.vet.examCat === c ? null : icon);
+    c.model.setBandage(!!(cs && cs.bandaged && cs.stage !== 'closed'));
     c.model.showTag(g.vet.examCat !== c && (!d.joined || dist < 6));
   }
 
@@ -481,9 +653,8 @@ export class CatManager {
     // night: off to bed. Favorite (bond 3+) cats head for her bed in the cottage, the rest to their own bed in the Cats' House
     if (this.isNight()) {
       if (lvl >= 3) {
-        const i = this.joined().filter((o) => this.level(o) >= 3).indexOf(c);
-        const spot = BED_PILE[Math.max(0, i) % 3];
-        return { type: 'sleepAt', spot: new THREE.Vector3(spot[0], spot[1], spot[2]), t: 40 };
+        const i = this.joined().filter((o) => this.level(o) >= 3 && !this.inKennel(o)).sort((a, b) => b.data.bondXP - a.data.bondXP).indexOf(c);
+        if (i >= 0 && i < BED_PILE.length) { const spot = BED_PILE[i]; return { type: 'sleepAt', spot: new THREE.Vector3(spot[0], spot[1], spot[2]), t: 40 }; }
       }
       return { type: 'sleepAt', spot: this.bed(c).spot.clone(), t: 40 };
     }
@@ -522,7 +693,7 @@ export class CatManager {
 
   finishMeal(c) {
     const g = this.game, d = c.data, n = d.needs, ill = g.vet.activeCase(d.id)?.issue === 'stomach';
-    this.state.bowls[d.id] = false; g.world.catsHouse.setBowl(d.id, false);
+    this.state.bowls[d.id] = false; g.world.catsHouse.setBowl(d.slot, false);
     n.hunger = Math.min(100, n.hunger + (ill ? 20 : 45));
     g.floatAt(c.pos, ill ? `${d.name} nibbles a little` : `${d.name} licks the bowl clean`, '#5b4256', 'food');
     if (this.cooldownOk(c, 'feed', 3)) this.addBond(c, 1);
@@ -606,11 +777,11 @@ export class CatManager {
   separate() {
     const lp = this.game.lady.group.position;
     for (const c of this.list) {
-      if (this.game.vet.examCat === c || c.model.anim === 'sleep') continue;
+      if (this.game.vet.examCat === c || c.model.anim === 'sleep' || c.caged) continue;
       const dx = c.pos.x - lp.x, dz = c.pos.z - lp.z, d = Math.hypot(dx, dz);
       if (d < 0.55 && d > 0.001) { c.pos.x += (dx / d) * (0.55 - d); c.pos.z += (dz / d) * (0.55 - d); }
       for (const o of this.list) {
-        if (o === c || o.model.anim === 'sleep') continue;
+        if (o === c || o.model.anim === 'sleep' || o.caged || (c.model.anim === 'eat' && o.model.anim === 'eat')) continue;
         const ex = c.pos.x - o.pos.x, ez = c.pos.z - o.pos.z, e = Math.hypot(ex, ez);
         if (e < 0.45 && e > 0.001) { c.pos.x += (ex / e) * (0.45 - e) * 0.5; c.pos.z += (ez / e) * (0.45 - e) * 0.5; }
       }

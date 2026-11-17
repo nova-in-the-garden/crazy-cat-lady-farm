@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="build" content="202611171512" />
+  <meta name="build" content="202611171629" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Crazy Cat Lady's Cat Sanctuary · Crazy Cat Lady Simulator</title>
   <meta name="description" content="Visit the Crazy Cat Lady's cozy 3D cat sanctuary, right in your browser. The first piece of the Crazy Cat Lady Simulator." />
@@ -10,37 +10,40 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=202611171512" />
+  <link rel="stylesheet" href="css/style.css?v=202611171629" />
   <!-- Three.js is vendored locally (r187) so the site works anywhere, including GitHub Pages. -->
   <script type="importmap">
     {
       "imports": {
-        "three": "./vendor/three/three.module.js?v=202611171512",
-        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611171512",
-        "./js/building.js": "./js/building.js?v=202611171512",
-        "./js/catData.js": "./js/catData.js?v=202611171512",
-        "./js/catLady.js": "./js/catLady.js?v=202611171512",
-        "./js/catMenu.js": "./js/catMenu.js?v=202611171512",
-        "./js/catModel.js": "./js/catModel.js?v=202611171512",
-        "./js/cats.js": "./js/cats.js?v=202611171512",
-        "./js/catsHouse.js": "./js/catsHouse.js?v=202611171512",
-        "./js/clinic.js": "./js/clinic.js?v=202611171512",
-        "./js/collision.js": "./js/collision.js?v=202611171512",
-        "./js/controls.js": "./js/controls.js?v=202611171512",
-        "./js/game.js": "./js/game.js?v=202611171512",
-        "./js/garden.js": "./js/garden.js?v=202611171512",
-        "./js/host.js": "./js/host.js?v=202611171512",
-        "./js/journal.js": "./js/journal.js?v=202611171512",
-        "./js/kitchen.js": "./js/kitchen.js?v=202611171512",
-        "./js/main.js": "./js/main.js?v=202611171512",
-        "./js/particles.js": "./js/particles.js?v=202611171512",
-        "./js/sound.js": "./js/sound.js?v=202611171512",
-        "./js/state.js": "./js/state.js?v=202611171512",
-        "./js/time.js": "./js/time.js?v=202611171512",
-        "./js/ui.js": "./js/ui.js?v=202611171512",
-        "./js/util.js": "./js/util.js?v=202611171512",
-        "./js/vet.js": "./js/vet.js?v=202611171512",
-        "./js/world.js": "./js/world.js?v=202611171512"
+        "three": "./vendor/three/three.module.js?v=202611171629",
+        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611171629",
+        "./js/adoption.js": "./js/adoption.js?v=202611171629",
+        "./js/building.js": "./js/building.js?v=202611171629",
+        "./js/catData.js": "./js/catData.js?v=202611171629",
+        "./js/catLady.js": "./js/catLady.js?v=202611171629",
+        "./js/catMenu.js": "./js/catMenu.js?v=202611171629",
+        "./js/catModel.js": "./js/catModel.js?v=202611171629",
+        "./js/cats.js": "./js/cats.js?v=202611171629",
+        "./js/catsHouse.js": "./js/catsHouse.js?v=202611171629",
+        "./js/clinic.js": "./js/clinic.js?v=202611171629",
+        "./js/collision.js": "./js/collision.js?v=202611171629",
+        "./js/controls.js": "./js/controls.js?v=202611171629",
+        "./js/game.js": "./js/game.js?v=202611171629",
+        "./js/garden.js": "./js/garden.js?v=202611171629",
+        "./js/host.js": "./js/host.js?v=202611171629",
+        "./js/journal.js": "./js/journal.js?v=202611171629",
+        "./js/kitchen.js": "./js/kitchen.js?v=202611171629",
+        "./js/main.js": "./js/main.js?v=202611171629",
+        "./js/particles.js": "./js/particles.js?v=202611171629",
+        "./js/shop.js": "./js/shop.js?v=202611171629",
+        "./js/sound.js": "./js/sound.js?v=202611171629",
+        "./js/state.js": "./js/state.js?v=202611171629",
+        "./js/statsCard.js": "./js/statsCard.js?v=202611171629",
+        "./js/time.js": "./js/time.js?v=202611171629",
+        "./js/ui.js": "./js/ui.js?v=202611171629",
+        "./js/util.js": "./js/util.js?v=202611171629",
+        "./js/vet.js": "./js/vet.js?v=202611171629",
+        "./js/world.js": "./js/world.js?v=202611171629"
       }
     }
   </script>
@@ -61,7 +64,7 @@
       <img class="card-paw" src="assets/paw.svg" alt="" />
       <p class="eyebrow">Crazy Cat Lady Simulator · Now open</p>
       <h1>Welcome to the<br /><span>Crazy Cat Lady's Cat Sanctuary</span></h1>
-      <p class="lede">Pull up a porch chair, dearie. The cats are coming! Give each new arrival a Welcome Vet Check and a name, then feed, pet, play and groom them. Grow the garden and cook cat food in my kitchen so no kitty ever goes hungry.</p>
+      <p class="lede">Pull up a porch chair, dearie. The cats are coming, up to ten at a time! Give each arrival a Welcome Vet Check and a name, nurse poorly kitties back to health in the clinic kennels, and find happy cats their forever homes. Adoption fees buy cat food and medicine; my garden feeds me (and grows catnip!).</p>
       <button id="start-btn" type="button">Come on in!</button>
       <div class="hint keys-hint">
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</span>
@@ -74,7 +77,7 @@
         <span><kbd>J</kbd> journal</span>
         <span><kbd>T</kbd> chat</span>
       </div>
-      <div class="hint touch-hint">Use the joystick to walk, tap a tool, press Use to farm or care for a cat. Tap a cat to care for it. Drag to look around, tap her to chat.</div>
+      <div class="hint touch-hint">Use the joystick to walk, tap a tool, press Use to farm or care for a cat. Tap a cat to see its stats card. Drag to look around, tap her to chat.</div>
     </div>
   </div>
 
@@ -89,8 +92,11 @@
       <div>Scroll: zoom</div>
       <div><kbd>E</kbd>/<kbd>Space</kbd> use tool / interact</div>
       <div><kbd>1</kbd>-<kbd>4</kbd> pick tool, <kbd>Q</kbd> seed type</div>
-      <div><kbd>E</kbd> near a cat: care menu (<kbd>1</kbd>-<kbd>6</kbd>)</div>
+      <div><kbd>E</kbd> near a cat: care menu (<kbd>1</kbd>-<kbd>7</kbd>)</div>
+      <div>Click a cat: stats card</div>
       <div>Cats' House (barn): <kbd>E</kbd> to fill bowls, scoop litter</div>
+      <div>Supply Shelf: <kbd>E</kbd> to shop (cat food, meds)</div>
+      <div>Clinic kennels: <kbd>E</kbd> for daily care</div>
       <div><kbd>J</kbd> Cat Journal, <kbd>Esc</kbd> close</div>
       <div>10 PM: <kbd>E</kbd> at the bed to sleep</div>
       <div><kbd>T</kbd> or click her: chat, <kbd>M</kbd> mute</div>
@@ -102,6 +108,6 @@
 
   <div id="loading">Tidying up the farm...</div>
 
-  <script type="module" src="js/main.js?v=202611171512"></script>
+  <script type="module" src="js/main.js?v=202611171629"></script>
 </body>
 </html>

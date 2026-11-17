@@ -32,8 +32,8 @@ function plaqueTex(name, color) {
   });
 }
 
-/** catIds: starter cats in arrival order (one bowl and one bed each). */
-export function buildCatsHouse(scene, catIds) {
+/** slots: how many cats can live here (one bowl and one bed each, one litter box per two). */
+export function buildCatsHouse(scene, slots = 10) {
   const { x: CX, z: CZ, w: W, d: D, h: H } = CATS_HOUSE;
   const T = 0.22;
   const root = new THREE.Group(); root.position.set(CX, 0, CZ); scene.add(root);
@@ -150,68 +150,77 @@ export function buildCatsHouse(scene, catIds) {
   addBox(CX + W / 2 - 0.55, CZ - D / 2 + 0.55, 0.8, 0.65);
   const feedPos = toWorld(W / 2 - 1.25, -D / 2 + 1.0);   // where she stands to serve food
 
-  // Bowls: one per cat on a long mat along the east wall
-  const bowls = catIds.map((id, i) => {
-    const z = -D / 2 + 1.35 + i * 0.75, x = W / 2 - 0.45;
+  // Bowls: one per slot (up to 10 cats) on a long mat along the east wall
+  const BOWL_Z0 = -D / 2 + 1.35, BOWL_DZ = 0.4;
+  const bowls = Array.from({ length: slots }, (_, i) => {
+    const z = BOWL_Z0 + i * BOWL_DZ, x = W / 2 - 0.4;
     const g = new THREE.Group(); g.position.set(x, 0, z); inside.add(g);
-    g.add(mesh(new THREE.CylinderGeometry(0.16, 0.11, 0.08, 14), mat(BOWL_COLORS[i % 6], { roughness: 0.5 }), { y: 0.04 }));
-    const food = mesh(new THREE.CylinderGeometry(0.135, 0.135, 0.03, 12), mat('#b9784a'), { y: 0.075, cast: false }); food.visible = false; g.add(food);
-    return { id, pos: toWorld(x, z), eatPos: toWorld(x - 0.42, z), food };
+    g.add(mesh(new THREE.CylinderGeometry(0.15, 0.1, 0.08, 14), mat(BOWL_COLORS[i % 6], { roughness: 0.5 }), { y: 0.04 }));
+    const food = mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.03, 12), mat('#b9784a'), { y: 0.075, cast: false }); food.visible = false; g.add(food);
+    return { slot: i, pos: toWorld(x, z), eatPos: toWorld(x - 0.42, z), food };
   });
-  inside.add(mesh(new THREE.BoxGeometry(0.55, 0.012, catIds.length * 0.75 + 0.2), mat('#f7c6d2'), { x: W / 2 - 0.45, y: 0.026, z: -D / 2 + 1.35 + (catIds.length - 1) * 0.375, cast: false }));
+  inside.add(mesh(new THREE.BoxGeometry(0.5, 0.012, slots * BOWL_DZ + 0.2), mat('#f7c6d2'), { x: W / 2 - 0.4, y: 0.026, z: BOWL_Z0 + (slots - 1) * BOWL_DZ / 2, cast: false }));
 
   // Litter boxes along the south wall (one for every two cats), each visibly dirty or clean
-  const nBoxes = Math.max(1, Math.ceil(catIds.length / 2));
+  const nBoxes = Math.ceil(slots / 2);
   const litter = Array.from({ length: nBoxes }, (_, i) => {
-    const x = W / 2 - 0.65 - i * 1.05, z = D / 2 - 0.45;
+    const x = W / 2 - 1.3 - i * 0.78, z = D / 2 - 0.42;
     const g = new THREE.Group(); g.position.set(x, 0, z); inside.add(g);
-    g.add(mesh(new THREE.BoxGeometry(0.8, 0.18, 0.52), mat(['#9fd0ef', '#c8aaf2'][i % 2]), { y: 0.09 }));
-    const sand = mesh(new THREE.BoxGeometry(0.7, 0.02, 0.44), mat('#efe3c8'), { y: 0.17, cast: false }); g.add(sand);
+    g.add(mesh(new THREE.BoxGeometry(0.66, 0.18, 0.48), mat(['#9fd0ef', '#c8aaf2', '#9fe0b8'][i % 3]), { y: 0.09 }));
+    const sand = mesh(new THREE.BoxGeometry(0.57, 0.02, 0.4), mat('#efe3c8'), { y: 0.17, cast: false }); g.add(sand);
     const clumps = [];
-    for (let k = 0; k < 4; k++) { const m = mesh(new THREE.SphereGeometry(0.045, 6, 4), mat('#a88a6a'), { x: -0.25 + k * 0.16, y: 0.19, z: (k % 2 ? 0.08 : -0.1), cast: false }); m.visible = false; g.add(m); clumps.push(m); }
-    const flies = mesh(new THREE.TorusGeometry(0.12, 0.012, 4, 12), mat('#bda98f', { transparent: true, opacity: 0.6 }), { y: 0.4, rx: Math.PI / 2, cast: false }); flies.visible = false; g.add(flies); // little stink swirl
-    addBox(CX + x, CZ + z, 0.8, 0.52);
-    return { pos: toWorld(x, z - 0.75), clumps, flies, sand };
+    for (let k = 0; k < 4; k++) { const m = mesh(new THREE.SphereGeometry(0.04, 6, 4), mat('#a88a6a'), { x: -0.2 + k * 0.13, y: 0.19, z: (k % 2 ? 0.08 : -0.09), cast: false }); m.visible = false; g.add(m); clumps.push(m); }
+    const flies = mesh(new THREE.TorusGeometry(0.11, 0.012, 4, 12), mat('#bda98f', { transparent: true, opacity: 0.6 }), { y: 0.4, rx: Math.PI / 2, cast: false }); flies.visible = false; g.add(flies); // little stink swirl
+    addBox(CX + x, CZ + z, 0.66, 0.48);
+    return { pos: toWorld(x, z - 0.72), clumps, flies, sand };
   });
-  inside.add(mesh(new THREE.BoxGeometry(0.06, 0.6, 0.04), mat('#c1906a'), { x: W / 2 - 0.65 - nBoxes * 1.05 + 0.4, y: 0.3, z: D / 2 - 0.2 })); // scoop hook
-  inside.add(mesh(new THREE.BoxGeometry(0.12, 0.04, 0.28), mat('#f7a8c4'), { x: W / 2 - 0.65 - nBoxes * 1.05 + 0.4, y: 0.62, z: D / 2 - 0.25, rx: 0.5 }));
 
-  // Cozy beds along the north wall, each with a little name plaque
-  const beds = catIds.map((id, i) => {
-    const x = -W / 2 + 0.75 + i * 1.15, z = -D / 2 + 0.6;
-    const g = new THREE.Group(); g.position.set(x, 0, z); inside.add(g);
-    g.add(mesh(new THREE.CylinderGeometry(0.42, 0.38, 0.14, 18), mat(BED_COLORS[i % 6]), { y: 0.07 }));
-    g.add(mesh(new THREE.TorusGeometry(0.36, 0.1, 8, 20), mat(BED_COLORS[i % 6]), { y: 0.16, rx: Math.PI / 2 }));
-    g.add(mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.05, 16), mat('#fff6ec'), { y: 0.15, cast: false }));
-    const plaque = mesh(new THREE.PlaneGeometry(0.62, 0.23), new THREE.MeshStandardMaterial({ map: plaqueTex('', BED_COLORS[i % 6]), roughness: 0.8 }), { y: 0.72, z: -0.42, cast: false });
+  // Cozy beds: five on the floor along the north side, five more up on a sturdy wall shelf (bunk style)
+  const COLS = [-2.6, -1.6, -0.6, 0.4, 1.4];
+  const shelfZ = -D / 2 + 0.42, floorZ = -D / 2 + 1.25, SHELF_Y = 0.86;
+  const wood = mat('#c1906a'), woodDark = mat('#a8774f');
+  inside.add(mesh(new THREE.BoxGeometry(5.0, 0.08, 0.66), wood, { x: -0.6, y: SHELF_Y - 0.05, z: shelfZ }));
+  [-3.0, -1.1, 0.9, 1.8].forEach((x) => inside.add(mesh(new THREE.BoxGeometry(0.07, SHELF_Y - 0.08, 0.07), woodDark, { x, y: (SHELF_Y - 0.08) / 2, z: shelfZ + 0.26 })));
+  inside.add(mesh(new THREE.BoxGeometry(0.42, 0.04, 1.1), wood, { x: 1.95, y: SHELF_Y * 0.5, z: shelfZ + 0.55, rx: -0.75, cast: false })); // little ramp up
+  addBox(CX - 0.6, CZ + shelfZ, 5.0, 0.66);
+  const beds = Array.from({ length: slots }, (_, i) => {
+    const up = i >= 5, x = COLS[i % 5], z = up ? shelfZ : floorZ, y = up ? SHELF_Y : 0;
+    const col = BED_COLORS[i % 6];
+    const g = new THREE.Group(); g.position.set(x, y, z); inside.add(g);
+    g.add(mesh(new THREE.CylinderGeometry(0.36, 0.33, 0.13, 18), mat(col), { y: 0.065 }));
+    g.add(mesh(new THREE.TorusGeometry(0.31, 0.09, 8, 20), mat(col), { y: 0.15, rx: Math.PI / 2 }));
+    g.add(mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.05, 16), mat('#fff6ec'), { y: 0.14, cast: false }));
+    // name plaque: on the wall above shelf beds, on a little stake behind floor beds
+    const plaque = mesh(new THREE.PlaneGeometry(0.62, 0.23), new THREE.MeshStandardMaterial({ map: plaqueTex('', col), roughness: 0.8 }), up ? { y: 0.62, z: -0.27, cast: false } : { y: 0.5, z: -0.36, rx: -0.2, cast: false });
     g.add(plaque);
-    g.add(mesh(new THREE.BoxGeometry(0.66, 0.27, 0.02), mat('#c1906a'), { y: 0.72, z: -0.435, cast: false }));
-    return { id, pos: toWorld(x, z), spot: new THREE.Vector3(CX + x, 0.18, CZ + z), plaque, color: BED_COLORS[i % 6], name: '' };
+    g.add(mesh(new THREE.BoxGeometry(0.66, 0.27, 0.02), wood, up ? { y: 0.62, z: -0.285, cast: false } : { y: 0.5, z: -0.375, rx: -0.2, cast: false }));
+    if (!up) g.add(mesh(new THREE.BoxGeometry(0.04, 0.4, 0.04), woodDark, { y: 0.2, z: -0.4, cast: false }));
+    return { slot: i, pos: toWorld(x, up ? floorZ + 0.45 : z), spot: new THREE.Vector3(CX + x, y + 0.17, CZ + z), plaque, color: col, name: '' };
   });
 
-  // Scratching post (south-west, by the door) and a two-level cat tree (south-west corner)
-  const post = new THREE.Group(); post.position.set(-W / 2 + 1.7, 0, D / 2 - 0.5); inside.add(post);
-  post.add(mesh(new THREE.CylinderGeometry(0.3, 0.32, 0.08, 12), mat('#c8aaf2'), { y: 0.04 }));
+  // Scratching post (south side) and a two-level cat tree (south-west corner)
+  const post = new THREE.Group(); post.position.set(-W / 2 + 1.42, 0, D / 2 - 0.42); inside.add(post);
+  post.add(mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.08, 12), mat('#c8aaf2'), { y: 0.04 }));
   post.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.0, 8), mat('#ead6aa'), { y: 0.55 }));
   for (let k = 0; k < 6; k++) post.add(mesh(new THREE.TorusGeometry(0.095, 0.012, 4, 10), mat('#d9c08c'), { y: 0.15 + k * 0.15, rx: Math.PI / 2, cast: false }));
   post.add(mesh(new THREE.SphereGeometry(0.06, 8, 6), mat('#f58fa8'), { x: 0.12, y: 0.82 })); // dangling pom-pom
-  addCircle(CX - W / 2 + 1.7, CZ + D / 2 - 0.5, 0.3);
-  const tree = new THREE.Group(); tree.position.set(-W / 2 + 0.6, 0, D / 2 - 0.65); inside.add(tree);
-  tree.add(mesh(new THREE.BoxGeometry(0.8, 0.08, 0.8), mat('#c1906a'), { y: 0.04 }));
+  addCircle(CX - W / 2 + 1.42, CZ + D / 2 - 0.42, 0.26);
+  const tree = new THREE.Group(); tree.position.set(-W / 2 + 0.55, 0, D / 2 - 0.6); inside.add(tree);
+  tree.add(mesh(new THREE.BoxGeometry(0.75, 0.08, 0.75), mat('#c1906a'), { y: 0.04 }));
   tree.add(mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 8), mat('#ead6aa'), { y: 0.95 }));
   tree.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.0, 8), mat('#ead6aa'), { x: 0.25, y: 0.55, z: -0.2 }));
   tree.add(mesh(new THREE.BoxGeometry(0.6, 0.07, 0.55), mat('#f7c6d2'), { x: 0.1, y: 1.05, z: -0.1 }));
   tree.add(mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 14), mat('#9fd0ef'), { y: 1.86 }));
   tree.add(mesh(new THREE.TorusGeometry(0.27, 0.06, 6, 14), mat('#9fd0ef'), { y: 1.92, rx: Math.PI / 2 }));
   tree.add(mesh(new THREE.SphereGeometry(0.28, 12, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#c8aaf2'), { y: 0.1, x: 0.05, z: 0.15, sy: 0.9 })); // little hidey dome
-  addCircle(CX - W / 2 + 0.6, CZ + D / 2 - 0.65, 0.42);
+  addCircle(CX - W / 2 + 0.55, CZ + D / 2 - 0.6, 0.4);
   // perch spots on the cat tree (for napping)
-  const perches = [new THREE.Vector3(CX - W / 2 + 0.6, 1.95, CZ + D / 2 - 0.65), new THREE.Vector3(CX - W / 2 + 0.7, 1.12, CZ + D / 2 - 0.75)];
+  const perches = [new THREE.Vector3(CX - W / 2 + 0.55, 1.95, CZ + D / 2 - 0.6), new THREE.Vector3(CX - W / 2 + 0.65, 1.12, CZ + D / 2 - 0.7)];
   // a basket of toys
-  const toyB = new THREE.Group(); toyB.position.set(-0.4, 0, 0.3); inside.add(toyB);
+  const toyB = new THREE.Group(); toyB.position.set(-0.4, 0, 0.6); inside.add(toyB);
   toyB.add(mesh(new THREE.CylinderGeometry(0.25, 0.2, 0.25, 12, 1, true), mat('#c89466', { side: THREE.DoubleSide }), { y: 0.13 }));
   [['#f58fa8', 0.06, 0.25, 0], ['#9fd0ef', -0.08, 0.26, 0.05], ['#ffd76e', 0.02, 0.27, -0.08]].forEach(([c, x, y, z]) => toyB.add(mesh(new THREE.SphereGeometry(0.08, 8, 6), mat(c), { x, y, z })));
-  addCircle(CX - 0.4, CZ + 0.3, 0.28);
+  addCircle(CX - 0.4, CZ + 0.6, 0.28);
 
   /* --- fading --- */
   const isInside = (x, z) => Math.abs(x - CX) < W / 2 && Math.abs(z - CZ) < D / 2;
@@ -226,9 +235,9 @@ export function buildCatsHouse(scene, catIds) {
     },
     /** levels: 0 (fresh) .. 1 (needs scooping), one per box */
     setLitter(levels) { litter.forEach((b, i) => { const v = levels[i] || 0; b.clumps.forEach((c, k) => (c.visible = v > 0.15 + k * 0.17)); b.flies.visible = v > 0.75; b.sand.material.color.set(v > 0.6 ? '#ddd0b0' : '#efe3c8'); }); },
-    setBowl(id, full) { const b = bowls.find((x) => x.id === id); if (b) b.food.visible = !!full; },
-    setBedName(id, name) {
-      const b = beds.find((x) => x.id === id); if (!b || b.name === (name || '')) return;
+    setBowl(slot, full) { const b = bowls[slot]; if (b) b.food.visible = !!full; },
+    setBedName(slot, name) {
+      const b = beds[slot]; if (!b || b.name === (name || '')) return;
       b.name = name || ''; b.plaque.material.map.dispose(); b.plaque.material.map = plaqueTex(b.name, b.color); b.plaque.material.needsUpdate = true;
     },
   };

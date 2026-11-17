@@ -1,7 +1,8 @@
-// The sanctuary sim: Plow, Sow, Water, Harvest, then cook crops into cat food.
+// The sanctuary sim: grow veggies for the Crazy Cat Lady's own meals (and catnip treats),
+// buy cat food and clinic supplies with coins from adoptions, and care for up to 10 cats.
 // Ties together the garden, clock, kitchen, UI, sounds and the Crazy Cat Lady's comments.
 import * as THREE from 'three';
-import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, loadState, saveState, clearState } from './state.js';
+import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, SUPPLY_LABELS, loadState, saveState, clearState } from './state.js';
 import { Garden, GRID, tileAt, stageOf, tileCenter } from './garden.js';
 import { DayCycle, DAY_SECONDS } from './time.js';
 import { GameUI, TOOLS } from './ui.js';
@@ -11,7 +12,10 @@ import { CatManager } from './cats.js';
 import { Vet } from './vet.js';
 import { Journal } from './journal.js';
 import { CatMenu } from './catMenu.js';
-import { ISSUES } from './catData.js';
+import { ISSUES, MAX_CATS } from './catData.js';
+import { Shop } from './shop.js';
+import { StatsCard } from './statsCard.js';
+import { Adoption } from './adoption.js';
 
 const TILE_COUNT = GRID.cols * GRID.rows;
 
@@ -55,6 +59,11 @@ export class Game {
     this.cats = new CatManager(this);
     this.vet = new Vet(this);
     this.catMenu = new CatMenu(this);
+    this.statsCard = new StatsCard(this);
+    this.shop = new Shop(this);
+    this.adoption = new Adoption(this);
+    this.shopOpen = false; this.adoptOpen = false;
+    this.needNag = 60;
 
     this.day.onDawn = () => this.dawn();
     this.day.onBedtime = () => this.bedtime();
@@ -66,9 +75,13 @@ export class Game {
       if (!this.playing || e.repeat) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (!this.vet.naming.classList.contains('hidden')) return;
-      if (e.code === 'KeyJ') { this.catMenu.close(); this.journal.toggle(); return; }
-      if (e.code === 'Escape') { if (this.journalOpen) this.journal.toggle(false); else if (this.catMenu.isOpen) this.catMenu.close(); else if (this.vet.exam && this.vet.exam.step === 'checks') this.vet.close(false); return; }
-      if (this.journalOpen || this.locked) { if (e.code === 'Space') e.preventDefault(); return; }
+      if (e.code === 'KeyJ') { this.catMenu.close(); this.statsCard.close(); this.journal.toggle(); return; }
+      if (e.code === 'Escape') {
+        if (this.journalOpen) this.journal.toggle(false); else if (this.shopOpen) this.shop.toggle(false); else if (this.adoptOpen) this.adoption.close();
+        else if (this.statsCard.isOpen) this.statsCard.close(); else if (this.catMenu.isOpen) this.catMenu.close(); else if (this.vet.exam && this.vet.exam.step === 'checks') this.vet.close(false);
+        return;
+      }
+      if (this.blocked) { if (e.code === 'Space') e.preventDefault(); return; }
       if (this.catMenu.isOpen) {
         if (/^Digit[1-9]$/.test(e.code)) { this.catMenu.key(Number(e.code.slice(5))); return; }
         if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); this.catMenu.close(); return; }
@@ -81,6 +94,9 @@ export class Game {
     addEventListener('pagehide', () => saveState(this.state));
     document.addEventListener('visibilitychange', () => document.hidden && saveState(this.state));
   }
+
+  /** True while a full-screen card is open (she stands still). */
+  get blocked() { return this.locked || this.journalOpen || this.shopOpen || this.adoptOpen; }
 
   start() {
     this.playing = true;
@@ -127,17 +143,21 @@ export class Game {
     }
     if (table) return table;
     if (cat) return this.catAction(cat);
+    const visitor = this.adoption.action(p);
+    if (visitor) return visitor;
     if (W.cottage.isInside(p.x, p.z)) {
       if (near(W.cottage.stovePos, 1.3)) {
-        return crops > 0
-          ? { ok: true, label: `Cook ${crops} crop${crops > 1 ? 's' : ''} into cat food`, run: () => this.cook() }
-          : { ok: false, label: 'Cat Food Kitchen: harvest crops, then cook them here' };
+        if (crops > 0) return { ok: true, label: `Cook ${crops} veggie${crops > 1 ? 's' : ''} into home-cooked meals`, run: () => this.cook() };
+        if (s.meals > 0) return this.eatAction();
+        return { ok: false, label: 'Kitchen stove: harvest veggies from the garden, then cook your meals here' };
       }
       if (near(W.cottage.bedPos, 1.2)) return this.bedAction();
-      if (near(W.cottage.pantryPos, 1.0)) return { ok: false, label: `Pantry: ${s.food} portion${s.food === 1 ? '' : 's'} of cat food` };
+      if (near(W.cottage.pantryPos, 1.0)) return s.meals > 0 ? this.eatAction() : { ok: false, label: `Pantry: ${s.food} cat food, no meals cooked. Cook veggies at the stove` };
       return null;
     }
     if (W.catsHouse.isInside(p.x, p.z)) return this.catsHouseAction(p);
+    if (W.clinic.isInside(p.x, p.z)) { const k = this.kennelAction(p); if (k) return k; }
+    if (near(W.supplyStall.pos, 1.5)) return { ok: true, label: `Browse the Supply Shelf (${s.coins} coins)`, run: () => this.shop.toggle(true) };
     if (near(W.seedBox.position, 1.6)) {
       return s.seedBoxDay < s.day
         ? { ok: true, label: "Collect today's free seeds", run: () => this.collectSeeds() }
@@ -184,13 +204,42 @@ export class Game {
     return { tile: i, ok: true, label: `Water the ${what}`, run: () => this.water(i) };
   }
 
+  /** In the clinic: the kennels (daily care and discharge happen on the cat's stats card). */
+  kennelAction(p) {
+    const ks = this.vet.kennels;
+    let best = -1, bd = 1.4;
+    ks.forEach((k, i) => { const d = Math.hypot(p.x - k.front.x, p.z - k.front.z); if (d < bd) { bd = d; best = i; } });
+    if (best < 0) return null;
+    const cs = this.vet.kennelCases().find((c) => c.kennel === best);
+    const label = ks[best].bed ? 'Recovery bed' : `Kennel ${best + 1}`;
+    if (!cs) return { ok: false, label: `${label}: empty and freshly made up` };
+    const cat = this.cats.byId(cs.catId); if (!cat) return null;
+    if (cs.stage === 'healed') return { ok: true, label: `Discharge ${cat.data.name}: all better!`, run: () => this.statsCard.open(cat) };
+    const todo = this.vet.dailyTasks(cs).filter((t) => !cs.today?.[t]).length;
+    return { ok: true, label: todo ? `Care for ${cat.data.name} in ${label.toLowerCase()} (${todo} to do today)` : `${cat.data.name}: all of today's care done (healing ${Math.round(cs.heal)}%)`, run: () => this.statsCard.open(cat) };
+  }
+  eatAction() {
+    const L = this.state.lady;
+    if (L.hunger > 92) return { ok: false, label: `Not hungry right now (${this.state.meals} home-cooked meal${this.state.meals === 1 ? '' : 's'} ready)` };
+    return { ok: true, label: `Eat a home-cooked meal (${this.state.meals} ready)`, run: () => this.eatMeal() };
+  }
+  eatMeal() {
+    const s = this.state;
+    if (s.meals <= 0) return;
+    s.meals--; s.lady.hunger = Math.min(100, s.lady.hunger + 45); s.lady.energy = Math.min(100, s.lady.energy + 15);
+    this.lady.act(); sound.play('eat');
+    this.floatAtLady('Mmm, a warm home-cooked meal! (+hunger, +energy)', '#c95c74', 'meal');
+    if (!s.flags.ateMeal) { s.flags.ateMeal = true; this.host.say('Ahh, much better. A cat lady needs her veggies too! The garden feeds me now, and cat food comes in bags from the Supply Shelf.', 7); }
+  }
+
   catAction(c) {
     const d = c.data, name = this.cats.displayName(c);
     if (c.escort) return { ok: false, label: `${d.named ? d.name : 'The new arrival'} is walking with you. Head to the clinic exam table` };
     if (d.mode === 'stray') return { ok: true, label: this.state.food > 0 ? 'Sit quietly with the stray (offer a little food)' : 'Sit quietly with the shy stray', run: () => this.cats.befriend(c) };
     if (!d.joined) return { ok: true, label: 'Walk the new arrival to the clinic for a Welcome Vet Check', run: () => this.cats.escort(c) };
     const cs = this.vet.activeCase(d.id);
-    const extra = cs && cs.stage === 'noticed' ? ' (seems a little off)' : cs && cs.stage === 'followup' ? ' (follow-up due)' : '';
+    if (cs && (cs.stage === 'kennel' || cs.stage === 'healed')) return { ok: true, label: cs.stage === 'healed' ? `Discharge ${name}: all better!` : `Care for ${name} in the kennel`, run: () => this.statsCard.open(c) };
+    const extra = cs && cs.stage === 'noticed' ? ' (seems a little off)' : '';
     return { ok: true, label: `Care for ${name}${extra}`, run: () => this.catMenu.open(c) };
   }
 
@@ -203,27 +252,28 @@ export class Game {
       if (!joined.length) return { ok: false, label: 'Feeding station: no cats live here yet' };
       const empty = joined.filter((c) => !s.bowls[c.data.id]);
       if (!empty.length) return { ok: false, label: 'All the bowls are full. The cats are on their way!' };
-      if (s.food <= 0) return { ok: false, label: 'Pantry is empty. Cook cat food in the cottage kitchen' };
+      if (s.food <= 0) return { ok: false, label: 'Out of cat food. Buy a bag at the Supply Shelf (by the Cats\' House)' };
       const n = Math.min(empty.length, s.food);
-      return { ok: true, label: `Fill ${n} food bowl${n > 1 ? 's' : ''} (${s.food} in the pantry)`, run: () => this.feedCats() };
+      return { ok: true, label: `Fill ${n} food bowl${n > 1 ? 's' : ''} (${s.food} cat food left)`, run: () => this.feedCats() };
     }
-    const bi = H.litter.findIndex((b) => near(b.pos, 0.95));
+    let bi = -1, bd = 0.95;
+    H.litter.forEach((b, i) => { const d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z); if (d < bd) { bd = d; bi = i; } });
     if (bi >= 0) {
       const users = cats.joined().filter((c) => cats.boxOf(c) === bi).map((c) => c.data.name);
       const whose = users.length ? ` (${users.join(' & ')})` : '';
       return (s.litterBoxes[bi] || 0) > 0.12 ? { ok: true, label: `Scoop litter box ${bi + 1}${whose}`, run: () => this.cleanLitter(bi) } : { ok: false, label: `Litter box ${bi + 1}${whose}: fresh and clean` };
     }
-    const bed = H.beds.find((b) => near(b.pos, 0.95));
+    const bed = H.beds.filter((b) => near(b.pos, 0.95)).sort((a, b) => Math.hypot(p.x - a.pos.x, p.z - a.pos.z) - Math.hypot(p.x - b.pos.x, p.z - b.pos.z))[0];
     if (bed) return { ok: false, label: bed.name ? `${bed.name}'s cozy bed` : 'A cozy bed, ready for the next cat' };
     return null;
   }
   feedCats() {
     const n = this.cats.serveMeals(false);
     this.lady.act();
-    const p = this.world.catsHouse.bowls[0].pos;
+    const p = this.world.catsHouse.bowls[4].pos;
     this.particles.emit(new THREE.Vector3(p.x - 0.2, 0.4, p.z + 0.6), { color: '#f4a3b5', count: 10, speed: 0.6, up: 1.4, gravity: 0.5, size: 0.045, emissive: true, life: 1.2 });
     this.floatAtLady(`Filled ${n} bowl${n > 1 ? 's' : ''}. Dinner time, kitties!`, '#c95c74', 'food');
-    if (!this.state.flags.fedHouse) { this.state.flags.fedHouse = true; this.host.say("Shake the scoop and they come running! Each cat has their own bowl. The food comes from the pantry we cook in the kitchen.", 7); }
+    if (!this.state.flags.fedHouse) { this.state.flags.fedHouse = true; this.host.say("Shake the scoop and they come running! Each cat has their own bowl. Cat food comes in bags from the Supply Shelf now.", 7); }
     else this.host.say('Here kitty kitty! Dinner is served.', 4);
   }
   cleanLitter(i) {
@@ -239,11 +289,9 @@ export class Game {
 
   /** Tapping/clicking a cat in the world (handy on phones). */
   tapCat(c) {
-    if (!this.playing || this.locked || this.journalOpen) return false;
-    const p = this.lady.group.position;
-    if (Math.hypot(p.x - c.pos.x, p.z - c.pos.z) > 3) { this.floatAt(c.pos, `${this.cats.displayName(c)}: come a little closer`, '#8d7388'); return true; }
-    const a = this.catAction(c);
-    if (a && a.ok && a.run) { a.run(); this.save(); } else if (a) this.floatAt(c.pos, a.label, '#8d7388');
+    if (!this.playing || this.blocked) return false;
+    this.catMenu.close();
+    this.statsCard.open(c);
     return true;
   }
 
@@ -254,8 +302,9 @@ export class Game {
   }
 
   use() {
-    if (!this.playing || this.locked || this.journalOpen) return;
+    if (!this.playing || this.blocked) return;
     if (this.catMenu.isOpen) { this.catMenu.close(); return; }
+    if (this.statsCard.isOpen) { this.statsCard.close(); return; }
     const a = this.findAction(); // always fresh (the tool may have changed since the last frame)
     if (a && a.ok && a.run) { a.run(); this.save(); }
     else { sound.play('nope'); if (a) this.floatAtLady(a.label.split('.')[0], '#8d7388'); }
@@ -297,17 +346,20 @@ export class Game {
     this.particles.emit(tileCenter(i).setY(0.4), { color: CROPS[c].color, count: 10, speed: 1, up: 2.5, size: 0.06 });
     this.particles.emit(tileCenter(i).setY(0.6), { color: '#ffe27a', count: 8, speed: 0.8, up: 1.5, gravity: 1, size: 0.04, emissive: true });
     this.floatAtLady(`+1 ${CROPS[c].name}`, '#5b4256', c);
-    this.firstTime('harvest', 'A harvest! Take it to the Cat Food Kitchen in my cottage and cook it at the stove.');
+    if (c === 'catnip') this.firstTime('harvest', 'Catnip! Offer it to a cat from the care menu for a happy, bond-boosting treat.');
+    else if (c === 'chamomile') this.firstTime('harvest', 'Chamomile! The clinic uses it to make remedies work faster.');
+    else this.firstTime('harvest', 'A harvest! Cook it at the stove in my cottage. That\'s my dinner sorted!');
   }
+  /** Veggies from the garden become home-cooked meals for the Crazy Cat Lady herself. */
   cook() {
     const s = this.state;
     let made = 0;
     FOOD_CROPS.forEach((c) => { made += s.crops[c] * CROPS[c].food; s.crops[c] = 0; });
-    s.food += made; s.stats.cooked += made;
-    this.world.cottage.cook(3); this.world.cottage.setFood(s.food);
+    s.meals = (s.meals || 0) + made; s.stats.cooked += made;
+    this.world.cottage.cook(3);
     this.lady.act(); sound.play('cook');
-    this.floatAtLady(`+${made} cat food`, '#c95c74', 'food');
-    this.host.say(`Mmm, smells purr-fect! ${made} portion${made > 1 ? 's' : ''} of cat food for the pantry.`, 5);
+    this.floatAtLady(`+${made} home-cooked meal${made > 1 ? 's' : ''}`, '#c95c74', 'meal');
+    this.host.say(`Mmm, veggie stew! ${made} meal${made > 1 ? 's' : ''} for me. Press E at the stove or pantry when I'm peckish.`, 6);
   }
   /** The cottage bed: Sleep from 6 PM on (at 10 PM you have to). */
   bedAction() {
@@ -332,6 +384,7 @@ export class Game {
       const ripe = this.garden.grow(hours);
       this.cats.simulate(hours * 0.6); // cats sleep through the night too
       this.cats.pileForNight();
+      this.state.lady.energy = 100; this.state.lady.hunger = Math.max(15, this.state.lady.hunger - 12);
       this.day.sleep(); // triggers dawn()
       this.cats.prevHour = this.state.hour;
       if (ripe.length) this.notifyRipe(ripe);
@@ -343,7 +396,7 @@ export class Game {
     CROP_IDS.forEach((c) => (s.seeds[c] += DAILY_SEEDS[c]));
     s.seedBoxDay = s.day; this.updateSeedBox();
     sound.play('pickup'); this.lady.act();
-    this.floatAtLady(`+${DAILY_SEEDS.carrot} carrot, +${DAILY_SEEDS.cabbage} cabbage, +${DAILY_SEEDS.pumpkin} pumpkin, +${DAILY_SEEDS.chamomile} chamomile seeds`, '#5b4256', 'seeds');
+    this.floatAtLady(`+${DAILY_SEEDS.carrot} carrot, +${DAILY_SEEDS.cabbage} cabbage, +${DAILY_SEEDS.pumpkin} pumpkin, +${DAILY_SEEDS.chamomile} chamomile, +${DAILY_SEEDS.catnip} catnip seeds`, '#5b4256', 'seeds');
   }
   fillCan() {
     this.state.water = this.state.waterMax; sound.play('fill'); this.lady.act();
@@ -361,7 +414,12 @@ export class Game {
     if (planted) line = 'Good morning! The soil dried overnight, so give the crops some water.';
     if (ripe) line += ` ${ripe} crop${ripe > 1 ? 's are' : ' is'} ripe and waiting. No rush, they never wilt!`;
     if (this.cats.joined().length) line = `Good morning! Let's check on the cats: a pet, a play and breakfast at 8. ${line.replace(/^Good morning[!,]\s*(dearie!\s*)?/, '')}`;
+    // the donation jar by the gate: kind neighbors drop a few coins in overnight
+    const gift = 6 + Math.min(6, this.cats.joined().length);
+    this.state.coins += gift;
+    this.journal.log(`The donation jar had ${gift} coins in it this morning. Thank you, neighbors!`);
     this.vet.dawn();
+    this.adoption.dawn();
     setTimeout(() => this.host.say(line, 7), 300);
     this.save();
   }
@@ -402,15 +460,20 @@ export class Game {
     this.particles.update(dt);
     this.cats.update(dt, hours, t);
     this.catMenu.update();
+    this.statsCard.update();
+    this.adoption.update(dt, t);
+    this.updateLady(dt, hours);
     const joined = this.cats.joined();
     const waiting = this.cats.list.find((c) => !c.data.joined);
     if (joined.length) {
       const avg = joined.reduce((n, c) => n + this.cats.happiness(c), 0) / joined.length;
       const off = joined.find((c) => this.vet.activeCase(c.data.id)?.stage === 'noticed');
-      const fu = joined.find((c) => this.vet.activeCase(c.data.id)?.stage === 'followup');
-      this.ui.setCats(`${joined.length}`, off ? `${off.data.name} seems a little off` : fu ? `${fu.data.name}: follow-up due` : waiting ? 'A new cat is waiting for you!' : avg >= 70 ? 'Happy, purring cats' : avg >= 45 ? 'Cats are content' : 'Cats would love some attention');
+      const fu = joined.find((c) => this.vet.activeCase(c.data.id)?.stage === 'healed');
+      const kennel = this.vet.kennelCases().find((cs) => this.vet.careDue(cs));
+      const vis = this.adoption.npc && this.state.visitor;
+      this.ui.setCats(`${joined.length} / ${MAX_CATS}`, off ? `${off.data.name} seems a little off` : fu ? `${fu.data.name} is healed: discharge at the kennel` : kennel ? `${this.cats.byId(kennel.catId)?.data.name || 'A cat'} needs kennel care today` : waiting ? 'A new cat is waiting for you!' : vis ? 'An adoption visitor is here!' : avg >= 70 ? 'Happy, purring cats' : avg >= 45 ? 'Cats are content' : 'Cats would love some attention');
     } else this.ui.setCats('0', waiting ? (waiting.data.mode === 'stray' ? 'A shy stray is by the garden' : 'A new arrival is at the gate!') : 'The first cat arrives soon...');
-    if (this.playing && (this.locked || this.journalOpen || this.catMenu.isOpen)) {
+    if (this.playing && (this.blocked || this.catMenu.isOpen)) {
       this.action = null; this.garden.showHighlight(-1); this.ui.setPrompt(null, this.touch);
     } else if (this.playing) {
       this.action = this.findAction();
@@ -424,6 +487,23 @@ export class Game {
     this.ui.update(this.state, this.day);
   }
 
+  /** Her own soft needs: hunger and energy. Low values only slow her down a little (never a fail state). */
+  updateLady(dt, hours) {
+    const L = this.state.lady;
+    if (hours > 0) {
+      L.hunger = Math.max(5, L.hunger - hours * 4.5);
+      L.energy = Math.max(5, L.energy - hours * 3.4);
+    }
+    this.ladySpeed = (L.hunger < 20 || L.energy < 15) ? 0.8 : 1;
+    if (!this.playing || this.blocked) return;
+    this.needNag -= dt;
+    if (this.needNag <= 0) {
+      this.needNag = 75;
+      if (L.hunger < 25) this.host.say(this.state.meals > 0 ? "My tummy's rumbling, dearie. Let's eat a home-cooked meal in the cottage kitchen." : "My tummy's rumbling! Let's harvest some veggies and cook a meal in the cottage.", 6);
+      else if (L.energy < 20 && !this.day.bedtime) this.host.say("Yawn... I'm running low on energy. A meal perks me up, and a good night's sleep fixes everything.", 6);
+    }
+  }
+
   /** Public API for future features (cats!) and testing. */
   api() {
     const g = this, s = this.state;
@@ -431,7 +511,7 @@ export class Game {
       state: s, garden: this.garden, day: this.day,
       food: this.api_food,
       cats: {
-        list: () => g.cats.list.map((c) => ({ id: c.data.id, name: c.data.name, named: c.data.named, joined: c.data.joined, mode: c.data.mode, escort: !!c.escort, bond: g.cats.level(c), bondXP: c.data.bondXP, happiness: Math.round(g.cats.happiness(c)), needs: { ...c.data.needs }, x: +c.pos.x.toFixed(2), y: +c.pos.y.toFixed(2), z: +c.pos.z.toFixed(2), anim: c.model.anim, task: c.task && c.task.type })),
+        list: () => g.cats.list.map((c) => ({ id: c.data.id, slot: c.data.slot, health: Math.round(c.data.health), caged: !!c.caged, look: c.def.look, personality: c.def.personality, name: c.data.name, named: c.data.named, joined: c.data.joined, mode: c.data.mode, escort: !!c.escort, bond: g.cats.level(c), bondXP: c.data.bondXP, happiness: Math.round(g.cats.happiness(c)), needs: { ...c.data.needs }, x: +c.pos.x.toFixed(2), y: +c.pos.y.toFixed(2), z: +c.pos.z.toFixed(2), anim: c.model.anim, task: c.task && c.task.type })),
       },
       vet: { get knowledge() { return g.vet.knowledge; }, cases: () => s.cases, get exam() { return g.vet.exam && { step: g.vet.exam.step, kind: g.vet.exam.kind, settled: g.vet.exam.settled }; } },
       journal: { moments: () => s.journal.moments, open: (v) => g.journal.toggle(v) },
@@ -449,6 +529,14 @@ export class Game {
         bond(id, xp) { const c = g.cats.byId(id); c.data.bondXP = xp; },
         placeCat(id, x, z, y = 0) { const c = g.cats.byId(id); c.pos.set(x, y, z); c.path = []; c.task = { type: 'idle', anim: 'sit', t: 20 }; },
         pile: () => g.cats.pileForNight(),
+        newArrival: () => { const d = g.cats.newArrival(); return d && d.id; },
+        coins(n) { s.coins = n; },
+        supplies(o) { Object.assign(s.supplies, o); },
+        visitor(hour = s.hour) { const v = g.adoption.schedule(undefined, hour); return v; },
+        stats: (id) => g.statsCard.open(g.cats.byId(id)),
+        kennelCare: (id, t) => g.vet.kennelCare(g.cats.byId(id), t),
+        heal(id, v) { const cs = g.vet.activeCase(id); if (cs) { cs.heal = 0; g.vet.addHeal(cs, v); } },
+        lady(o) { Object.assign(s.lady, o); },
         use: () => g.use(),
       },
     };

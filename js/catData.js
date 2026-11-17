@@ -8,7 +8,11 @@ export const PERSONALITIES = {
   shy: { label: 'Shy', blurb: 'Gentle and cautious. Trust grows slowly but deeply.', hint: 'He tucks his tail and watches you with big round eyes.', affectionDecay: 0.8, bondGain: 0.7, settle: 'Offer a slow blink and a gentle chin scratch' },
   independent: { label: 'Independent', blurb: 'Does things on their own terms.', hint: 'Sits calmly and looks a little unimpressed by all the fuss.', affectionDecay: 0.6, bondGain: 0.9, settle: null },
   'food-motivated': { label: 'Food-motivated', blurb: 'Will do anything for a snack.', hint: 'Sniffs your apron pocket, hoping for a treat.', hungerDecay: 1.3, bondGain: 1.0, settle: 'Offer a little treat' },
+  sleepy: { label: 'Sleepy', blurb: 'A champion napper who adores warm, soft spots.', hint: 'Yawns hugely and starts kneading the soft exam pad.', funDecay: 0.7, energyDecay: 1.4, bondGain: 1.0, settle: null },
+  curious: { label: 'Curious', blurb: 'Nose first into everything. Has to inspect every box.', hint: 'Sniffs every instrument on the tray, whiskers twitching.', funDecay: 1.2, bondGain: 1.1, settle: 'Let the kitty sniff the stethoscope first' },
+  chatty: { label: 'Chatty', blurb: 'Has a LOT to say, mostly about dinner.', hint: 'Keeps up a running commentary of chirps and meows.', affectionDecay: 1.1, hungerDecay: 1.1, bondGain: 1.15, settle: null },
 };
+export const PERSONALITY_IDS = Object.keys(PERSONALITIES);
 
 /** Favorite resting spots around the sanctuary (world positions, y = how high the spot is). */
 export const SPOTS = {
@@ -87,6 +91,9 @@ export const TREATMENTS = {
   bland: { label: 'Bland diet for a day', icon: 'bowl', desc: 'Plain rice with mashed carrot and a little chamomile tea for a gentle tummy.' },
   flea: { label: 'Flea treatment + comb', icon: 'comb', desc: 'A gentle herbal flea rinse and a careful comb-through.' },
   rest: { label: 'Quiet rest in the recovery bed', icon: 'bed', desc: 'A calm, cozy recovery bed with a soft blanket and chamomile to help settle.' },
+  shot: { label: 'Antibiotic shot + daily medicine', icon: 'syringe', desc: 'A quick, gentle shot and a course of medicine.' },
+  bandage: { label: 'Bandage wrap + daily medicine', icon: 'bandage', desc: 'A snug, soft bandage wrap and pain medicine.' },
+  meds: { label: 'Daily medicine', icon: 'pill', desc: 'A course of soothing medicine.' },
 };
 
 /**
@@ -123,7 +130,127 @@ export const ISSUES = {
     note: 'Big changes at home: a new cat moved in',
   },
 };
+Object.assign(ISSUES, {
+  cold: {
+    name: 'Sniffly cat cold', short: 'sniffly cold', treatment: 'shot', anim: 'hunch',
+    cue: 'is sneezing and has a runny little nose',
+    thought: 'sneeze',
+    clues: { heart: ['A little wheezy when {she} breathes in.', 'Snuffly, wheezy breathing from a stuffed-up nose: an upper respiratory cat cold.'], eyes: ['Eyes a bit watery.', 'Watery eyes and a runny nose: classic cat-cold signs.'], thermo: ['A touch warm.', 'A mild fever (39.4 °C): {his} body is fighting a cold.'] },
+    note: 'A cat cold (upper respiratory infection)',
+  },
+  injury: {
+    name: 'Sprained leg', short: 'sprained leg', treatment: 'bandage', anim: 'lick',
+    cue: 'is limping and holding one front leg up',
+    thought: 'limp',
+    clues: { paws: ['{She} flinches when you touch one front leg.', 'Front leg is swollen at the wrist but nothing is broken: a sprain from a bad jump.'], scale: ['{She} won\'t put weight on one leg on the scale.', 'Keeps all the weight off one front leg: a painful sprain.'] },
+    note: 'Sprained a leg jumping down from somewhere high',
+  },
+  ear: {
+    name: 'Ear infection', short: 'sore ear', treatment: 'meds', anim: 'scratch',
+    cue: 'keeps shaking {his} head and tilting it to one side',
+    thought: 'ear',
+    clues: { eyes: ['One ear looks pink and a little waxy inside.', 'Red, waxy ear canal with a funny smell: a mild ear infection.'], thermo: ['Temperature normal.', 'Normal temperature: the problem is just in the ear.'], coat: ['Scratched fur behind one ear.', 'Fur is scratched thin behind one ear from all the itching.'] },
+    note: 'Mild ear infection',
+  },
+});
 export const ISSUE_IDS = Object.keys(ISSUES);
+
+/**
+ * Clinic care plans. After the gentle diagnosis the cat is admitted to a kennel.
+ * first = done once at admission (on the exam table), daily = each day until healed,
+ * days = how many days of full care it takes. Every day also has a gentle "check".
+ * Missed doses only slow healing down (nothing bad ever happens).
+ */
+export const CARE = {
+  shot: { label: 'Give a shot', supply: 'shot', icon: 'syringe', done: 'Gave a gentle shot' },
+  meds: { label: 'Give medicine', supply: 'medicine', icon: 'pill', done: 'Gave today\'s medicine' },
+  bandage: { label: 'Wrap a bandage', supply: 'bandage', icon: 'bandage', done: 'Wrapped a fresh bandage' },
+  check: { label: 'Daily check & cuddle', supply: null, icon: 'steth', done: 'Daily check & cuddle' },
+};
+export const PLANS = {
+  paw: { first: ['bandage'], daily: ['meds'], days: 2, text: 'Clean the sore pad, salve and a soft bandage, then soothing medicine each day.' },
+  stomach: { first: [], daily: ['meds'], days: 2, text: 'Tummy-settling medicine each day and a bland diet in the kennel.' },
+  fleas: { first: ['meds'], daily: [], days: 1, text: 'A gentle flea treatment, a comb-through and a day of rest.' },
+  stress: { first: [], daily: [], days: 2, text: 'A quiet kennel with a blanket, and lots of calm daily check-ins.' },
+  cold: { first: ['shot'], daily: ['meds'], days: 3, text: 'An antibiotic shot, then a dose of medicine every day while the sniffles clear.' },
+  injury: { first: ['bandage'], daily: ['meds'], days: 3, text: 'A snug bandage wrap for the sprain and pain medicine each day. Lots of rest!' },
+  ear: { first: ['shot'], daily: ['meds'], days: 2, text: 'An antibiotic shot and soothing ear drops each day.' },
+};
+/** Which issues can show up for a cat later on (not the new-cat stress). */
+export const SICK_ISSUES = ['paw', 'stomach', 'fleas', 'cold', 'injury', 'ear'];
+
+/* ---------------- generated arrivals (cats 4 to 10 and beyond) ---------------- */
+export const COATS = [
+  { look: 'orangeTabby', coat: 'Orange tabby', breeds: ['Domestic Shorthair', 'Domestic Longhair'], names: ['Marmalade', 'Ginger', 'Cheeto', 'Apricot'] },
+  { look: 'tuxedo', coat: 'Black & white tuxedo', breeds: ['Domestic Shorthair', 'Domestic Medium-hair'], names: ['Domino', 'Tux', 'Penguin', 'Bow Tie'] },
+  { look: 'creamPoint', coat: 'Cream with chocolate points', breeds: ['Siamese mix', 'Ragdoll mix', 'Birman mix'], names: ['Latte', 'Mocha', 'Snowpea', 'Cocoa'] },
+  { look: 'greyTabby', coat: 'Silver-grey tabby', breeds: ['Domestic Shorthair', 'American Shorthair', 'Maine Coon mix'], names: ['Smokey', 'Pewter', 'Misty', 'Ash'] },
+  { look: 'calico', coat: 'Calico (orange, black & white)', breeds: ['Domestic Shorthair', 'Japanese Bobtail mix'], names: ['Patches', 'Confetti', 'Quilt', 'Freckles'] },
+  { look: 'black', coat: 'Glossy black', breeds: ['Bombay mix', 'Domestic Shorthair'], names: ['Midnight', 'Salem', 'Inky', 'Licorice'] },
+  { look: 'white', coat: 'Snowy white', breeds: ['Turkish Angora mix', 'Domestic Longhair'], names: ['Snowball', 'Marshmallow', 'Pearl', 'Cloud'] },
+  { look: 'tortie', coat: 'Tortoiseshell', breeds: ['Domestic Shorthair', 'British Shorthair mix'], names: ['Toffee', 'Truffle', 'Brownie', 'Mosaic'] },
+  { look: 'russianBlue', coat: 'Soft blue-grey', breeds: ['Russian Blue mix', 'Chartreux mix', 'British Shorthair'], names: ['Blue', 'Storm', 'Velvet', 'Earl Grey'] },
+  { look: 'brownTabby', coat: 'Brown mackerel tabby', breeds: ['Maine Coon mix', 'Norwegian Forest mix', 'Domestic Shorthair'], names: ['Hazelnut', 'Acorn', 'Tiger', 'Bramble'] },
+  { look: 'creamTabby', coat: 'Cream tabby', breeds: ['Domestic Longhair', 'Persian mix'], names: ['Custard', 'Butterscotch', 'Honey', 'Shortbread'] },
+];
+const AGES = [
+  ['about 4 months old (a kitten!)', 'Tiny needle-sharp kitten teeth: about 4 months old.', 0.75],
+  ['about 8 months old', 'Brand-new adult teeth, sparkling white: about 8 months old.', 0.85],
+  ['about 2 years old', 'Clean teeth with the tiniest bit of wear: about 2 years old.', 1],
+  ['about 5 years old', 'Some tartar on the back teeth: about 5 years old.', 1.05],
+  ['about 9 years old (a wise senior)', 'Worn, yellowed teeth: a distinguished senior, about 9 years old.', 1.05],
+];
+const TREATS = ['tuna flakes', 'chicken bites', 'salmon pâté', 'pumpkin purée', 'freeze-dried shrimp', 'turkey crumbles', 'a lick of plain yogurt'];
+const NEIGHBORS = ['Mrs. Pennywhistle', 'old Mr. Haverford', 'the Okafor family', 'young Pip from the bakery', 'Miss Delphine', 'the Larsen twins'];
+const FOSTER_WHY = ['is off visiting family for a few weeks', 'found a kitten under the hedge', 'just moved somewhere with no pets allowed', 'is going into the hospital for a while'];
+const STRAY_SPOTS = [{ x: -15.6, z: 1.6 }, { x: 3.6, z: 11.2 }, { x: -6.5, z: -4.0 }, { x: 15.5, z: 2.5 }];
+export const SOURCES = {
+  rescue: { from: 'Rescue', arrival: 'gate' },
+  shelter: { from: 'Shelter transfer', arrival: 'gate' },
+  stray: { from: 'Befriended stray', arrival: 'stray' },
+  foster: { from: 'Neighbor foster', arrival: 'gate' },
+};
+
+/** Make a brand-new cat for the sanctuary (stored in the save, so it stays the same cat). */
+export function makeCatDef(id, takenNames = [], rand = Math.random) {
+  const pick = (a) => a[Math.floor(rand() * a.length)];
+  const coat = pick(COATS), [age, ageClue, ageScale] = pick(AGES);
+  const source = pick(['rescue', 'rescue', 'shelter', 'shelter', 'stray', 'foster']);
+  const sex = rand() < 0.5 ? 'girl' : 'boy';
+  let sourceLabel;
+  if (source === 'rescue') sourceLabel = pick(['Rescue from the Whiskerton Rescue League', 'Rescued from a rainy storm drain by the fire brigade', 'Rescue from a busy farm down the lane']);
+  else if (source === 'shelter') sourceLabel = pick(['Transfer from the Paws & Whiskers Shelter', 'Transfer from the overcrowded city shelter', 'Transfer from the Hilltop Animal Shelter']);
+  else if (source === 'stray') sourceLabel = 'A shy stray who wandered into the sanctuary';
+  else sourceLabel = `Foster from ${pick(NEIGHBORS)}, who ${pick(FOSTER_WHY)}`;
+  // strays and rescues more often arrive a little unwell
+  const sickChance = source === 'stray' ? 0.55 : source === 'rescue' ? 0.4 : 0.25;
+  const starterIssue = rand() < sickChance ? pick(['fleas', 'paw', 'cold', 'injury', 'ear', 'cold']) : null;
+  const pool = [...coat.names, ...RANDOM_NAMES].filter((n) => !takenNames.includes(n));
+  const names = [];
+  while (names.length < 4 && pool.length) names.push(pool.splice(Math.floor(rand() * Math.min(pool.length, names.length < 2 ? coat.names.length : pool.length)), 1)[0]);
+  const scale = +(ageScale * (0.92 + rand() * 0.16)).toFixed(2);
+  return {
+    id, generated: true, arriveDay: 0, source, sourceLabel,
+    arrival: SOURCES[source].arrival,
+    spawn: SOURCES[source].arrival === 'stray' ? pick(STRAY_SPOTS) : { x: rand() < 0.5 ? 1.2 : -1.2, z: 14.2 },
+    sex, breed: pick(coat.breeds), coat: coat.coat, look: coat.look, scale,
+    personality: pick(PERSONALITY_IDS), age, ageClue,
+    weight: +(2 + ageScale * 2.6 + rand() * 0.9).toFixed(1), temp: +(38.3 + rand() * 0.5).toFixed(1),
+    favToy: pick(['wand', 'yarn']), favSpot: pick(Object.keys(SPOTS)), favTreat: pick(TREATS),
+    starterIssue, names,
+  };
+}
+
+/** People who come by to adopt a cat. */
+export const ADOPTERS = [
+  { name: 'Mrs. Pennywhistle', who: 'a retired piano teacher with a sunny window seat', coat: '#c8aaf2', hat: '#f7a8c4' },
+  { name: 'The Okafor family', who: 'a family with two gentle kids and a big garden', coat: '#9fd0ef', hat: '#ffd76e' },
+  { name: 'Mr. Haverford', who: 'a quiet bookshop owner who needs a shop cat', coat: '#9fe0b8', hat: '#8c6a5a' },
+  { name: 'Miss Delphine', who: 'a painter with a cozy studio flat', coat: '#ff9f85', hat: '#5b4256' },
+  { name: 'The Larsen twins', who: 'college students sharing a sunny cottage', coat: '#ffd76e', hat: '#9fd0ef' },
+  { name: 'Nana Rosa', who: 'a grandma who knits tiny cat blankets', coat: '#f7a8c4', hat: '#c8aaf2' },
+];
+export const MAX_CATS = 10;
 
 /** Bond levels and what each one unlocks. */
 export const BOND_LEVELS = [

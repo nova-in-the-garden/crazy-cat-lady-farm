@@ -5,10 +5,15 @@ a life sim where you find, raise, breed, feed, pet, love and rehome cats, and ac
 
 The farm is now a **cat sanctuary**, open to cats. Its host is the
 **Crazy Cat Lady**, who lives at the heart of the sanctuary, greets visitors ("Welcome to my cat sanctuary, dearie!"), chats about each spot you visit and mutters
-cozy cat thoughts when you stand still. The sanctuary is open: cats arrive one by one, each one gets a Welcome
-Vet Check (where you name them), and from then on you feed, pet, play with, groom and gently doctor them. The garden
-grows the food that keeps them fed. Nothing can go wrong: no cat ever dies or leaves. If you miss something, the cats
-are just a little less happy and lively that day.
+cozy cat thoughts when you stand still. Cats arrive over time (up to **10 at once**), each one gets a Welcome
+Vet Check (where you name them), and from then on you feed, pet, play with, groom and doctor them. Poorly cats stay
+in the clinic kennels until they're healed. Happy, healthy, bonded cats can be **adopted out** to kind visitors for
+coins, and those coins buy cat food and medicine at the **Supply Shelf**. The garden grows the Crazy Cat Lady's own
+meals, plus **catnip** treats.
+
+It stays cozy: no cat dies or gets worse than "a bit run-down". Neglect only lowers happiness and health down to a
+soft floor. (The code has a ready-made hook for real stakes later: see `NEGLECT` and `CatManager.onDecline` in
+`js/cats.js`.)
 
 ## How to play: the cats
 **New arrivals.** Three starter cats arrive over the first few days:
@@ -17,58 +22,81 @@ are just a little less happy and lively that day.
   you. Offering a little cat food helps.
 - **Day 3:** a kitten adopted from the shelter waits at the gate.
 
+From day 4, while there's room, **new cats keep turning up** (at most one a day): rescues, shelter transfers, shy
+strays and neighbors' fosters. Every one is different: 11 coats (orange, silver and brown tabbies, cream tabby,
+calico, tortoiseshell, black, white, blue-grey, tuxedo and cream point), lots of breeds and ages from kitten to
+senior, and 8 personalities (affectionate, playful, shy, independent, food-motivated, sleepy, curious and chatty).
+Some arrive already poorly (a cold, a sore ear, a sprained leg or fleas).
+
 **Welcome Vet Check.** Press E next to a new arrival to walk them to the Whisker Wellness clinic. Stand at the exam
 table and press E to start. In the calm close-up you weigh them, take their temperature, listen with the stethoscope
 and check their coat, eyes and ears, teeth and paws. Each check fills the clipboard: breed and coat, age, a hint about
-their personality and anything that needs treating (the stray has fleas!). Then the **naming card** opens. Type a name,
-tap a suggestion, or roll the dice for a random one. The cat joins the sanctuary and the journal only after this check.
+their personality and anything that needs treating. Then the **naming card** opens. Type a name, tap a suggestion, or
+roll the dice. The cat joins the sanctuary only after this check (and goes to a kennel first if they need care).
 
-**Daily care.** Press E next to one of your cats (or tap them) to open the care menu, then pick with keys 1-6 or tap:
-- **Pet**, **Play** (feather wand or yarn ball: every cat has a favorite) and **Brush & groom**.
+**Stats card.** Click or tap any cat (or choose **Stats card** in the care menu) to see their portrait, sex, age,
+breed and coat, personality, discovered favorites, bond hearts, five bars (**Health, Happiness, Hunger, Cleanliness,
+Energy**), their current condition and treatment, and whether they're ready for adoption.
 
-**The Cats' House** (the old red barn, east of the cottage) is the cats' own home. Walk in through the big open doors:
-- **Feeding station** (back right corner): press E to fill every empty bowl from the pantry. Each cat has their own
-  bowl, and they trot over and eat. Breakfast at 8 AM and supper at 6 PM are served into the bowls automatically too,
-  as long as the pantry has food, so keep cooking in the cottage kitchen.
-- **Litter boxes** along the front wall, one for every two cats. They get visibly clumpy over time; press E next to a
-  box to scoop it. Cats with a dirty box get less tidy faster.
-- **A cozy bed for every cat** with their name on a little plaque (it's filled in at the Welcome Vet Check), plus a
-  scratching post, a cat tree and a basket of toys.
+**Daily care.** Press E next to one of your cats to open the care menu, then pick with keys 1-7 or tap:
+- **Pet**, **Play** (feather wand or yarn ball: every cat has a favorite), **Brush & groom**.
+- **Catnip treat**: grow catnip in the garden and offer a sprig. Big happiness boost and +bond (once every 6 hours per
+  cat).
+- **Stats card**, and **Take to the clinic** when a cat seems a little off.
 
-Each cat has soft needs (full tummy, fun, clean and tidy, affection), a mood, a personality (affectionate, playful,
-shy, independent or food-motivated) and favorite toy, spot and treat that you discover by playing, watching and
-feeding. Caring for a cat raises their **bond** (0 to 5 hearts). Higher bonds unlock new behavior: they trill hello,
-follow you around, nap near you when you rest, bring you little gifts, and curl up with you every night. At night the
-cats head to bed: most curl up in their own named beds in the Cats' House, while your favorites (3+ hearts) pile onto
-your bed in the cottage.
+**The Cats' House** (the old red barn, east of the cottage) is the cats' own home, with room for 10:
+- **Feeding station** (back right corner): press E to fill every empty bowl with cat food. Ten bowls line the east
+  wall. Breakfast at 8 AM and supper at 6 PM are served automatically too, as long as you have cat food.
+- **Five litter boxes** along the front wall, one for every two cats. Press E next to a clumpy box to scoop it.
+- **Ten named beds**: five on the floor and five up on a sturdy bunk shelf, each with a name plaque, plus a scratching
+  post, a cat tree and a basket of toys.
 
-**Gentle vet care.** Now and then (and always once early, on day 2) a cat seems a little off: licking a paw,
-hunching, scratching or hiding, with a little thought bubble. Open their care menu and choose **Take to the clinic**,
-then at the exam table:
-1. **Examine:** do at least 3 checks and read the clipboard. Some cats need settling first (a shy cat wants a slow
-   blink and a chin scratch, a playful one wants a toy to bat at).
-2. **Diagnose:** pick what fits best: minor paw irritation, mild stomach upset, fleas or new-cat stress. A wrong guess
-   never hurts anyone: the cat just gets a cozy rest day and you look again tomorrow.
-3. **Treat:** herbal salve, a bland diet, a flea treatment, or quiet rest in the clinic's recovery bed. Grow
-   **chamomile** in the garden: each treatment uses one and heals in 1 day instead of 2.
-4. **Follow up:** when the cat sparkles, open their care menu and do a **Follow-up check**. They're all better, your
-   bond grows and the case goes in the journal.
+Caring for a cat raises their **bond** (0 to 5 hearts). Higher bonds unlock new behavior: they trill hello, follow you
+around, nap near you when you rest, bring you little gifts, and curl up with you at night. At night most cats sleep
+in their own beds in the Cats' House; your three closest friends (3+ hearts) pile onto your bed in the cottage.
 
-**Cat Journal** (press **J** or the Journal button): cat profiles with personality, favorites and bond hearts, your vet
-case history with **Vet Knowledge** (it rises with every check and treated case and gives clearer clues and more
-precise diagnosis options), and little moments written down automatically, like "Marmalade claimed the sunny porch as
-a favorite spot".
+**Sickness, injuries and the clinic kennels.** Now and then (more often if a cat is neglected) a cat gets sick or
+hurt: a sniffly cold, an ear infection, a sprained leg, a sore paw, an upset tummy, fleas, or new-cat stress. They
+show a little thought bubble. Choose **Take to the clinic**, then at the exam table:
+1. **Examine:** do at least 3 checks and read the clipboard. Some cats need settling first.
+2. **Diagnose** (gently): pick what fits best. A wrong guess never hurts anyone: the cat gets a cozy rest day and you
+   look again tomorrow.
+3. **Admit:** follow the care plan's first steps on the table: a **shot** (vaccine / antibiotic injection), a
+   **bandage wrap** for injuries (you'll see it on the cat's leg) or the first dose of **medicine**. Then admit the
+   cat to one of the four **kennels** (or the recovery bed). Chamomile from the garden speeds healing up.
+4. **Daily care:** visit the kennel each day (press E there) for **today's medicine** and a **gentle check & cuddle**.
+   The **healing bar** fills with each bit of care. A missed dose just means slower healing; nothing bad happens.
+5. **Discharge:** when the bar is full the cat sparkles. Press E at the kennel and **discharge** them home to the
+   Cats' House. Your bond grows and the case goes in the journal.
+
+**Adoption.** When a cat is healthy, happy and has **3+ bond hearts**, kind people sometimes visit (they wait by the
+path near the porch) hoping for a cat with a certain personality. Press E to talk to them, pick a cat (a perfect
+personality match pays a bonus) and confirm. The fee is higher for healthier, happier, more bonded cats. You get a
+goodbye journal entry with a polaroid, the cat walks off with their new family, and their bed and bowl free up for
+the next rescue. There's never any pressure: visitors just head home at 6 PM.
+
+**Cat Journal** (press **J** or the Journal button): cat profiles, the "Adopted into forever homes" photo wall, vet
+case history with **Vet Knowledge** (clearer clues and more precise diagnosis options as it rises), and little moments
+written down automatically.
+
+## How to play: the economy
+- **Coins** (top-left panel): you start with 60. Adoption fees are the main income; the **donation jar** adds a few
+  coins every morning (more when you have more cats).
+- **The Supply Shelf** (the striped market stall between the cottage and the Cats' House): press E to buy **cat food
+  bags** (6 portions, the cats' main food), **medicine**, **shots**, **bandage rolls**, and catnip, veggie and
+  chamomile seeds. You start with 12 portions of cat food and a few clinic supplies.
+- **Her own needs:** the Crazy Cat Lady has soft **hunger** and **energy** bars (top-left). Cook garden veggies at
+  the cottage **stove** into home-cooked meals and eat one (E at the stove or pantry). Sleep restores energy. If
+  either runs very low she just walks a bit slower and mentions it. No fail state.
 
 ## How to play: the garden
-Grow crops in the garden plot, harvest them, then cook them into **cat food** in the kitchen inside the cottage.
+Grow veggies for her meals, catnip for the cats and chamomile for remedies.
 
 1. **Plow** (Hoe, key `1`): turn a grass tile into soil.
-2. **Sow** (Seeds, key `2`; press `Q` to switch carrot / cabbage / pumpkin): plant a seed in plowed soil.
+2. **Sow** (Seeds, key `2`; press `Q` to switch carrot / cabbage / pumpkin / chamomile / catnip).
 3. **Water** (Watering Can, key `3`): watered soil turns dark and the crop grows. Refill the can at the **pond**.
 4. **Harvest** (Hands, key `4`): pick ripe crops (they sparkle).
-   **Chamomile** is a herb: it isn't cooked into cat food, it's saved for vet remedies.
-5. **Cook**: walk into the cottage and use the **stove** in the Cat Food Kitchen. Every crop you're carrying
-   becomes cat food in the pantry.
+5. **Cook**: use the **stove** in the cottage kitchen. Carrots, cabbages and pumpkins become meals for her.
 
 Press **E** or **Space** (or tap **Use** on a phone) to use the tool on the tile in front of her. The prompt at the
 bottom tells you what will happen.
@@ -76,31 +104,28 @@ bottom tells you what will happen.
 **Growing rules**
 - Crops only grow while their soil is wet. Soil dries out every morning at 6 AM, so water each day.
 - Dry crops never die, they just pause. **Nothing wilts**: once a crop is ripe it stays ripe until you pick it.
-- Grow time (in game hours) and food per crop: carrot 12 h → 1 food, cabbage 20 h → 2 food, pumpkin 32 h → 4 food.
-  Chamomile takes 16 h and goes to the vet instead.
-- A full day lasts 6 real minutes. **At 10 PM it's bedtime: the clock stops** (nothing grows or gets hungrier)
-  until you walk to the **bed** in the cottage and press **E** or the big **Sleep** button. You wake up at 6 AM the
-  next day. The day never rolls over without sleeping, and you can go to bed early any time from 6 PM. Crops in wet soil keep
-  growing while you sleep. Your favorite cats pile onto the bed with you; the others sleep in the Cats' House.
+- Grow time (in game hours) and meals: carrot 12 h → 1 meal, cabbage 20 h → 2, pumpkin 32 h → 3. Catnip takes 14 h
+  (a cat treat), chamomile 16 h (vet remedies).
+- A full day lasts 6 real minutes. **At 10 PM it's bedtime: the clock stops** until you walk to the **bed** in the
+  cottage and press **E** or the big **Sleep** button. You wake at 6 AM. You can go to bed early from 6 PM.
 - The **seed box** next to the garden has free seeds every morning.
-- Your garden, cats, vet cases and journal are saved in the browser automatically. Use **Reset garden** in the
-  controls panel to start the whole sanctuary over.
+- Everything is saved in the browser automatically. Use **Reset garden** in the controls panel to start over.
 
 ## The cottage and kitchen
 The cottage is enterable, like the clinic: walk in through the front door and the roof and nearest walls fade
-away. Inside is the **Cat Food Kitchen**: stove with a bubbling pot, counters with a sink and a stack of cat bowls,
-and a pantry shelf that fills with cans as you cook. There is also her bed with a paw-print quilt, a nightstand, a
-little tea table and a cat bed by the stove.
+away. Inside: the kitchen stove with a bubbling pot, counters with a sink, a pantry shelf (its cans show how much cat
+food you have), her bed with a paw-print quilt, a nightstand, a little tea table and a cat bed by the stove.
 
 ## What's in the world
-- **Whisker Wellness Animal Hospital**, the sanctuary's vet clinic, where every new cat gets a Welcome Vet Check and
-  poorly cats get gentle care (with a cozy recovery bed). You can walk inside: the roof
-  and the walls nearest the camera fade away. Inside: exam table, cat scale, IV stand, a medicine cabinet full of
-  bottles, four recovery kennels with blankets, cat beds, a reception desk with a computer and clipboard, posters and
-  a warm ceiling lamp. Outside: planters, a bench, a Cat Ambulance wagon and a signpost.
-- A pastel cottage (enterable, with the Cat Food Kitchen and her bed inside) with a porch, chimney smoke, flower boxes, a cat flap, a cat tree, food bowls and a rocking chair
-- The Cats' House: the old red barn turned into the cats' home (enterable, with a "Cats' House" sign, a feeding station with a bowl per cat, litter boxes, named cat beds, a cat tree and a scratching post), plus a cat weathervane and hay bales outside
-- A fenced garden plot (6 × 4 tiles) you farm yourself, a cat-eared scarecrow and a free-seed box
+- **Whisker Wellness Animal Hospital**, the vet clinic: exam table, cat scale, IV stand, medicine cabinet, **four
+  kennels with name cards** plus a recovery bed, a reception desk, posters and a warm lamp. Outside: planters, a
+  bench, a Cat Ambulance wagon and a signpost.
+- A pastel cottage (enterable, kitchen and her bed inside) with a porch, chimney smoke, flower boxes and a cat flap
+- The Cats' House: the old red barn turned into the cats' home (10 beds, 10 bowls, 5 litter boxes, cat tree,
+  scratching post), plus a cat weathervane and hay bales outside
+- **The Supply Shelf**: a pink-and-white striped market stall (Whisker Supply Co.)
+- Adoption visitors who wait by the path on adoption days
+- A fenced garden plot (6 × 4 tiles), a cat-eared scarecrow and a free-seed box
 - A pond with lily pads and cattails, dirt paths, stepping stones, trees, bushes, flowers, rocks and butterflies
 - An entrance arch sign and a mailbox with a paw-print flag
 
@@ -115,7 +140,9 @@ little tea table and a cat bed by the stove.
 | Pick tool | 1-4, or click the hotbar | tap the hotbar |
 | Switch seed type | Q | tap the seed slot again |
 | Sleep (wake at 6 AM) | E next to the cottage bed, or the Sleep button | Sleep button by the bed |
-| Care for a cat | E next to the cat, then 1-6 | tap the cat, then a button |
+| Care for a cat | E next to the cat, then 1-7 | Use next to the cat, then a button |
+| Cat stats card | click the cat | tap the cat |
+| Shop / kennel care / adoption | E at the Supply Shelf, a kennel, or a visitor | Use button |
 | Cat Journal | J, or the Journal button | Journal button |
 | Close a menu | Esc | the × button |
 | Mute sounds | M, or the Sound button | Sound button |
@@ -156,7 +183,11 @@ js/cats.js          the cats: arrivals, needs, bond levels, behaviors, care acti
 js/catModel.js      the low-poly cat model, its animations and floating name tags / icons
 js/catData.js       the starter cats, personalities, favorite spots, vet issues and treatments
 js/catMenu.js       the care menu that opens next to a cat
-js/vet.js           Welcome Vet Checks, naming card, cases: examine, diagnose, treat, follow up
+js/catsHouse.js     the Cats' House (old barn): 10 beds, 10 bowls, 5 litter boxes, cat tree
+js/statsCard.js     the cat stats card (portrait, bars, condition, kennel care buttons)
+js/shop.js          the Supply Shelf stall and its shop card
+js/adoption.js      adoption visitors, the adoption card and confirm step
+js/vet.js           Welcome Vet Checks, naming card, cases: examine, diagnose, admit, kennel care, discharge
 js/journal.js       the Cat Journal (profiles, vet cases, moments) and Vet Knowledge
 js/time.js          the clock and day/night lighting
 js/ui.js            status panel, hotbar, prompts, floating text
@@ -177,7 +208,12 @@ tools/bump_version.py  cache-busting version stamp (run before deploying)
 ## Adding things later
 - **Her lines**: edit the `LINES` lists in `js/host.js`.
 - **New places**: build them in `js/world.js`, add collisions with `addCircle` / `addBox` from `js/collision.js`, and add a zone in `zones` so she comments on them.
-- **More cats**: add an entry to `STARTER_CATS` in `js/catData.js` (a look from `LOOKS` in `js/catModel.js`, personality, favorites and name ideas).
-- **More vet cases**: add an issue to `ISSUES` in `js/catData.js` with its cue, clues per check and the right treatment.
+- **More cats**: new arrivals are generated by `makeCatDef` in `js/catData.js` from `COATS` (a look from `LOOKS` in
+  `js/catModel.js`), ages, personalities and sources. The three starters live in `STARTER_CATS`.
+- **More vet cases**: add an issue to `ISSUES` in `js/catData.js` with its cue and clues per check, and a care plan in
+  `PLANS` (first-day treatments, daily treatments, days of full care).
+- **Real stakes (death from neglect)**: health already drops with neglect down to `NEGLECT.floor` in `js/cats.js`, and
+  `CatManager.onDecline(c, hours)` is called every time a neglected cat sits at that floor. Set `NEGLECT.enabled`,
+  lower the floor and fill in `onDecline` (and a memorial journal entry) when you're ready.
 - `window.game` exposes the sim (`game.cats.list()`, `game.vet.cases()`, `game.journal.moments()`, debug helpers), including `game.food.count()`, `game.food.add(n)` and `game.food.consume(n)` for when the cats arrive and start eating.
 - `window.ccl` in the browser console exposes the scene, camera, lady, world and a `teleport(x, z)` helper for testing.

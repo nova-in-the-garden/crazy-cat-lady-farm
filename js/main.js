@@ -107,10 +107,10 @@ function frame(now) {
 
   let moveAmount = 0, running = false;
   if (state.playing) {
-    const input = game.locked || game.journalOpen ? new THREE.Vector2() : controls.getInput();
+    const input = game.blocked ? new THREE.Vector2() : controls.getInput();
     running = controls.running;
     const len = Math.min(input.length(), 1);
-    const target = len * (running ? RUN_SPEED : WALK_SPEED);
+    const target = len * (running ? RUN_SPEED : WALK_SPEED) * (game.ladySpeed || 1);
     state.speed += (target - state.speed) * Math.min(1, dt * 10);
     if (len > 0.05) {
       const dir = controls.toWorld(input).normalize();
