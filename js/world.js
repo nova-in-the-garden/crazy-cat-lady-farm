@@ -631,7 +631,7 @@ function buildEntrance(scene) {
   // arch sign
   const wood = mat(PALETTE.woodDark);
   [-1.7, 1.7].forEach((x) => { scene.add(mesh(new THREE.CylinderGeometry(0.13, 0.15, 3.1, 7), wood, { x, y: 1.55, z: Z })); addCircle(x, Z, 0.2); });
-  const tex = signTexture(["Crazy Cat Lady's Cat Sanctuary", 'opening soon - all cats welcome'], { w: 1024, h: 300, font: 76 });
+  const tex = signTexture(["Crazy Cat Lady's Cat Sanctuary", 'now open - all cats welcome'], { w: 1024, h: 300, font: 76 });
   const sign = mesh(new THREE.BoxGeometry(4.2, 1.1, 0.12), [wood, wood, wood, wood, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })], { y: 3.0, z: Z });
   scene.add(sign);
   // (box UVs read correctly from both the front and back faces)

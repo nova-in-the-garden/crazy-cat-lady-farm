@@ -18,6 +18,7 @@ export class Controls {
 
     addEventListener('keydown', (e) => {
       if (!this.enabled) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return; // typing a cat's name
       this.keys.add(e.code);
       if (e.code === 'KeyT' && !e.repeat && this.onTalk) this.onTalk();
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();

@@ -1,12 +1,17 @@
 // The sanctuary sim: Plow, Sow, Water, Harvest, then cook crops into cat food.
 // Ties together the garden, clock, kitchen, UI, sounds and the Crazy Cat Lady's comments.
 import * as THREE from 'three';
-import { CROPS, CROP_IDS, DAILY_SEEDS, loadState, saveState, clearState } from './state.js';
+import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, loadState, saveState, clearState } from './state.js';
 import { Garden, GRID, tileAt, stageOf, tileCenter } from './garden.js';
 import { DayCycle, DAY_SECONDS } from './time.js';
 import { GameUI, TOOLS } from './ui.js';
 import { Particles } from './particles.js';
 import { sound } from './sound.js';
+import { CatManager } from './cats.js';
+import { Vet } from './vet.js';
+import { Journal } from './journal.js';
+import { CatMenu } from './catMenu.js';
+import { ISSUES } from './catData.js';
 
 const TILE_COUNT = GRID.cols * GRID.rows;
 
@@ -29,8 +34,27 @@ export class Game {
       onUse: () => this.use(),
       onToggleMute: () => this.ui.setMuted(sound.toggle()),
       onReset: () => this.reset(),
+      onJournal: () => this.journal.toggle(),
     });
     this.ui.setMuted(sound.muted);
+
+    // the cats, the vet and the journal
+    const s0 = this.state;
+    const g0 = this;
+    this.api_food = {
+      get count() { return s0.food; },
+      add(n) { s0.food += n; g0.world.cottage.setFood(s0.food); g0.save(); return s0.food; },
+      /** Cats eat: returns how many portions were actually available. */
+      consume(n) { const eaten = Math.min(n, s0.food); s0.food -= eaten; g0.world.cottage.setFood(s0.food); g0.save(); return eaten; },
+    };
+    this.camView = null;      // close-up camera during vet exams
+    this.locked = false;      // true while an exam is open (she stands still)
+    this.journalOpen = false;
+    this.journal = new Journal(this);
+    this.cats = new CatManager(this);
+    this.vet = new Vet(this);
+    this.catMenu = new CatMenu(this);
+    world.cottage.setLitter(this.state.litter);
 
     this.day.onDawn = () => this.dawn();
     world.cottage.setFood(this.state.food);
@@ -39,6 +63,15 @@ export class Game {
 
     addEventListener('keydown', (e) => {
       if (!this.playing || e.repeat) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (!this.vet.naming.classList.contains('hidden')) return;
+      if (e.code === 'KeyJ') { this.catMenu.close(); this.journal.toggle(); return; }
+      if (e.code === 'Escape') { if (this.journalOpen) this.journal.toggle(false); else if (this.catMenu.isOpen) this.catMenu.close(); else if (this.vet.exam && this.vet.exam.step === 'checks') this.vet.close(false); return; }
+      if (this.journalOpen || this.locked) { if (e.code === 'Space') e.preventDefault(); return; }
+      if (this.catMenu.isOpen) {
+        if (/^Digit[1-9]$/.test(e.code)) { this.catMenu.key(Number(e.code.slice(5))); return; }
+        if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); this.catMenu.close(); return; }
+      }
       if (/^Digit[1-4]$/.test(e.code)) this.selectTool(Number(e.code.slice(5)) - 1);
       else if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); this.use(); }
       else if (e.code === 'KeyQ') this.cycleSeed();
@@ -79,8 +112,22 @@ export class Game {
   findAction() {
     const s = this.state, p = this.lady.group.position, W = this.world;
     const near = (q, r) => Math.hypot(p.x - q.x, p.z - q.z) < r;
-    const crops = CROP_IDS.reduce((n, c) => n + s.crops[c], 0);
+    const crops = FOOD_CROPS.reduce((n, c) => n + s.crops[c], 0);
+    const table = this.vet.tableAction();
+    if (table && table.ok) return table;
+    // a cat right in front of her (farming tools still win on a tile they can work)
+    const cat = this.cats.nearest(1.6);
+    if (cat && !cat.escort) {
+      const tile = this.targetTile();
+      const tileA = tile >= 0 && TOOLS[s.tool].id !== 'hands' ? this.tileAction(tile) : null;
+      if (!(tileA && tileA.ok)) return this.catAction(cat);
+    }
+    if (table) return table;
+    if (cat) return this.catAction(cat);
     if (W.cottage.isInside(p.x, p.z)) {
+      if (near(W.cottage.litterPos, 1.0)) {
+        return s.litter > 0.15 ? { ok: true, label: 'Scoop the litter box', run: () => this.cleanLitter() } : { ok: false, label: 'Litter box: fresh and clean' };
+      }
       if (near(W.cottage.stovePos, 1.3)) {
         return crops > 0
           ? { ok: true, label: `Cook ${crops} crop${crops > 1 ? 's' : ''} into cat food`, run: () => this.cook() }
@@ -136,8 +183,43 @@ export class Game {
     return { tile: i, ok: true, label: `Water the ${what}`, run: () => this.water(i) };
   }
 
+  catAction(c) {
+    const d = c.data, name = this.cats.displayName(c);
+    if (c.escort) return { ok: false, label: `${d.named ? d.name : 'The new arrival'} is walking with you. Head to the clinic exam table` };
+    if (d.mode === 'stray') return { ok: true, label: this.state.food > 0 ? 'Sit quietly with the stray (offer a little food)' : 'Sit quietly with the shy stray', run: () => this.cats.befriend(c) };
+    if (!d.joined) return { ok: true, label: 'Walk the new arrival to the clinic for a Welcome Vet Check', run: () => this.cats.escort(c) };
+    const cs = this.vet.activeCase(d.id);
+    const extra = cs && cs.stage === 'noticed' ? ' (seems a little off)' : cs && cs.stage === 'followup' ? ' (follow-up due)' : '';
+    return { ok: true, label: `Care for ${name}${extra}`, run: () => this.catMenu.open(c) };
+  }
+
+  cleanLitter() {
+    this.state.litter = 0; this.world.cottage.setLitter(0);
+    this.cats.joined().forEach((c) => (c.data.needs.clean = Math.min(100, c.data.needs.clean + 25)));
+    this.lady.act(); sound.play('scoop');
+    this.floatAtLady('Litter box all fresh', '#3f8fb5', 'sparkle');
+    if (!this.state.flags.scooped) { this.state.flags.scooped = true; this.host.say('Thank you, dearie! A clean litter box makes for happy kitties.', 5); }
+  }
+
+  /** Tapping/clicking a cat in the world (handy on phones). */
+  tapCat(c) {
+    if (!this.playing || this.locked || this.journalOpen) return false;
+    const p = this.lady.group.position;
+    if (Math.hypot(p.x - c.pos.x, p.z - c.pos.z) > 3) { this.floatAt(c.pos, `${this.cats.displayName(c)}: come a little closer`, '#8d7388'); return true; }
+    const a = this.catAction(c);
+    if (a && a.ok && a.run) { a.run(); this.save(); } else if (a) this.floatAt(c.pos, a.label, '#8d7388');
+    return true;
+  }
+
+  /** Floating text over a point in the world. */
+  floatAt(pos, text, color, iconName) {
+    const v = new THREE.Vector3(pos.x, pos.y + 0.9, pos.z).project(this.camera);
+    this.ui.float(text, (v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight, color, iconName);
+  }
+
   use() {
-    if (!this.playing) return;
+    if (!this.playing || this.locked || this.journalOpen) return;
+    if (this.catMenu.isOpen) { this.catMenu.close(); return; }
     const a = this.findAction(); // always fresh (the tool may have changed since the last frame)
     if (a && a.ok && a.run) { a.run(); this.save(); }
     else { sound.play('nope'); if (a) this.floatAtLady(a.label.split('.')[0], '#8d7388'); }
@@ -184,7 +266,7 @@ export class Game {
   cook() {
     const s = this.state;
     let made = 0;
-    CROP_IDS.forEach((c) => { made += s.crops[c] * CROPS[c].food; s.crops[c] = 0; });
+    FOOD_CROPS.forEach((c) => { made += s.crops[c] * CROPS[c].food; s.crops[c] = 0; });
     s.food += made; s.stats.cooked += made;
     this.world.cottage.cook(3); this.world.cottage.setFood(s.food);
     this.lady.act(); sound.play('cook');
@@ -197,7 +279,10 @@ export class Game {
     this.ui.sleepFade(() => {
       const hours = this.day.hoursUntilDawn();
       const ripe = this.garden.grow(hours);
+      this.cats.simulate(hours * 0.6); // cats sleep through the night too
+      this.cats.pileForNight();
       this.day.sleep(); // triggers dawn()
+      this.cats.prevHour = this.state.hour;
       if (ripe.length) this.notifyRipe(ripe);
       this.playing = true; this.save();
     });
@@ -207,7 +292,7 @@ export class Game {
     CROP_IDS.forEach((c) => (s.seeds[c] += DAILY_SEEDS[c]));
     s.seedBoxDay = s.day; this.updateSeedBox();
     sound.play('pickup'); this.lady.act();
-    this.floatAtLady(`+${DAILY_SEEDS.carrot} carrot, +${DAILY_SEEDS.cabbage} cabbage, +${DAILY_SEEDS.pumpkin} pumpkin seeds`, '#5b4256', 'seeds');
+    this.floatAtLady(`+${DAILY_SEEDS.carrot} carrot, +${DAILY_SEEDS.cabbage} cabbage, +${DAILY_SEEDS.pumpkin} pumpkin, +${DAILY_SEEDS.chamomile} chamomile seeds`, '#5b4256', 'seeds');
   }
   fillCan() {
     this.state.water = this.state.waterMax; sound.play('fill'); this.lady.act();
@@ -224,6 +309,8 @@ export class Game {
     let line = 'Good morning, dearie! Fresh seeds are in the seed box.';
     if (planted) line = 'Good morning! The soil dried overnight, so give the crops some water.';
     if (ripe) line += ` ${ripe} crop${ripe > 1 ? 's are' : ' is'} ripe and waiting. No rush, they never wilt!`;
+    if (this.cats.joined().length) line = `Good morning! Let's check on the cats: a pet, a play and breakfast at 8. ${line.replace(/^Good morning[!,]\s*(dearie!\s*)?/, '')}`;
+    this.vet.dawn();
     setTimeout(() => this.host.say(line, 7), 300);
     this.save();
   }
@@ -243,7 +330,7 @@ export class Game {
   }
   save() { saveState(this.state); }
   reset() {
-    if (!confirm('Start the garden over? Your crops, seeds and cat food will be reset.')) return;
+    if (!confirm('Start the sanctuary over? Your garden, cat food, cats and journal will all be reset.')) return;
     clearState(); location.reload();
   }
 
@@ -257,7 +344,19 @@ export class Game {
     this.chatCooldown -= dt;
     this.garden.animate(t);
     this.particles.update(dt);
-    if (this.playing) {
+    this.cats.update(dt, hours, t);
+    this.catMenu.update();
+    const joined = this.cats.joined();
+    const waiting = this.cats.list.find((c) => !c.data.joined);
+    if (joined.length) {
+      const avg = joined.reduce((n, c) => n + this.cats.happiness(c), 0) / joined.length;
+      const off = joined.find((c) => this.vet.activeCase(c.data.id)?.stage === 'noticed');
+      const fu = joined.find((c) => this.vet.activeCase(c.data.id)?.stage === 'followup');
+      this.ui.setCats(`${joined.length}`, off ? `${off.data.name} seems a little off` : fu ? `${fu.data.name}: follow-up due` : waiting ? 'A new cat is waiting for you!' : avg >= 70 ? 'Happy, purring cats' : avg >= 45 ? 'Cats are content' : 'Cats would love some attention');
+    } else this.ui.setCats('0', waiting ? (waiting.data.mode === 'stray' ? 'A shy stray is by the garden' : 'A new arrival is at the gate!') : 'The first cat arrives soon...');
+    if (this.playing && (this.locked || this.journalOpen || this.catMenu.isOpen)) {
+      this.action = null; this.garden.showHighlight(-1); this.ui.setPrompt(null, this.touch);
+    } else if (this.playing) {
       this.action = this.findAction();
       this.garden.showHighlight(this.action && this.action.tile !== undefined ? this.action.tile : -1, this.action && this.action.ok);
       this.ui.setPrompt(this.action, this.touch);
@@ -274,18 +373,26 @@ export class Game {
     const g = this, s = this.state;
     return {
       state: s, garden: this.garden, day: this.day,
-      food: {
-        get count() { return s.food; },
-        add(n) { s.food += n; g.world.cottage.setFood(s.food); g.save(); return s.food; },
-        /** Cats eat: returns how many portions were actually available. */
-        consume(n) { const eaten = Math.min(n, s.food); s.food -= eaten; g.world.cottage.setFood(s.food); g.save(); return eaten; },
+      food: this.api_food,
+      cats: {
+        list: () => g.cats.list.map((c) => ({ id: c.data.id, name: c.data.name, named: c.data.named, joined: c.data.joined, mode: c.data.mode, escort: !!c.escort, bond: g.cats.level(c), bondXP: c.data.bondXP, happiness: Math.round(g.cats.happiness(c)), needs: { ...c.data.needs }, x: +c.pos.x.toFixed(2), y: +c.pos.y.toFixed(2), z: +c.pos.z.toFixed(2), anim: c.model.anim, task: c.task && c.task.type })),
       },
+      vet: { get knowledge() { return g.vet.knowledge; }, cases: () => s.cases, get exam() { return g.vet.exam && { step: g.vet.exam.step, kind: g.vet.exam.kind, settled: g.vet.exam.settled }; } },
+      journal: { moments: () => s.journal.moments, open: (v) => g.journal.toggle(v) },
       debug: {
-        skipHours(h) { const r = g.garden.grow(h); let left = h; while (left > 0) { const step = Math.min(left, 1); g.day.update((step * DAY_SECONDS) / 24); left -= step; } return r; },
+        skipHours(h) { const r = g.garden.grow(h); g.cats.simulate(h); let left = h; while (left > 0) { const step = Math.min(left, 1); g.day.update((step * DAY_SECONDS) / 24); left -= step; } return r; },
         setTile(i, crop, growth = 0, wet = false) { const t = s.tiles[i]; if (crop) Object.assign(t, { state: 'planted', crop, growth, wet }); else Object.assign(t, { state: growth ? 'plowed' : 'grass', crop: null, growth: 0, wet }); g.garden.refresh(i); },
         setHour(h) { s.hour = h; g.day.apply(); },
         give(obj) { Object.entries(obj).forEach(([k, v]) => { if (k in s.crops) s.crops[k] += v; else if (k === 'food') s.food += v; }); g.world.cottage.setFood(s.food); },
         action: () => g.findAction(),
+        arriveNext() { const w = s.cats.find((c) => !c.arrived); if (w) g.cats.arrive(w); return w && w.id; },
+        /** Skip a cat straight into the family (for testing / screenshots). */
+        welcome(id, name) { const c = g.cats.byId(id) || g.cats.spawn(Object.assign(s.cats.find((x) => x.id === id), { arrived: true })); s.cats.find((x) => x.id === id).arrived = true; g.cats.welcome(id, name); return c.data; },
+        startCase(id, issue) { return g.vet.startCase(g.cats.byId(id), issue); },
+        dawn: () => g.dawn(),
+        bond(id, xp) { const c = g.cats.byId(id); c.data.bondXP = xp; },
+        placeCat(id, x, z, y = 0) { const c = g.cats.byId(id); c.pos.set(x, y, z); c.path = []; c.task = { type: 'idle', anim: 'sit', t: 20 }; },
+        pile: () => g.cats.pileForNight(),
         use: () => g.use(),
       },
     };

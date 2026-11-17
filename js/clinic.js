@@ -131,10 +131,10 @@ export function buildClinic(scene) {
     // big sign above the door
     const sign = mesh(new THREE.PlaneGeometry(3.1, 0.78), new THREE.MeshStandardMaterial({ map: clinicSignTexture(), roughness: 0.7, transparent: true }), { y: 2.78, z: 0.32, cast: false });
     g.add(sign);
-    // "OPENING SOON" hanging tag on the door frame
+    // "NOW OPEN" hanging tag on the door frame
     const tag = canvasTexture(256, 96, (ctx, w, h) => {
       ctx.fillStyle = '#fff6e8'; ctx.beginPath(); ctx.roundRect(2, 2, w - 4, h - 4, 20); ctx.fill();
-      ctx.fillStyle = '#d0607c'; ctx.font = '700 40px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('OPENING SOON', w / 2, h / 2 + 2);
+      ctx.fillStyle = '#d0607c'; ctx.font = '700 40px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('NOW OPEN', w / 2, h / 2 + 2);
     });
     g.add(mesh(new THREE.PlaneGeometry(0.8, 0.3), new THREE.MeshStandardMaterial({ map: tag, roughness: 0.8 }), { x: DOOR / 2 + 0.5, y: 1.55, z: T / 2 + 0.06, cast: false }));
   });

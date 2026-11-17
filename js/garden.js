@@ -49,6 +49,18 @@ function cropModel(crop, stage, growth) {
       g.add(mesh(new THREE.SphereGeometry(r * 0.75, 6, 4), leaf(), { x: Math.cos(a) * r * 0.9, y: 0.1, z: Math.sin(a) * r * 0.9, sy: 0.3, rx: Math.sin(a) * 0.5, rz: -Math.cos(a) * 0.5 }));
     }
     if (stage === 3) g.add(mesh(new THREE.IcosahedronGeometry(r * 0.6, 1), mat('#c9f0a6'), { y: 0.1 + r * 1.15 }));
+  } else if (crop === 'chamomile') { // feathery herb with little white daisies
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      g.add(mesh(new THREE.CylinderGeometry(0.01, 0.014, 0.3 * k, 4), leaf(), { x: Math.cos(a) * 0.06, y: 0.15 * k, z: Math.sin(a) * 0.06, rx: Math.sin(a) * 0.3, rz: -Math.cos(a) * 0.3 }));
+      g.add(mesh(new THREE.SphereGeometry(0.05, 5, 4), leafLight(), { x: Math.cos(a) * 0.1, y: 0.06, z: Math.sin(a) * 0.1, sy: 0.4 }));
+    }
+    if (stage === 3) for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.3, r = i ? 0.1 : 0;
+      const f = new THREE.Group(); f.position.set(Math.cos(a) * r, 0.3 + (i % 2) * 0.05, Math.sin(a) * r); g.add(f);
+      f.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.012, 10), mat('#ffffff'), { cast: false }));
+      f.add(mesh(new THREE.SphereGeometry(0.028, 6, 4), mat('#ffc93c'), { y: 0.01, sy: 0.6, cast: false }));
+    }
   } else { // pumpkin
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2 + 0.5;

@@ -37,6 +37,17 @@ const SOUNDS = {
   sleep: () => { [784, 659, 523, 392].forEach((f, i) => tone(f, 0.35, { vol: 0.12, delay: i * 0.22 })); },
   nope: () => { tone(220, 0.12, { type: 'triangle', vol: 0.18, slide: -60 }); },
   click: () => { tone(1200, 0.03, { vol: 0.08 }); },
+  meow: () => { tone(620, 0.32, { type: 'triangle', vol: 0.14, slide: 260 }); tone(880, 0.22, { type: 'sine', vol: 0.08, delay: 0.14, slide: -380 }); },
+  purr: () => { for (let i = 0; i < 6; i++) noise(0.16, { freq: 140, q: 3, vol: 0.22, type: 'lowpass', delay: i * 0.2 }); },
+  eat: () => { for (let i = 0; i < 6; i++) noise(0.05, { freq: 2200, q: 2, vol: 0.12, delay: i * 0.18 }); },
+  play: () => { tone(500, 0.08, { vol: 0.12, slide: 400 }); tone(700, 0.08, { vol: 0.1, delay: 0.25, slide: 500 }); noise(0.12, { freq: 3000, vol: 0.08, delay: 0.1 }); },
+  brush: () => { for (let i = 0; i < 4; i++) noise(0.14, { freq: 4000, q: 0.6, vol: 0.08, delay: i * 0.18 }); },
+  bond: () => { [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.26, { vol: 0.13, delay: i * 0.09, type: 'triangle' })); },
+  check: () => { tone(880, 0.07, { vol: 0.1 }); tone(1320, 0.1, { vol: 0.08, delay: 0.07 }); },
+  hmm: () => { tone(392, 0.14, { type: 'triangle', vol: 0.12 }); tone(349, 0.2, { type: 'triangle', vol: 0.1, delay: 0.13 }); },
+  heal: () => { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.3, { vol: 0.11, delay: i * 0.08 })); noise(0.6, { freq: 6000, vol: 0.04 }); },
+  scoop: () => { noise(0.25, { freq: 1800, q: 0.8, vol: 0.18 }); noise(0.2, { freq: 900, vol: 0.12, delay: 0.25 }); },
+  page: () => { noise(0.18, { freq: 3500, q: 0.5, vol: 0.1 }); },
 };
 
 export const sound = {

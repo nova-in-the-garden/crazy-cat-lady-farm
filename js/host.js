@@ -9,7 +9,7 @@ const LINES = {
     "Oh! A visitor! Come in, come in, mind the yarn.",
   ],
   start: [
-    "We're getting the sanctuary ready for the cats. Let's grow some cat food! Start with the garden.",
+    "The sanctuary is open, and our very first cat arrives today! Let's grow some cat food in the garden while we wait.",
     'Take a stroll with me! WASD to walk, Shift if you fancy a trot.',
   ],
   idle: [
@@ -23,8 +23,10 @@ const LINES = {
     'Have you ever seen a cat in a sunbeam? Pure magic.',
     'My cat-ear headband? Oh, I never take it off, dearie.',
     "Cats choose you, you know. I'm just making it easy for them.",
-    'I put the kibble out every morning. Any day now...',
-    "The sanctuary's nearly ready. Just a few more cushions to fluff!",
+    'Breakfast is at 8 and supper at 6. The cats eat from the pantry, so keep it stocked!',
+    'Press J to open the Cat Journal. I write down every little moment with the cats.',
+    'A cat that seems a little off just needs a gentle check at the clinic. Nothing scary, I promise.',
+    'Play with each cat using different toys. Everyone has a favorite!',
     'No cats can go hungry here. Keep that garden growing, dearie!',
     'Need water? The pond is just past the path. Fill the can and the crops will thank you.',
     "Have you seen my new animal hospital? It's just past the garden.",
@@ -32,12 +34,14 @@ const LINES = {
   ],
   clinic: [
     "That's Whisker Wellness, my little animal hospital! Pop inside, the door's open.",
-    "Every sick kitty who comes here will get the very best care. And a blanket.",
+    "Every kitty who comes here gets the very best care. And a blanket.",
+    'New cats get a Welcome Vet Check here first. That is where you get to name them!',
   ],
   clinicInside: [
-    "Exam table, scale, medicine cabinet... we're nearly ready to open!",
-    "Those recovery kennels have the softest blankets. I washed them twice.",
-    "Mind the IV stand, dearie. No patients yet, but I like to be prepared.",
+    'Walk a cat up to the exam table and press E for a gentle check-up.',
+    'Do a few checks and read the clipboard. A wrong guess never hurts anyone, it just means a rest day.',
+    'The recovery bed has the softest blanket. I washed it twice.',
+    'Chamomile from the garden makes every remedy work faster.',
   ],
   porch: [
     "That's my porch! Cat tree, food bowls, rocking chair. All ready for company.",
@@ -48,12 +52,14 @@ const LINES = {
     "Crops never wilt here, dearie. Once they're ripe, they'll wait for you.",
     'Mr. Whiskerscrow keeps the birds away. He has ears like me!',
     "Remember: crops only grow on days you water them. The soil dries every dawn.",
+    'Chamomile is a gentle, cat-safe herb. We use it in remedies at the clinic.',
   ],
   kitchen: [
     "Welcome to my Cat Food Kitchen! Bring me crops and I'll cook them at the stove.",
     'One carrot makes one portion, a cabbage makes two, and a pumpkin makes four!',
     "The pantry shelf fills up with cans as we cook. The cats will be so pleased.",
-    'Tired? My bed is right there. Sleep and the garden keeps growing overnight.',
+    'Tired? My bed is right there. Sleep and the cats will pile on with you.',
+    'The litter box is by the door. Scoop it now and then, the cats will thank you.',
   ],
   barn: [
     "The old barn. Hay bales make purr-fect napping spots.",
@@ -64,7 +70,7 @@ const LINES = {
     'I like to watch the lily pads bob. Very relaxing.',
   ],
   gate: [
-    "That's my gate. When the sanctuary opens, strays will come right through here.",
+    "That's my gate. New arrivals come right through here, and I always meet them with a smile.",
     'The mailbox has a paw on it. I get letters from my cat club!',
   ],
   talk: [

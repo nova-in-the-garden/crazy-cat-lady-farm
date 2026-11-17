@@ -62,6 +62,10 @@ controls.onTalk = talk;
 controls.onTap = (x, y) => {
   if (!state.playing) return;
   raycaster.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
+  // tap a cat to care for it
+  for (const c of game.cats.list) {
+    if (raycaster.intersectObject(c.model.group, true).some((h) => h.object.userData.isCat)) { game.tapCat(c); return; }
+  }
   if (raycaster.intersectObject(lady.group, true).some((h) => h.object.userData.isLady)) talk();
 };
 
@@ -90,6 +94,7 @@ setTimeout(() => { host.sayKind('welcome', 7); lady.wave(); }, 900);
 /* --- Main loop --- */
 function shortestAngle(a) { return Math.atan2(Math.sin(a), Math.cos(a)); }
 const focus = new THREE.Vector3();
+const examLook = new THREE.Vector3();
 
 function frame(now) {
   timer.update(now);
@@ -99,7 +104,7 @@ function frame(now) {
 
   let moveAmount = 0, running = false;
   if (state.playing) {
-    const input = controls.getInput();
+    const input = game.locked || game.journalOpen ? new THREE.Vector2() : controls.getInput();
     running = controls.running;
     const len = Math.min(input.length(), 1);
     const target = len * (running ? RUN_SPEED : WALK_SPEED);
@@ -117,7 +122,16 @@ function frame(now) {
     moveAmount = Math.min(state.speed / WALK_SPEED, 1);
     focus.set(pos.x, pos.y + 1.3, pos.z);
     const indoors = world.clinic.isInside(pos.x, pos.z) || world.cottage.isInside(pos.x, pos.z);
-    controls.updateCamera(dt, focus, false, indoors ? { minPitch: 0.75, maxDist: 9 } : {});
+    if (game.camView) {
+      // calm close-up during a vet exam
+      const ck = game.camView.instant ? 1 : Math.min(1, dt * 3);
+      camera.position.lerp(game.camView.pos, ck);
+      examLook.lerp(game.camView.look, ck);
+      camera.lookAt(examLook);
+    } else {
+      controls.updateCamera(dt, focus, false, indoors ? { minPitch: 0.75, maxDist: 9 } : {});
+      examLook.copy(focus);
+    }
   } else {
     // Title screen: slow, cinematic drift around her, with the cottage behind
     // (on wide screens she stands to the right of the title card)
@@ -152,7 +166,8 @@ requestAnimationFrame(frame);
 
 // Handy hooks for testing in the browser console (and for future features)
 window.game = game.api();
+game.teleport = (x, z, h) => window.ccl.teleport(x, z, h);
 window.ccl = {
   ready: true, game, scene, camera, lady, world, controls, host, state, start,
-  teleport(x, z, heading = state.heading) { lady.group.position.set(x, world.groundHeight(x, z), z); state.heading = heading; controls.updateCamera(0, new THREE.Vector3(x, 1.3, z), true); },
+  teleport(x, z, heading = state.heading) { lady.group.position.set(x, world.groundHeight(x, z), z); state.heading = heading; lady.group.rotation.y = heading; state.speed = 0; controls.updateCamera(0, new THREE.Vector3(x, 1.3, z), true); },
 };

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="build" content="202611162106" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Crazy Cat Lady's Cat Sanctuary · Crazy Cat Lady Simulator</title>
   <meta name="description" content="Visit the Crazy Cat Lady's cozy 3D cat sanctuary, right in your browser. The first piece of the Crazy Cat Lady Simulator." />
@@ -9,10 +10,38 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=202611162106" />
   <!-- Three.js is vendored locally (r187) so the site works anywhere, including GitHub Pages. -->
   <script type="importmap">
-    { "imports": { "three": "./vendor/three/three.module.js" } }
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js?v=202611162106",
+        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611162106",
+        "./js/building.js": "./js/building.js?v=202611162106",
+        "./js/catData.js": "./js/catData.js?v=202611162106",
+        "./js/catLady.js": "./js/catLady.js?v=202611162106",
+        "./js/catMenu.js": "./js/catMenu.js?v=202611162106",
+        "./js/catModel.js": "./js/catModel.js?v=202611162106",
+        "./js/cats.js": "./js/cats.js?v=202611162106",
+        "./js/clinic.js": "./js/clinic.js?v=202611162106",
+        "./js/collision.js": "./js/collision.js?v=202611162106",
+        "./js/controls.js": "./js/controls.js?v=202611162106",
+        "./js/game.js": "./js/game.js?v=202611162106",
+        "./js/garden.js": "./js/garden.js?v=202611162106",
+        "./js/host.js": "./js/host.js?v=202611162106",
+        "./js/journal.js": "./js/journal.js?v=202611162106",
+        "./js/kitchen.js": "./js/kitchen.js?v=202611162106",
+        "./js/main.js": "./js/main.js?v=202611162106",
+        "./js/particles.js": "./js/particles.js?v=202611162106",
+        "./js/sound.js": "./js/sound.js?v=202611162106",
+        "./js/state.js": "./js/state.js?v=202611162106",
+        "./js/time.js": "./js/time.js?v=202611162106",
+        "./js/ui.js": "./js/ui.js?v=202611162106",
+        "./js/util.js": "./js/util.js?v=202611162106",
+        "./js/vet.js": "./js/vet.js?v=202611162106",
+        "./js/world.js": "./js/world.js?v=202611162106"
+      }
+    }
   </script>
 </head>
 <body>
@@ -29,9 +58,9 @@
   <div id="title" class="overlay">
     <div class="card">
       <img class="card-paw" src="assets/paw.svg" alt="" />
-      <p class="eyebrow">Crazy Cat Lady Simulator · Opening soon</p>
+      <p class="eyebrow">Crazy Cat Lady Simulator · Now open</p>
       <h1>Welcome to the<br /><span>Crazy Cat Lady's Cat Sanctuary</span></h1>
-      <p class="lede">Pull up a porch chair, dearie. We're getting ready for the cats! Plow, sow, water and harvest the garden, then cook your crops into cat food in my kitchen so no kitty ever goes hungry.</p>
+      <p class="lede">Pull up a porch chair, dearie. The cats are coming! Give each new arrival a Welcome Vet Check and a name, then feed, pet, play and groom them. Grow the garden and cook cat food in my kitchen so no kitty ever goes hungry.</p>
       <button id="start-btn" type="button">Come on in!</button>
       <div class="hint keys-hint">
         <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</span>
@@ -41,9 +70,10 @@
         <span><kbd>E</kbd> use</span>
         <span><kbd>1</kbd>-<kbd>4</kbd> tools</span>
         <span><kbd>Q</kbd> seed type</span>
+        <span><kbd>J</kbd> journal</span>
         <span><kbd>T</kbd> chat</span>
       </div>
-      <div class="hint touch-hint">Use the joystick to walk, tap a tool, press Use to farm. Drag to look around, tap her to chat.</div>
+      <div class="hint touch-hint">Use the joystick to walk, tap a tool, press Use to farm or care for a cat. Tap a cat to care for it. Drag to look around, tap her to chat.</div>
     </div>
   </div>
 
@@ -58,6 +88,8 @@
       <div>Scroll: zoom</div>
       <div><kbd>E</kbd>/<kbd>Space</kbd> use tool / interact</div>
       <div><kbd>1</kbd>-<kbd>4</kbd> pick tool, <kbd>Q</kbd> seed type</div>
+      <div><kbd>E</kbd> near a cat: care menu (<kbd>1</kbd>-<kbd>6</kbd>)</div>
+      <div><kbd>J</kbd> Cat Journal, <kbd>Esc</kbd> close</div>
       <div><kbd>T</kbd> or click her: chat, <kbd>M</kbd> mute</div>
     </div>
   </div>
@@ -67,6 +99,6 @@
 
   <div id="loading">Tidying up the farm...</div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=202611162106"></script>
 </body>
 </html>

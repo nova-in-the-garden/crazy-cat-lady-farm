@@ -152,6 +152,18 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR }) {
   g.add(mesh(new THREE.TorusGeometry(0.28, 0.11, 8, 16), mat('#c8aaf2', { flatShading: false }), { x: -0.2, y: 0.11, z: -1.25, rx: Math.PI / 2 }));
   g.add(mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.05, 14), mat('#fff3c9'), { x: -0.2, y: 0.05, z: -1.25 }));
 
+  /* ---------- Litter box (front, between the pantry and the door) ---------- */
+  const litter = new THREE.Group(); litter.position.set(-1.65, Y, D / 2 - T - 0.45); g.add(litter);
+  litter.add(mesh(new THREE.BoxGeometry(0.75, 0.16, 0.5), mat('#9fd0ef'), { y: 0.08 }));
+  litter.add(mesh(new THREE.BoxGeometry(0.66, 0.02, 0.42), mat('#efe3c8'), { y: 0.15, cast: false }));
+  litter.add(mesh(new THREE.BoxGeometry(0.08, 0.02, 0.3), mat('#f7a8c4'), { x: 0.48, y: 0.01, z: 0.05, ry: 0.4, cast: false })); // little scoop
+  const clumps = [];
+  for (let i = 0; i < 4; i++) {
+    const m = mesh(new THREE.DodecahedronGeometry(0.035, 0), mat('#a88b64'), { x: -0.22 + i * 0.14, y: 0.17, z: (i % 2 ? 0.08 : -0.07), cast: false });
+    m.visible = false; litter.add(m); clumps.push(m);
+  }
+  addBox(HX - 1.65, HZ + D / 2 - T - 0.45, 0.75, 0.5);
+
   /* ---------- Warm ceiling lamp ---------- */
   const lampY = H - 0.45;
   // (just the light: a hanging lamp would float in mid-air while the roof is faded out)
@@ -171,6 +183,9 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR }) {
     stovePos: toWorld(-2.0, backZ + 0.75),     // stand here to cook
     bedPos: toWorld(W / 2 - T - 0.7, -D / 2 + T + 2.4),
     pantryPos: toWorld(-W / 2 + T + 0.9, 1.35),
+    litterPos: toWorld(-1.65, D / 2 - T - 1.05),
+    /** litter 0 (fresh) .. 1 (needs scooping) */
+    setLitter(v) { clumps.forEach((c, i) => (c.visible = v > 0.2 + i * 0.18)); },
     /** show up to 18 cans on the pantry shelves */
     setFood(n) { cans.forEach((c, i) => (c.visible = i < Math.min(n, cans.length))); },
     cook(seconds = 3) { cooking = seconds; },
