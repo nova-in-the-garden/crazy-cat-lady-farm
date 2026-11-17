@@ -5,11 +5,11 @@ import * as THREE from 'three';
 
 const LINES = {
   welcome: [
-    'Welcome to my farm, dearie!',
+    'Welcome to my cat sanctuary, dearie!',
     "Oh! A visitor! Come in, come in, mind the yarn.",
   ],
   start: [
-    "Wipe your paws, dearie. Shall I show you around?",
+    "We're getting the sanctuary ready for the cats. Shall I show you around?",
     'Take a stroll with me! WASD to walk, Shift if you fancy a trot.',
   ],
   idle: [
@@ -24,7 +24,18 @@ const LINES = {
     'My cat-ear headband? Oh, I never take it off, dearie.',
     "Cats choose you, you know. I'm just making it easy for them.",
     'I put the kibble out every morning. Any day now...',
+    "The sanctuary's nearly ready. Just a few more cushions to fluff!",
+    "Have you seen my new animal hospital? It's just past the garden.",
     "Purring is the best sound in the whole wide world.",
+  ],
+  clinic: [
+    "That's Whisker Wellness, my little animal hospital! Pop inside, the door's open.",
+    "Every sick kitty who comes here will get the very best care. And a blanket.",
+  ],
+  clinicInside: [
+    "Exam table, scale, medicine cabinet... we're nearly ready to open!",
+    "Those recovery kennels have the softest blankets. I washed them twice.",
+    "Mind the IV stand, dearie. No patients yet, but I like to be prepared.",
   ],
   porch: [
     "That's my porch! Cat tree, food bowls, rocking chair. All ready for company.",
@@ -43,7 +54,7 @@ const LINES = {
     'I like to watch the lily pads bob. Very relaxing.',
   ],
   gate: [
-    "That's my gate. Strays will wander in here someday, I just know it.",
+    "That's my gate. When the sanctuary opens, strays will come right through here.",
     'The mailbox has a paw on it. I get letters from my cat club!',
   ],
   talk: [
@@ -92,7 +103,7 @@ export class Host {
     if (playing) {
       // Comment on places as she arrives at them
       const p = this.lady.group.position;
-      const z = this.world.zones.find((zn) => Math.hypot(p.x - zn.x, p.z - zn.z) < zn.r);
+      const z = this.world.zones.find((zn) => (zn.test ? zn.test(p.x, p.z) : Math.hypot(p.x - zn.x, p.z - zn.z) < zn.r));
       if (z && z.id !== this.currentZone && !(this.zoneCooldown[z.id] > 0)) {
         this.sayKind(z.id, 5.5); this.zoneCooldown[z.id] = 40;
       }

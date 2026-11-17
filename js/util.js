@@ -71,7 +71,11 @@ export function signTexture(lines, { w = 512, h = 256, bg = '#c89466', fg = '#ff
     ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const lh = h / (lines.length + 0.6);
     lines.forEach((t, i) => {
-      ctx.font = `700 ${i === 0 ? font : font * 0.7}px Fredoka, "Trebuchet MS", sans-serif`;
+      let size = i === 0 ? font : font * 0.7;
+      ctx.font = `700 ${size}px Fredoka, "Trebuchet MS", sans-serif`;
+      const maxW = w - (paws ? 180 : 60);
+      const tw = ctx.measureText(t).width;
+      if (tw > maxW) { size *= maxW / tw; ctx.font = `700 ${size}px Fredoka, "Trebuchet MS", sans-serif`; } // shrink to fit
       ctx.fillText(t, w / 2, lh * (i + 0.8));
     });
     if (paws) { drawPaw(ctx, 38, h - 36, 34, '#f4a3b5', -0.4); drawPaw(ctx, w - 38, h - 36, 34, '#f4a3b5', 0.4); }

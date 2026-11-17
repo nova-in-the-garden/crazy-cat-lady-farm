@@ -6,6 +6,8 @@
 //   update(time, dt)                  -> little ambient animations (smoke, clouds, water)
 import * as THREE from 'three';
 import { mulberry32, mat, mesh, canvasTexture, drawPaw, signTexture } from './util.js';
+import { PLAY_RADIUS, addCircle, addBox, raised, resolve, groundHeight } from './collision.js';
+import { buildClinic } from './clinic.js';
 
 export const PALETTE = {
   grass: '#a9d98b', grassDark: '#8fca78', grassLight: '#c2e5a0',
@@ -19,49 +21,7 @@ export const PALETTE = {
   flowers: ['#f7a8c4', '#ffd76e', '#c8aaf2', '#ffffff', '#ff9f85', '#8fd0f0'],
 };
 
-const PLAY_RADIUS = 26;   // how far from the center she may walk
 const HILL_START = 31;    // where the rolling hills begin
-
-/* ------------------------------------------------------------------ */
-/* Collision                                                           */
-/* ------------------------------------------------------------------ */
-const circles = [];   // { x, z, r }
-const boxes = [];     // { minX, maxX, minZ, maxZ }
-const raised = [];    // { minX, maxX, minZ, maxZ, h } walkable raised floors (porch)
-
-function addCircle(x, z, r) { circles.push({ x, z, r }); }
-function addBox(cx, cz, w, d) { boxes.push({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2 }); }
-
-/** Push a position (Vector3) out of every obstacle. */
-function resolve(pos, r) {
-  for (const c of circles) {
-    const dx = pos.x - c.x, dz = pos.z - c.z;
-    const d = Math.hypot(dx, dz), min = c.r + r;
-    if (d < min && d > 1e-5) { pos.x = c.x + (dx / d) * min; pos.z = c.z + (dz / d) * min; }
-  }
-  for (const b of boxes) {
-    const nx = Math.max(b.minX, Math.min(pos.x, b.maxX));
-    const nz = Math.max(b.minZ, Math.min(pos.z, b.maxZ));
-    const dx = pos.x - nx, dz = pos.z - nz;
-    const d = Math.hypot(dx, dz);
-    if (d < r) {
-      if (d > 1e-5) { pos.x = nx + (dx / d) * r; pos.z = nz + (dz / d) * r; }
-      else { // center is inside the box: push out the shortest way
-        const opts = [[b.minX - r - pos.x, 0], [b.maxX + r - pos.x, 0], [0, b.minZ - r - pos.z], [0, b.maxZ + r - pos.z]];
-        opts.sort((a, c) => Math.abs(a[0] + a[1]) - Math.abs(c[0] + c[1]));
-        pos.x += opts[0][0]; pos.z += opts[0][1];
-      }
-    }
-  }
-  const d = Math.hypot(pos.x, pos.z);
-  if (d > PLAY_RADIUS) { pos.x *= PLAY_RADIUS / d; pos.z *= PLAY_RADIUS / d; }
-  return pos;
-}
-
-function groundHeight(x, z) {
-  for (const f of raised) if (x > f.minX && x < f.maxX && z > f.minZ && z < f.maxZ) return f.h;
-  return 0;
-}
 
 /* ------------------------------------------------------------------ */
 /* Terrain + sky                                                       */
@@ -638,8 +598,8 @@ function buildEntrance(scene) {
   // arch sign
   const wood = mat(PALETTE.woodDark);
   [-1.7, 1.7].forEach((x) => { scene.add(mesh(new THREE.CylinderGeometry(0.13, 0.15, 3.1, 7), wood, { x, y: 1.55, z: Z })); addCircle(x, Z, 0.2); });
-  const tex = signTexture(["Crazy Cat Lady's Farm", 'all cats welcome'], { w: 1024, h: 300, font: 92 });
-  const sign = mesh(new THREE.BoxGeometry(3.8, 1.0, 0.12), [wood, wood, wood, wood, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })], { y: 3.0, z: Z });
+  const tex = signTexture(["Crazy Cat Lady's Cat Sanctuary", 'opening soon - all cats welcome'], { w: 1024, h: 300, font: 76 });
+  const sign = mesh(new THREE.BoxGeometry(4.2, 1.1, 0.12), [wood, wood, wood, wood, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })], { y: 3.0, z: Z });
   scene.add(sign);
   // (box UVs read correctly from both the front and back faces)
   // hanging little flower pots
@@ -665,7 +625,7 @@ function scatter(scene, keepOut) {
   const blocked = (x, z, pad) => keepOut.some((k) => Math.abs(x - k.x) < k.w / 2 + pad && Math.abs(z - k.z) < k.d / 2 + pad);
 
   // Hand-placed yard trees
-  [[-6.5, -14, 1, false], [7, -15, 1.1, false], [-15, -9, 1.0, true], [19, 3, 1.1, false], [-18, 11, 1.0, false],
+  [[-6.5, -14, 1, false], [7, -15, 1.1, false], [-20, -13, 1.0, true], [19, 3, 1.1, false], [-18, 11, 1.0, false],
    [15, 13, 0.9, true], [-5, 12, 0.85, true], [5.5, -3.5, 0.75, true], [-19, -2, 1.05, false], [20, -13, 1.0, false]].forEach(([x, z, s, b]) => {
     const t = makeTree(rand, { blossom: b, scale: s }); t.position.set(x, 0, z); scene.add(t); addCircle(x, z, 0.45 * s);
   });
@@ -757,18 +717,24 @@ export function buildWorld(scene) {
   buildGarden(scene);
   const pond = buildPond(scene, lilies);
   buildEntrance(scene);
+  const clinic = buildClinic(scene);
+  // path from the main path to the clinic door
+  scene.add(pathRibbon([[0.1, -0.5], [-3.5, -2.3], [-8, -3.6], [-12, -4.6], [-12, -5.6]], 1.4, pathMat).mesh);
 
   // areas where scattered things shouldn't spawn (x, z, width, depth)
   const keepOut = [
     { x: 0, z: -7.5, w: 10, d: 10 }, { x: 12, z: -6, w: 10, d: 10 }, { x: -11, z: 2, w: 9, d: 8 },
     { x: 9, z: 7.5, w: 9, d: 7 }, { x: 0, z: 6, w: 3.2, d: 26 }, { x: 5, z: 0, w: 8, d: 3 }, { x: -4, z: 4, w: 7, d: 3 },
     { x: 0, z: 17, w: 44, d: 1.5 }, { x: 3, z: 16, w: 2, d: 2 }, { x: 0, z: 2, w: 6, d: 6 },
+    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 },
   ];
   scatter(scene, keepOut);
   const butterflies = buildButterflies(scene);
 
   // Named places the cat lady likes to talk about
   const zones = [
+    { id: 'clinicInside', test: (x, z) => clinic.isInside(x, z) },
+    { id: 'clinic', x: -12, z: -4, r: 4 },
     { id: 'porch', x: 0, z: -5.3, r: 3.5 },
     { id: 'garden', x: -11, z: 2, r: 5 },
     { id: 'barn', x: 11, z: -6, r: 5.5 },
@@ -776,7 +742,8 @@ export function buildWorld(scene) {
     { id: 'gate', x: 0, z: 16, r: 3.5 },
   ];
 
-  function update(t, dt) {
+  function update(t, dt, ladyPos, camera) {
+    clinic.update(dt, ladyPos, camera);
     for (const p of smokePuffs) {
       const k = (t * 0.18 + p.userData.phase) % 1;
       p.position.copy(p.userData.base).add(new THREE.Vector3(Math.sin(k * 6 + p.userData.phase * 9) * 0.3 + k * 0.8, k * 3.2, 0));
@@ -797,5 +764,5 @@ export function buildWorld(scene) {
     }
   }
 
-  return { resolve, groundHeight, zones, update, spawn: new THREE.Vector3(0, 0, 3.5) };
+  return { resolve, groundHeight, zones, update, clinic, spawn: new THREE.Vector3(0, 0, 3.5) };
 }

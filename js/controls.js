@@ -106,11 +106,16 @@ export class Controls {
   }
 
   /** Smoothly follow a point (her head/shoulders). */
-  updateCamera(dt, focus, snap = false) {
+  // opts.minPitch / opts.maxDist let the game tilt the camera down and in (e.g. indoors)
+  updateCamera(dt, focus, snap = false, opts = {}) {
     const k = snap ? 1 : 1 - Math.exp(-dt * 8);
     this.target.lerp(focus, k);
-    const d = this.distance;
-    const off = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), Math.cos(this.yaw) * Math.cos(this.pitch)).multiplyScalar(d);
+    const k2 = snap ? 1 : 1 - Math.exp(-dt * 3);
+    this.curMinPitch = (this.curMinPitch ?? 0) + ((opts.minPitch ?? 0) - (this.curMinPitch ?? 0)) * k2;
+    this.curMaxDist = (this.curMaxDist ?? 18) + ((opts.maxDist ?? 18) - (this.curMaxDist ?? 18)) * k2;
+    const d = Math.min(this.distance, this.curMaxDist);
+    const pitch = Math.max(this.pitch, this.curMinPitch);
+    const off = new THREE.Vector3(Math.sin(this.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(this.yaw) * Math.cos(pitch)).multiplyScalar(d);
     this.camera.position.copy(this.target).add(off);
     if (this.camera.position.y < 0.6) this.camera.position.y = 0.6;
     this.camera.lookAt(this.target);

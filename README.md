@@ -1,13 +1,17 @@
-# Crazy Cat Lady's Farm
+# Crazy Cat Lady's Cat Sanctuary
 
 A cozy, browser-playable 3D world for the **Crazy Cat Lady Simulator** game idea:
 a life sim where you find, raise, breed, feed, pet, love and rehome cats, and act as a part-time vet.
 
-This first version is the world itself and its host, the **Crazy Cat Lady**. She lives at the heart of
-the farm, greets visitors ("Welcome to my farm, dearie!"), chats about each spot you visit and mutters
+The farm is being turned into a **cat sanctuary** that's getting ready to open (no cats yet). Its host is the
+**Crazy Cat Lady**, who lives at the heart of the sanctuary, greets visitors ("Welcome to my farm, dearie!"), chats about each spot you visit and mutters
 cozy cat thoughts when you stand still. No cats yet. They're coming!
 
 ## What's in the world
+- **Whisker Wellness Animal Hospital**, the sanctuary's vet clinic where sick cats will go. You can walk inside: the roof
+  and the walls nearest the camera fade away. Inside: exam table, cat scale, IV stand, a medicine cabinet full of
+  bottles, four recovery kennels with blankets, cat beds, a reception desk with a computer and clipboard, posters and
+  a warm ceiling lamp. Outside: planters, a bench, a Cat Ambulance wagon and a signpost.
 - A pastel cottage with a porch, chimney smoke, flower boxes, a cat flap, a cat tree, food bowls and a rocking chair
 - A red barn with a cat weathervane, hay bales and a scratching post
 - A fenced veggie garden (carrots, cabbages, pumpkins) with a cat-eared scarecrow
@@ -43,7 +47,9 @@ folder. All paths are relative, and Three.js is included in `vendor/`, so nothin
 index.html          page, title screen, HUD, nameplate + speech bubble markup
 css/style.css       cozy pastel UI styles
 js/main.js          renderer, lights, game loop, title screen, start button
-js/world.js         the farm: terrain, sky, buildings, garden, pond, trees, collisions, named zones
+js/world.js         the farm: terrain, sky, buildings, garden, pond, trees, named zones
+js/clinic.js        Whisker Wellness Animal Hospital (enterable vet clinic + fading roof/walls)
+js/collision.js     simple circle/box collisions and raised floors
 js/catLady.js       the Crazy Cat Lady model and her walk / idle / wave / blink animations
 js/host.js          her personality: nameplate, speech bubble and everything she says
 js/controls.js      keyboard, mouse orbit camera, zoom and the touch joystick
@@ -55,6 +61,6 @@ screenshots/        preview images
 
 ## Adding things later
 - **Her lines**: edit the `LINES` lists in `js/host.js`.
-- **New places**: build them in `js/world.js`, add collisions with `addCircle` / `addBox`, and add a zone in `zones` so she comments on them.
+- **New places**: build them in `js/world.js`, add collisions with `addCircle` / `addBox` from `js/collision.js`, and add a zone in `zones` so she comments on them.
 - **Cats**: create a `js/cat.js` that builds a cat like `catLady.js` does, then add and update the cats in the loop in `js/main.js`.
 - `window.ccl` in the browser console exposes the scene, camera, lady, world and a `teleport(x, z)` helper for testing.

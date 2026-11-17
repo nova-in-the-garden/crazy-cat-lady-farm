@@ -112,7 +112,8 @@ function frame(now) {
     lady.group.rotation.y = state.heading;
     moveAmount = Math.min(state.speed / WALK_SPEED, 1);
     focus.set(pos.x, pos.y + 1.3, pos.z);
-    controls.updateCamera(dt, focus);
+    const indoors = world.clinic.isInside(pos.x, pos.z);
+    controls.updateCamera(dt, focus, false, indoors ? { minPitch: 0.75, maxDist: 9 } : {});
   } else {
     // Title screen: slow, cinematic drift around her, with the cottage behind
     // (on wide screens she stands to the right of the title card)
@@ -124,7 +125,7 @@ function frame(now) {
   }
 
   lady.update(dt, moveAmount, running && moveAmount > 0.5);
-  world.update(state.time, dt);
+  world.update(state.time, dt, pos, camera);
   host.update(dt, moveAmount > 0.1, state.playing);
 
   // shadows follow her so they stay crisp
