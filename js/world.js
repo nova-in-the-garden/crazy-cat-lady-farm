@@ -10,6 +10,8 @@ import { PLAY_RADIUS, addCircle, addBox, raised, resolve, groundHeight } from '.
 import { buildClinic } from './clinic.js';
 import { fadeable, makeFader } from './building.js';
 import { buildCottageInterior } from './kitchen.js';
+import { buildCatsHouse } from './catsHouse.js';
+import { STARTER_CATS } from './catData.js';
 
 export const PALETTE = {
   grass: '#a9d98b', grassDark: '#8fca78', grassLight: '#c2e5a0',
@@ -460,55 +462,8 @@ function buildCottage(scene, smokePuffs) {
 /* The barn                                                            */
 /* ------------------------------------------------------------------ */
 function buildBarn(scene) {
-  const BX = 13, BZ = -7, W = 6, D = 6.5, H = 3.2;
-  const barn = new THREE.Group();
-  barn.position.set(BX, 0, BZ); barn.rotation.y = -Math.PI / 2; // doors face the path (-x side)
-  scene.add(barn);
-  const red = mat(PALETTE.barn), white = mat(PALETTE.trim);
-  barn.add(mesh(new THREE.BoxGeometry(W, H, D), red, { y: H / 2 }));
-  // vertical board lines
-  for (let i = -5; i <= 5; i++) barn.add(mesh(new THREE.BoxGeometry(0.04, H, D + 0.02), mat('#c9625b'), { x: i * 0.5, y: H / 2, cast: false }));
-  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => barn.add(mesh(new THREE.BoxGeometry(0.2, H, 0.2), white, { x: sx * W / 2, y: H / 2, z: sz * D / 2 })));
-  // Gambrel roof: two steep lower panels + two shallow upper panels
-  const roofM = mat(PALETTE.barnRoof);
-  const lowA = 1.1, lowW = 1.35, upW = 1.9;
-  [-1, 1].forEach((s) => {
-    barn.add(mesh(new THREE.BoxGeometry(lowW + 0.1, 0.15, D + 0.6), roofM, { x: s * (W / 2 - lowW * Math.cos(lowA) / 2 + 0.2), y: H + Math.sin(lowA) * lowW / 2, rz: -s * lowA }));
-    const ux = W / 2 - lowW * Math.cos(lowA) + 0.2;
-    barn.add(mesh(new THREE.BoxGeometry(upW, 0.15, D + 0.6), roofM, { x: s * ux / 2, y: H + Math.sin(lowA) * lowW + 0.35, rz: -s * 0.36 }));
-  });
-  // gable infill (front + back)
-  const gs = new THREE.Shape();
-  const ux = W / 2 - lowW * Math.cos(lowA) + 0.2;
-  gs.moveTo(-W / 2, 0); gs.lineTo(W / 2, 0); gs.lineTo(ux, Math.sin(lowA) * lowW); gs.lineTo(0, Math.sin(lowA) * lowW + 0.7);
-  gs.lineTo(-ux, Math.sin(lowA) * lowW); gs.closePath();
-  const gGeo = new THREE.ShapeGeometry(gs);
-  [-1, 1].forEach((s) => barn.add(mesh(gGeo, red, { y: H, z: s * (D / 2 + 0.01), ry: s > 0 ? 0 : Math.PI })));
-  // Big doors with white X
-  const fz = D / 2 + 0.05;
-  barn.add(mesh(new THREE.BoxGeometry(2.6, 2.4, 0.1), mat('#d0645d'), { y: 1.2, z: fz }));
-  barn.add(mesh(new THREE.BoxGeometry(2.8, 0.16, 0.14), white, { y: 2.45, z: fz }));
-  [-1, 1].forEach((s) => {
-    barn.add(mesh(new THREE.BoxGeometry(0.14, 2.4, 0.14), white, { x: s * 1.33, y: 1.2, z: fz }));
-    barn.add(mesh(new THREE.BoxGeometry(0.1, 2.4, 0.14), white, { x: s * 0.0, y: 1.2, z: fz }));
-    [-1, 1].forEach((d) => barn.add(mesh(new THREE.BoxGeometry(0.1, 1.75, 0.13), white, { x: s * 0.65, y: 1.2, z: fz + 0.01, rz: d * 0.5 })));
-  });
-  // hayloft window with hay peeking out
-  barn.add(mesh(new THREE.BoxGeometry(1.0, 0.8, 0.1), white, { y: H + 0.55, z: fz }));
-  barn.add(mesh(new THREE.BoxGeometry(0.8, 0.6, 0.12), mat('#5b3c3a'), { y: H + 0.55, z: fz }));
-  barn.add(mesh(new THREE.BoxGeometry(0.7, 0.2, 0.2), mat('#f2d27a'), { y: H + 0.3, z: fz }));
-  // cat silhouette weathervane on the roof
-  const vane = new THREE.Group();
-  vane.position.set(0, H + Math.sin(lowA) * lowW + 0.75, 0);
-  const iron = mat('#5b4256');
-  vane.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), iron, { y: 0.45 }));
-  vane.add(mesh(new THREE.BoxGeometry(0.5, 0.18, 0.03), iron, { y: 0.85 }));
-  vane.add(mesh(new THREE.SphereGeometry(0.11, 6, 5), iron, { x: 0.28, y: 0.95, sz: 0.3 }));
-  [-1, 1].forEach((s) => vane.add(mesh(new THREE.ConeGeometry(0.05, 0.1, 3), iron, { x: 0.28 + s * 0.06, y: 1.08, sz: 0.3 })));
-  vane.add(mesh(new THREE.TorusGeometry(0.15, 0.025, 4, 8, Math.PI), iron, { x: -0.3, y: 1.0, rz: Math.PI / 2 }));
-  barn.add(vane);
-
-  addBox(BX, BZ, D + 0.2, W + 0.2); // rotated 90 degrees, so width/depth swap
+  // the old red barn is now the Cats' House (enterable: food bowls, litter boxes, named beds)
+  const catsHouse = buildCatsHouse(scene, STARTER_CATS.map((c) => c.id));
 
   // hay bales by the barn
   const hay = mat('#f0cf73'), hayLine = mat('#d9b158');
@@ -526,6 +481,7 @@ function buildBarn(scene) {
   sp.add(mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.2, 8), mat('#ead6aa'), { y: 0.66 }));
   sp.add(mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 10), mat('#9fd6bf'), { y: 1.28 }));
   scene.add(sp); addCircle(9.4, -10.2, 0.5);
+  return catsHouse;
 }
 
 /* ------------------------------------------------------------------ */
@@ -739,14 +695,14 @@ export function buildWorld(scene) {
   const pathMat = new THREE.MeshStandardMaterial({ color: PALETTE.path, roughness: 1, flatShading: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   // main path: gate -> porch steps; branch to the barn; branch to the garden gate
   scene.add(pathRibbon([[0, 18], [0.4, 13], [-0.6, 8], [0.3, 2], [0, -3.3]], 1.7, pathMat).mesh);
-  scene.add(pathRibbon([[0.2, 4], [4, 2.6], [7.5, -1.5], [9.6, -5.5]], 1.3, pathMat).mesh);
+  scene.add(pathRibbon([[0.2, 4], [4, 2.6], [7.5, -1.5], [8.6, -5.2], [9.4, -7]], 1.3, pathMat).mesh);
   scene.add(pathRibbon([[-0.3, 6], [-3.5, 3.5], [-7.3, 2]], 1.2, pathMat).mesh);
   // stepping stones toward the pond
   const rand = mulberry32(3);
   [[2.2, 9.2], [3.4, 9.7], [4.6, 9.5], [5.6, 9.0]].forEach(([x, z]) => scene.add(mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 7), mat(PALETTE.stone), { x, y: 0.03, z, ry: rand() * 3 })));
 
   const cottage = buildCottage(scene, smokePuffs);
-  buildBarn(scene);
+  const catsHouse = buildBarn(scene);
   buildGarden(scene);
   const pond = buildPond(scene, lilies);
   buildEntrance(scene);
@@ -771,7 +727,8 @@ export function buildWorld(scene) {
     { id: 'clinic', x: -12, z: -4, r: 4 },
     { id: 'porch', x: 0, z: -5.3, r: 3.5 },
     { id: 'garden', x: -11, z: 2, r: 5 },
-    { id: 'barn', x: 11, z: -6, r: 5.5 },
+    { id: 'catsHouse', test: (x, z) => catsHouse.isInside(x, z) },
+    { id: 'barn', x: 8.5, z: -6, r: 3 },
     { id: 'pond', x: pond.x, z: pond.z, r: 5 },
     { id: 'gate', x: 0, z: 16, r: 3.5 },
   ];
@@ -779,6 +736,7 @@ export function buildWorld(scene) {
   function update(t, dt, ladyPos, camera) {
     clinic.update(dt, ladyPos, camera);
     cottage.update(dt, t, ladyPos, camera);
+    catsHouse.update(dt, ladyPos, camera);
     for (const p of smokePuffs) {
       const k = (t * 0.18 + p.userData.phase) % 1;
       p.position.copy(p.userData.base).add(new THREE.Vector3(Math.sin(k * 6 + p.userData.phase * 9) * 0.3 + k * 0.8, k * 3.2, 0));
@@ -799,5 +757,5 @@ export function buildWorld(scene) {
     }
   }
 
-  return { resolve, groundHeight, zones, update, clinic, cottage, sky, seedBox, pond, spawn: new THREE.Vector3(0, 0, 3.5) };
+  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, sky, seedBox, pond, spawn: new THREE.Vector3(0, 0, 3.5) };
 }

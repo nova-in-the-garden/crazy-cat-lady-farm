@@ -29,6 +29,7 @@ export function defaultState(tileCount) {
     stats: { plowed: 0, planted: 0, watered: 0, harvested: 0, cooked: 0 },
     // the cats (filled in by cats.js), vet cases, the journal and the litter box
     cats: [], cases: [], journal: { moments: [], vetXP: 0 }, litter: 0, flags: {},
+    litterBoxes: null, bowls: {},                    // Cats' House: litter box levels (0 clean..1) and which bowls are full
   };
 }
 

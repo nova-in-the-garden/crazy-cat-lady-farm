@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 export const DAY_SECONDS = 360;   // 6 real minutes per in-game day
 export const DAWN = 6;            // soil dries and the seed box refills at 6:00
+export const BEDTIME = 22;        // at 10 PM the clock stops until she goes to bed and sleeps
 
 const C = (h) => new THREE.Color(h);
 const SKY = {
@@ -28,27 +29,33 @@ export class DayCycle {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.starMat = new THREE.PointsMaterial({ color: '#fff8e0', size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
     this.stars = new THREE.Points(g, this.starMat); this.stars.renderOrder = -1; scene.add(this.stars);
+    // old saves (from before bedtime existed) might be stuck in the small hours: wind back to bedtime
+    if (state.hour < DAWN || state.hour > BEDTIME) { if (state.hour < DAWN && state.day > 1) state.day -= 1; state.hour = BEDTIME; }
     this.apply();
   }
+
+  /** True once it's 10 PM: time is frozen until she sleeps. */
+  get bedtime() { return this.state.hour >= BEDTIME; }
 
   /** Advance the clock. Returns how many in-game hours passed. */
   update(dt) {
-    const s = this.state, hours = (24 / DAY_SECONDS) * dt;
+    // The day never rolls over on its own: at 10 PM the clock stops and waits for bedtime.
+    const s = this.state;
+    if (s.hour >= BEDTIME) { s.hour = BEDTIME; this.apply(); return 0; }
     const before = s.hour;
-    s.hour += hours;
-    if (s.hour >= 24) { s.hour -= 24; s.day += 1; this.onNewDay?.(); }
-    if ((before < DAWN && s.hour >= DAWN) || (before > s.hour && s.hour >= DAWN)) this.onDawn?.();
+    s.hour = Math.min(BEDTIME, s.hour + (24 / DAY_SECONDS) * dt);
+    if (s.hour >= BEDTIME && before < BEDTIME) this.onBedtime?.();
     this.apply();
-    return hours;
+    return s.hour - before;
   }
 
   /** Hours from now until the next 6:00 AM. */
-  hoursUntilDawn() { const h = this.state.hour; return h < DAWN ? DAWN - h : 24 - h + DAWN; }
+  hoursUntilDawn() { return 24 - this.state.hour + DAWN; }
 
   /** Sleep until morning. Returns the hours skipped (so crops can grow in the meantime). */
   sleep() {
     const skipped = this.hoursUntilDawn();
-    if (this.state.hour >= DAWN) { this.state.day += 1; this.onNewDay?.(); }
+    this.state.day += 1; this.onNewDay?.();
     this.state.hour = DAWN;
     this.onDawn?.();
     this.apply();

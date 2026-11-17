@@ -293,7 +293,7 @@ export class Vet {
     g.particles.emit(EXAM_SPOT.clone().setY(1.3), { color: '#f26d8f', count: 10, speed: 0.6, up: 1.4, gravity: 0.5, size: 0.05, emissive: true, life: 1.3 });
     sound.play('bond');
     this.close(true);
-    g.host.say(`Welcome to the family, ${name}! ${g.cats.joined().length === 1 ? 'Our very first sanctuary cat!' : 'The sanctuary grows!'} Feed, pet, play and groom ${pron('{him}', cat.def)} to grow your bond.`, 8);
+    g.host.say(`Welcome to the family, ${name}! ${g.cats.joined().length === 1 ? 'Our very first sanctuary cat!' : 'The sanctuary grows!'} Pet, play with and groom ${pron('{him}', cat.def)} to grow your bond, and fill ${pron('{his}', cat.def)} bowl at the Cats' House (the old barn).`, 8);
   }
 
   /* ---------------- DOM ---------------- */

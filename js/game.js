@@ -32,6 +32,7 @@ export class Game {
     this.ui = new GameUI({
       onSelectTool: (i, fromClick) => this.selectTool(i, fromClick),
       onUse: () => this.use(),
+      onSleep: () => this.sleep(),
       onToggleMute: () => this.ui.setMuted(sound.toggle()),
       onReset: () => this.reset(),
       onJournal: () => this.journal.toggle(),
@@ -54,9 +55,9 @@ export class Game {
     this.cats = new CatManager(this);
     this.vet = new Vet(this);
     this.catMenu = new CatMenu(this);
-    world.cottage.setLitter(this.state.litter);
 
     this.day.onDawn = () => this.dawn();
+    this.day.onBedtime = () => this.bedtime();
     world.cottage.setFood(this.state.food);
     this.updateSeedBox();
     lady.setTool(TOOLS[this.state.tool].id === 'hands' ? 'basket' : TOOLS[this.state.tool].id);
@@ -115,6 +116,8 @@ export class Game {
     const crops = FOOD_CROPS.reduce((n, c) => n + s.crops[c], 0);
     const table = this.vet.tableAction();
     if (table && table.ok) return table;
+    // at the cottage bed, Sleep wins (even with cats piled on the bed)
+    if (W.cottage.isInside(p.x, p.z) && near(W.cottage.bedPos, 1.2)) return this.bedAction();
     // a cat right in front of her (farming tools still win on a tile they can work)
     const cat = this.cats.nearest(1.6);
     if (cat && !cat.escort) {
@@ -125,18 +128,16 @@ export class Game {
     if (table) return table;
     if (cat) return this.catAction(cat);
     if (W.cottage.isInside(p.x, p.z)) {
-      if (near(W.cottage.litterPos, 1.0)) {
-        return s.litter > 0.15 ? { ok: true, label: 'Scoop the litter box', run: () => this.cleanLitter() } : { ok: false, label: 'Litter box: fresh and clean' };
-      }
       if (near(W.cottage.stovePos, 1.3)) {
         return crops > 0
           ? { ok: true, label: `Cook ${crops} crop${crops > 1 ? 's' : ''} into cat food`, run: () => this.cook() }
           : { ok: false, label: 'Cat Food Kitchen: harvest crops, then cook them here' };
       }
-      if (near(W.cottage.bedPos, 1.2)) return { ok: true, label: 'Sleep until morning', run: () => this.sleep() };
+      if (near(W.cottage.bedPos, 1.2)) return this.bedAction();
       if (near(W.cottage.pantryPos, 1.0)) return { ok: false, label: `Pantry: ${s.food} portion${s.food === 1 ? '' : 's'} of cat food` };
       return null;
     }
+    if (W.catsHouse.isInside(p.x, p.z)) return this.catsHouseAction(p);
     if (near(W.seedBox.position, 1.6)) {
       return s.seedBoxDay < s.day
         ? { ok: true, label: "Collect today's free seeds", run: () => this.collectSeeds() }
@@ -193,12 +194,47 @@ export class Game {
     return { ok: true, label: `Care for ${name}${extra}`, run: () => this.catMenu.open(c) };
   }
 
-  cleanLitter() {
-    this.state.litter = 0; this.world.cottage.setLitter(0);
-    this.cats.joined().forEach((c) => (c.data.needs.clean = Math.min(100, c.data.needs.clean + 25)));
+  /** What E does inside the Cats' House: feeding station, litter boxes, the cats' beds. */
+  catsHouseAction(p) {
+    const s = this.state, H = this.world.catsHouse, cats = this.cats;
+    const near = (q, r) => Math.hypot(p.x - q.x, p.z - q.z) < r;
+    if (near(H.feedPos, 1.25)) {
+      const joined = cats.joined();
+      if (!joined.length) return { ok: false, label: 'Feeding station: no cats live here yet' };
+      const empty = joined.filter((c) => !s.bowls[c.data.id]);
+      if (!empty.length) return { ok: false, label: 'All the bowls are full. The cats are on their way!' };
+      if (s.food <= 0) return { ok: false, label: 'Pantry is empty. Cook cat food in the cottage kitchen' };
+      const n = Math.min(empty.length, s.food);
+      return { ok: true, label: `Fill ${n} food bowl${n > 1 ? 's' : ''} (${s.food} in the pantry)`, run: () => this.feedCats() };
+    }
+    const bi = H.litter.findIndex((b) => near(b.pos, 0.95));
+    if (bi >= 0) {
+      const users = cats.joined().filter((c) => cats.boxOf(c) === bi).map((c) => c.data.name);
+      const whose = users.length ? ` (${users.join(' & ')})` : '';
+      return (s.litterBoxes[bi] || 0) > 0.12 ? { ok: true, label: `Scoop litter box ${bi + 1}${whose}`, run: () => this.cleanLitter(bi) } : { ok: false, label: `Litter box ${bi + 1}${whose}: fresh and clean` };
+    }
+    const bed = H.beds.find((b) => near(b.pos, 0.95));
+    if (bed) return { ok: false, label: bed.name ? `${bed.name}'s cozy bed` : 'A cozy bed, ready for the next cat' };
+    return null;
+  }
+  feedCats() {
+    const n = this.cats.serveMeals(false);
+    this.lady.act();
+    const p = this.world.catsHouse.bowls[0].pos;
+    this.particles.emit(new THREE.Vector3(p.x - 0.2, 0.4, p.z + 0.6), { color: '#f4a3b5', count: 10, speed: 0.6, up: 1.4, gravity: 0.5, size: 0.045, emissive: true, life: 1.2 });
+    this.floatAtLady(`Filled ${n} bowl${n > 1 ? 's' : ''}. Dinner time, kitties!`, '#c95c74', 'food');
+    if (!this.state.flags.fedHouse) { this.state.flags.fedHouse = true; this.host.say("Shake the scoop and they come running! Each cat has their own bowl. The food comes from the pantry we cook in the kitchen.", 7); }
+    else this.host.say('Here kitty kitty! Dinner is served.', 4);
+  }
+  cleanLitter(i) {
+    const s = this.state;
+    s.litterBoxes[i] = 0; this.world.catsHouse.setLitter(s.litterBoxes);
+    this.cats.joined().filter((c) => this.cats.boxOf(c) === i).forEach((c) => (c.data.needs.clean = Math.min(100, c.data.needs.clean + 25)));
     this.lady.act(); sound.play('scoop');
+    const b = this.world.catsHouse.litter[i].pos;
+    this.particles.emit(new THREE.Vector3(b.x, 0.4, b.z + 0.7), { color: '#ffe27a', count: 8, speed: 0.5, up: 1, gravity: 0.6, size: 0.035, emissive: true });
     this.floatAtLady('Litter box all fresh', '#3f8fb5', 'sparkle');
-    if (!this.state.flags.scooped) { this.state.flags.scooped = true; this.host.say('Thank you, dearie! A clean litter box makes for happy kitties.', 5); }
+    if (!s.flags.scooped) { s.flags.scooped = true; this.host.say('Thank you, dearie! A clean litter box makes for happy kitties.', 5); }
   }
 
   /** Tapping/clicking a cat in the world (handy on phones). */
@@ -273,7 +309,22 @@ export class Game {
     this.floatAtLady(`+${made} cat food`, '#c95c74', 'food');
     this.host.say(`Mmm, smells purr-fect! ${made} portion${made > 1 ? 's' : ''} of cat food for the pantry.`, 5);
   }
+  /** The cottage bed: Sleep from 6 PM on (at 10 PM you have to). */
+  bedAction() {
+    if (this.state.hour < 18) return { ok: false, label: 'Your cozy bed. You can turn in from 6 PM (bedtime is 10 PM)' };
+    return { ok: true, sleep: true, label: this.day.bedtime ? 'Sleep (wake up at 6 AM)' : 'Go to bed early (wake up at 6 AM)', run: () => this.sleep() };
+  }
+  /** 10 PM: the clock stops until she goes to bed. */
+  bedtime() {
+    if (!this.playing) return;
+    sound.play('page');
+    this.host.say("It's bedtime, dearie! The clock waits for us. Head to the bed in the cottage and press Sleep.", 9);
+    this.ui.toast('Bedtime: time stops until you sleep in the cottage bed');
+  }
   sleep() {
+    if (!this.playing || this.state.hour < 18) return;
+    this.catMenu.close?.();
+    this.ui.sleepBtn.classList.add('hidden');
     this.playing = false; sound.play('sleep');
     this.host.say('Nighty night...', 2);
     this.ui.sleepFade(() => {
@@ -337,11 +388,16 @@ export class Game {
   /* ---------------- per frame ---------------- */
   update(dt, t) {
     // clock runs all the time (also on the title screen), crops grow while watered
-    const hours = (24 / DAY_SECONDS) * dt;
-    const ripe = this.garden.grow(hours);
+    // (it stops at 10 PM until she sleeps, so hours is 0 at bedtime)
+    const hours = this.day.update(dt);
+    const ripe = hours > 0 ? this.garden.grow(hours) : [];
     if (ripe.length && this.playing) this.notifyRipe(ripe);
-    this.day.update(dt);
     this.chatCooldown -= dt;
+    // gentle bedtime reminders while the clock waits
+    if (this.playing && this.day.bedtime && !this.locked) {
+      this.bedNag = (this.bedNag ?? 40) - dt;
+      if (this.bedNag <= 0) { this.bedNag = 45; if (!(this.action && this.action.sleep)) this.host.say("Yawn... it's bedtime, dearie. Head to bed in the cottage whenever you're ready.", 6); }
+    } else this.bedNag = 40;
     this.garden.animate(t);
     this.particles.update(dt);
     this.cats.update(dt, hours, t);

@@ -293,3 +293,17 @@ h1 span { color: var(--rose-dark); font-weight: 700; }
   #toast { top: auto; bottom: 170px; font-size: 0.8rem; }
 }
 body.exam-open #hotbar, body.exam-open #hud, body.exam-open #journal-btn, body.exam-open #prompt, body.exam-open #act-btn, body.exam-open #joystick { display: none !important; }
+
+/* --- Bedtime: Sleep button + status note --- */
+#sleep-btn { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); z-index: 14; display: flex; align-items: center; gap: 8px;
+  padding: 10px 22px 10px 16px; border-radius: 999px; border: 3px solid #fff; background: #6f6fc9; color: #fff; font: 600 1.1rem Fredoka, sans-serif;
+  box-shadow: 0 6px 18px rgba(60, 50, 110, 0.35); cursor: pointer; touch-action: manipulation; }
+#sleep-btn small { font-size: 0.75rem; opacity: 0.85; font-weight: 500; }
+#sleep-btn.bedtime { animation: sleepPulse 1.6s ease-in-out infinite; }
+#sleep-btn:hover { background: #5d5db8; }
+@keyframes sleepPulse { 0%, 100% { box-shadow: 0 6px 18px rgba(60, 50, 110, 0.35); } 50% { box-shadow: 0 0 0 8px rgba(160, 160, 255, 0.35); } }
+#status .bedtime-note { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding: 5px 8px; border-radius: 10px; background: #ecebff; color: #4c4a8f; font-size: 0.78rem; line-height: 1.25; }
+#status .bedtime-note.hidden { display: none; }
+#status.bedtime .time { color: #6f6fc9; }
+body.exam-open #sleep-btn { display: none !important; }
+@media (max-width: 640px) { #sleep-btn { bottom: 118px; font-size: 1rem; padding: 8px 18px 8px 12px; } }

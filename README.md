@@ -24,16 +24,23 @@ their personality and anything that needs treating (the stray has fleas!). Then 
 tap a suggestion, or roll the dice for a random one. The cat joins the sanctuary and the journal only after this check.
 
 **Daily care.** Press E next to one of your cats (or tap them) to open the care menu, then pick with keys 1-6 or tap:
-- **Feed** hand-feeds a portion from the pantry. Cats also eat breakfast at 8 AM and supper at 6 PM from the pantry
-  on their own, so keep it stocked.
 - **Pet**, **Play** (feather wand or yarn ball: every cat has a favorite) and **Brush & groom**.
-- **Scoop the litter box** inside the cottage, by the door.
+
+**The Cats' House** (the old red barn, east of the cottage) is the cats' own home. Walk in through the big open doors:
+- **Feeding station** (back right corner): press E to fill every empty bowl from the pantry. Each cat has their own
+  bowl, and they trot over and eat. Breakfast at 8 AM and supper at 6 PM are served into the bowls automatically too,
+  as long as the pantry has food, so keep cooking in the cottage kitchen.
+- **Litter boxes** along the front wall, one for every two cats. They get visibly clumpy over time; press E next to a
+  box to scoop it. Cats with a dirty box get less tidy faster.
+- **A cozy bed for every cat** with their name on a little plaque (it's filled in at the Welcome Vet Check), plus a
+  scratching post, a cat tree and a basket of toys.
 
 Each cat has soft needs (full tummy, fun, clean and tidy, affection), a mood, a personality (affectionate, playful,
 shy, independent or food-motivated) and favorite toy, spot and treat that you discover by playing, watching and
 feeding. Caring for a cat raises their **bond** (0 to 5 hearts). Higher bonds unlock new behavior: they trill hello,
-follow you around, nap near you when you rest, bring you little gifts, and curl up with you every night. At night all
-the cats head into the cottage, and when you sleep they pile onto the bed with you.
+follow you around, nap near you when you rest, bring you little gifts, and curl up with you every night. At night the
+cats head to bed: most curl up in their own named beds in the Cats' House, while your favorites (3+ hearts) pile onto
+your bed in the cottage.
 
 **Gentle vet care.** Now and then (and always once early, on day 2) a cat seems a little off: licking a paw,
 hunching, scratching or hiding, with a little thought bubble. Open their care menu and choose **Take to the clinic**,
@@ -71,8 +78,10 @@ bottom tells you what will happen.
 - Dry crops never die, they just pause. **Nothing wilts**: once a crop is ripe it stays ripe until you pick it.
 - Grow time (in game hours) and food per crop: carrot 12 h → 1 food, cabbage 20 h → 2 food, pumpkin 32 h → 4 food.
   Chamomile takes 16 h and goes to the vet instead.
-- A full day lasts 6 real minutes. At night, sleep in the **bed** in the cottage to skip to morning (crops in
-  wet soil keep growing while you sleep).
+- A full day lasts 6 real minutes. **At 10 PM it's bedtime: the clock stops** (nothing grows or gets hungrier)
+  until you walk to the **bed** in the cottage and press **E** or the big **Sleep** button. You wake up at 6 AM the
+  next day. The day never rolls over without sleeping, and you can go to bed early any time from 6 PM. Crops in wet soil keep
+  growing while you sleep. Your favorite cats pile onto the bed with you; the others sleep in the Cats' House.
 - The **seed box** next to the garden has free seeds every morning.
 - Your garden, cats, vet cases and journal are saved in the browser automatically. Use **Reset garden** in the
   controls panel to start the whole sanctuary over.
@@ -89,8 +98,8 @@ little tea table and a cat bed by the stove.
   and the walls nearest the camera fade away. Inside: exam table, cat scale, IV stand, a medicine cabinet full of
   bottles, four recovery kennels with blankets, cat beds, a reception desk with a computer and clipboard, posters and
   a warm ceiling lamp. Outside: planters, a bench, a Cat Ambulance wagon and a signpost.
-- A pastel cottage (enterable, with the Cat Food Kitchen, a litter box and her bed inside) with a porch, chimney smoke, flower boxes, a cat flap, a cat tree, food bowls and a rocking chair
-- A red barn with a cat weathervane, hay bales and a scratching post
+- A pastel cottage (enterable, with the Cat Food Kitchen and her bed inside) with a porch, chimney smoke, flower boxes, a cat flap, a cat tree, food bowls and a rocking chair
+- The Cats' House: the old red barn turned into the cats' home (enterable, with a "Cats' House" sign, a feeding station with a bowl per cat, litter boxes, named cat beds, a cat tree and a scratching post), plus a cat weathervane and hay bales outside
 - A fenced garden plot (6 × 4 tiles) you farm yourself, a cat-eared scarecrow and a free-seed box
 - A pond with lily pads and cattails, dirt paths, stepping stones, trees, bushes, flowers, rocks and butterflies
 - An entrance arch sign and a mailbox with a paw-print flag
@@ -105,6 +114,7 @@ little tea table and a cat bed by the stove.
 | Use tool / interact | E or Space | Use button |
 | Pick tool | 1-4, or click the hotbar | tap the hotbar |
 | Switch seed type | Q | tap the seed slot again |
+| Sleep (wake at 6 AM) | E next to the cottage bed, or the Sleep button | Sleep button by the bed |
 | Care for a cat | E next to the cat, then 1-6 | tap the cat, then a button |
 | Cat Journal | J, or the Journal button | Journal button |
 | Close a menu | Esc | the × button |

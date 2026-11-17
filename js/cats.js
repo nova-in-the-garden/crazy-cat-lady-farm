@@ -14,6 +14,7 @@ const LINKS = {
   'out-porch': [[0, -3.4], [0, -4.7]],
   'porch-cottage': [[0, -5.9], [0, -7.4]],
   'out-clinic': [[-12, -4.9], [-12, -6.9]],
+  'out-barn': [[8.5, -7], [10.9, -7]],   // the Cats' House (old barn) doorway faces west
 };
 const BED_PILE = [[2.35, 0.9, -10.15], [2.85, 0.9, -9.85], [2.45, 0.9, -9.5]];
 const NIGHT_SPOTS = [[-0.2, 0.37, -10.25], [0.6, 0.33, -8.8], [-1.5, 0.33, -8.5]];
@@ -37,9 +38,15 @@ export class CatManager {
     this.defs = Object.fromEntries(STARTER_CATS.map((d) => [d.id, d]));
     // make sure every starter cat has a save entry (old saves get them added)
     s.cats = STARTER_CATS.map((d) => ({ ...defaultCatState(d), ...(s.cats || []).find((c) => c.id === d.id) }));
+    // the Cats' House: one litter box per two cats, one bowl per cat (old saves had a single cottage litter box)
+    const house = game.world.catsHouse;
+    if (!Array.isArray(s.litterBoxes)) s.litterBoxes = house.litter.map(() => s.litter || 0);
+    s.bowls ||= {};
     s.cats.forEach((c) => { c.needs = { ...defaultCatState(this.defs[c.id]).needs, ...c.needs }; c.discovered ||= {}; c.firsts ||= {}; c.cd ||= {}; });
     this.list = [];
     s.cats.forEach((c) => c.arrived && this.spawn(c));
+    s.cats.forEach((c) => { house.setBowl(c.id, s.bowls[c.id]); if (c.named) house.setBedName(c.id, c.name); });
+    house.setLitter(s.litterBoxes);
     this.arrivalTimer = 0;
     this.prevHour = s.hour;
     this.heartT = 0;
@@ -117,10 +124,11 @@ export class CatManager {
   /** Called by the vet when the Welcome Vet Check is done and the cat has a name. */
   welcome(id, name) {
     const c = this.byId(id), d = c.data;
-    d.name = name; d.named = true; d.joined = true; d.joinedDay = this.state.day; d.mode = 'free';
+    d.name = name; d.named = true; d.joined = true; d.joinedDay = this.state.day; d.mode = 'free'; c.escort = false; c.path = []; c.routeKey = null;
     d.needs.affection = Math.max(d.needs.affection, 60);
     this.addBond(c, 2, true);
     this.refreshTag(c);
+    this.game.world.catsHouse.setBedName(id, name);
     c.task = null; c.timer = 0.5;
     this.game.journal.log(`Welcome home, ${name}! ${pron(`{She} joined the sanctuary after {his} Welcome Vet Check.`, this.def(c))}`, id);
   }
@@ -133,7 +141,7 @@ export class CatManager {
     if (after > before && !silent) {
       const unlock = BOND_LEVELS[after].unlock;
       this.game.floatAt(c.pos, `Bond up! ${d.name}: ${BOND_LEVELS[after].label}`, '#c95c74', 'heart');
-      this.game.host.say(`${d.name} and you are ${BOND_LEVELS[after].label.toLowerCase()}s now! ${pron(`{She} ${unlock}.`, this.def(c))}`, 6);
+      this.game.host.say(`${d.name}'s bond with you grew to ${BOND_LEVELS[after].label}! ${pron(`{She} ${unlock}.`, this.def(c))}`, 6);
       this.game.journal.log(`${d.name} reached bond level ${after} (${BOND_LEVELS[after].label}): ${unlock}.`, d.id);
       sound.play('bond');
     }
@@ -149,7 +157,7 @@ export class CatManager {
     const s = this.state, d = c.data, vet = this.game.vet, cs = vet.activeCase(d.id);
     const fav = this.def(c).favToy;
     const items = [
-      { id: 'feed', label: s.food > 0 ? `Feed (${s.food} in pantry)` : 'Feed (pantry empty)', icon: 'food', ok: s.food > 0 },
+      { id: 'feed', label: s.bowls[d.id] ? `Dinner's waiting in ${d.name}'s bowl at the Cats' House` : "Feed at the Cats' House feeding station", icon: 'food', ok: false },
       { id: 'pet', label: 'Pet', icon: 'heart', ok: true },
       { id: 'wand', label: `Play: ${TOYS.wand}`, icon: 'wand', ok: true },
       { id: 'yarn', label: `Play: ${TOYS.yarn}`, icon: 'yarn', ok: true },
@@ -286,48 +294,70 @@ export class CatManager {
     if (hours <= 0) return;
     const s = this.state;
     const joined = this.joined();
-    s.litter = Math.min(1, (s.litter || 0) + hours * 0.025 * joined.length);
+    // each litter box gets used by the (up to two) cats assigned to it
+    joined.forEach((c) => { const b = this.boxOf(c); s.litterBoxes[b] = Math.min(1, (s.litterBoxes[b] || 0) + hours * 0.03); });
     for (const c of joined) {
       const n = c.data.needs, p = this.personality(c), asleep = c.model.anim === 'sleep' ? 0.5 : 1;
       n.hunger -= hours * 4 * (p.hungerDecay || 1) * asleep;
       n.fun -= hours * 3.2 * (p.funDecay || 1) * asleep;
-      n.clean -= hours * (s.litter > 0.6 ? 3.2 : 1.6);
+      n.clean -= hours * (s.litterBoxes[this.boxOf(c)] > 0.6 ? 3.2 : 1.6);
       n.affection -= hours * 2.8 * (p.affectionDecay || 1) * asleep;
       NEED_KEYS.forEach((k) => (n[k] = THREE.MathUtils.clamp(n[k], MIN_NEED, 100)));
       c.data.pos.x = c.pos.x; c.data.pos.z = c.pos.z;
     }
-    this.game.world.cottage.setLitter?.(s.litter);
+    this.game.world.catsHouse.setLitter(s.litterBoxes);
   }
 
-  mealTime(hour) {
-    const g = this.game, hungry = this.joined().filter((c) => c.data.needs.hunger < 90);
-    if (!hungry.length) return;
-    let fed = 0;
-    for (const c of hungry) {
+  /** Which litter box a cat uses (one box for every two cats). */
+  boxOf(c) { const i = STARTER_CATS.findIndex((d) => d.id === (c.data || c).id); return Math.min(this.game.world.catsHouse.litter.length - 1, Math.floor(Math.max(0, i) / 2)); }
+  bowl(c) { return this.game.world.catsHouse.bowls.find((b) => b.id === c.data.id); }
+  bed(c) { return this.game.world.catsHouse.beds.find((b) => b.id === c.data.id); }
+
+  /** Fill the bowls in the Cats' House from the pantry; the cats then trot over to eat.
+   *  scheduled = the 8 AM / 6 PM meal (only hungry cats get a bowl). Returns how many bowls were filled. */
+  serveMeals(scheduled = false, hour = 8) {
+    const g = this.game, s = this.state, house = g.world.catsHouse;
+    const want = this.joined().filter((c) => !s.bowls[c.data.id] && (!scheduled || c.data.needs.hunger < 90));
+    if (!want.length) return 0;
+    let filled = 0;
+    for (const c of want) {
       if (g.api_food.consume(1) < 1) break;
-      const ill = g.vet.activeCase(c.data.id)?.issue === 'stomach';
-      c.data.needs.hunger = Math.min(100, c.data.needs.hunger + (ill ? 20 : 45)); fed++;
+      if (this.inRecovery(c)) { // resting at the clinic: the meal is brought to the recovery bed
+        const ill = g.vet.activeCase(c.data.id)?.issue === 'stomach';
+        c.data.needs.hunger = Math.min(100, c.data.needs.hunger + (ill ? 20 : 45));
+      } else { s.bowls[c.data.id] = true; house.setBowl(c.data.id, true); }
+      filled++;
     }
-    if (fed < hungry.length) g.host.say(`${hour < 12 ? 'Breakfast' : 'Supper'} time, but the pantry ran out. The kitties are a bit peckish. Let's cook more cat food, dearie!`, 7);
-    else if (fed) g.host.say(`${hour < 12 ? 'Breakfast' : 'Supper'} is served! ${fed} portion${fed > 1 ? 's' : ''} of cat food from the pantry.`, 5);
+    const meal = hour < 12 ? 'Breakfast' : 'Supper';
+    if (scheduled) {
+      if (filled < want.length) g.host.say(`${meal} time, but the pantry ran out. The kitties are a bit peckish. Let's cook more cat food, dearie!`, 7);
+      else g.host.say(`${meal} is served in the Cats' House! ${filled} bowl${filled > 1 ? 's' : ''} filled from the pantry.`, 5);
+    }
+    if (filled) sound.play('pickup');
     g.save();
+    return filled;
   }
+  mealTime(hour) { this.serveMeals(true, hour); }
 
-  /** Puts every joined cat into the cottage for the night (called when you sleep). */
+  /** When she sleeps: favorite (high-bond) cats pile onto her bed, the rest curl up in their own beds in the Cats' House. */
   pileForNight() {
     const cats = this.joined().filter((c) => !this.inRecovery(c) && !c.escort);
-    cats.forEach((c, i) => {
+    // anything left in the bowls gets eaten before bed
+    cats.forEach((c) => { if (this.state.bowls[c.data.id]) { this.state.bowls[c.data.id] = false; this.game.world.catsHouse.setBowl(c.data.id, false); c.data.needs.hunger = Math.min(100, c.data.needs.hunger + 40); } });
+    const pile = cats.filter((c) => this.level(c) >= 3), own = cats.filter((c) => this.level(c) < 3);
+    pile.forEach((c, i) => {
       const spot = BED_PILE[i % BED_PILE.length];
       c.pos.set(spot[0], spot[1], spot[2]); c.path = [];
       c.task = { type: 'sleepAt', spot: new THREE.Vector3(spot[0], spot[1], spot[2]), t: 25 + i * 6 };
       c.heading = i * 2.1;
     });
-    if (cats.length >= 2) {
-      const names = cats.map((c) => c.data.name);
-      this.game.journal.log(`${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} piled onto the bed for a cozy night.`, null);
-    } else if (cats.length === 1) {
-      this.game.journal.log(`${cats[0].data.name} curled up at the foot of the bed for the night.`, cats[0].data.id);
-    }
+    own.forEach((c, i) => {
+      const b = this.bed(c); c.pos.copy(b.spot); c.path = [];
+      c.task = { type: 'sleepAt', spot: b.spot.clone(), t: 20 + i * 5 }; c.heading = 2.6 + i;
+    });
+    const names = (l) => l.length > 1 ? `${l.slice(0, -1).map((c) => c.data.name).join(', ')} and ${l[l.length - 1].data.name}` : l[0].data.name;
+    if (pile.length) this.game.journal.log(`${names(pile)} piled onto your bed for a cozy night.`, pile.length === 1 ? pile[0].data.id : null);
+    if (own.length) this.game.journal.log(`${names(own)} slept snug in ${own.length > 1 ? 'their own beds' : 'their own bed'} at the Cats' House.`, own.length === 1 ? own[0].data.id : null);
   }
 
   inRecovery(c) { const cs = this.game.vet.activeCase(c.data.id); return cs && cs.treatment === 'rest' && cs.stage === 'recovering'; }
@@ -359,7 +389,8 @@ export class CatManager {
       moveTo = this.goTo(c, RECOVERY_SPOT, 0.1); anim = moveTo ? 'walk' : 'sleep';
       if (!moveTo && c.pos.distanceTo(RECOVERY_SPOT) > 2) c.pos.copy(RECOVERY_SPOT);
     } else {
-      // regular free-roaming cat
+      // regular free-roaming cat: a full bowl in the Cats' House beats everything else
+      if (this.state.bowls[d.id] && (!c.task || (c.task.type !== 'eat' && c.task.type !== 'interact'))) c.task = { type: 'eat', t: 90 };
       if (!c.task || (c.task.t !== undefined && (c.task.t -= dt) <= 0)) c.task = this.decide(c, dist, cs);
       const task = c.task;
       switch (task.type) {
@@ -367,6 +398,17 @@ export class CatManager {
         case 'idle': anim = task.anim; break;
         case 'wander': moveTo = this.goTo(c, task.dest, 0.3); if (!moveTo) c.task = { type: 'idle', anim: ['sit', 'groom', 'stretch', 'stand'][Math.floor(Math.random() * 4)], t: 3 + Math.random() * 5 }; break;
         case 'sleepAt': moveTo = this.goTo(c, task.spot, 0.12); anim = moveTo ? 'walk' : 'sleep'; break;
+        case 'eat': {
+          const b = this.bowl(c);
+          if (!b || !this.state.bowls[d.id]) { c.task = null; break; }
+          moveTo = this.goTo(c, b.eatPos, 0.12); speed = Math.max(speed, 1.6);
+          if (!moveTo) {
+            anim = 'eat'; c.heading = Math.atan2(b.pos.x - c.pos.x, b.pos.z - c.pos.z);
+            task.eatT = (task.eatT || 0) + dt;
+            if (task.eatT > 3.5) this.finishMeal(c);
+          }
+          break;
+        }
         case 'follow': {
           if (dist > 1.6) { moveTo = this.routeTarget(c, lp); speed = dist > 3.5 ? 2.6 : 1.3; } else { anim = 'sit'; c.heading = Math.atan2(lp.x - c.pos.x, lp.z - c.pos.z); }
           break;
@@ -393,13 +435,21 @@ export class CatManager {
       const dx = moveTo.x - c.pos.x, dz = moveTo.z - c.pos.z, len = Math.hypot(dx, dz);
       const want = Math.atan2(dx, dz);
       c.heading += Math.atan2(Math.sin(want - c.heading), Math.cos(want - c.heading)) * Math.min(1, dt * 8);
-      const step = Math.min(len, speed * dt);
+      // slow down while turning sharply, so cats never orbit a waypoint they keep overshooting
+      const face = Math.max(0.15, Math.cos(Math.atan2(Math.sin(want - c.heading), Math.cos(want - c.heading))));
+      const step = Math.min(len, speed * dt * face);
       c.pos.x += Math.sin(c.heading) * step; c.pos.z += Math.cos(c.heading) * step;
       c.speed = speed; anim = speed > 2 ? 'walk' : 'walk';
       // stuck? (pushed back by a fence or wall)
       c.stuck = len > c.lastD - step * 0.3 ? c.stuck + dt : 0;
       c.lastD = len;
-      if (c.stuck > 3) { c.stuck = 0; if (c.path.length) { const w = c.path.shift(); c.pos.set(w.x, c.pos.y, w.z); } else if (c.task && c.task.type === 'wander') c.task = null; else { c.pos.x = moveTo.x; c.pos.z = moveTo.z; } }
+      // no progress for ~2 s: hop to the next door waypoint (or the target) with a little sparkle
+      if (c.stuck > 2) {
+        c.stuck = 0; c.lastD = Infinity;
+        if (c.path.length) { const w = c.path.shift(); c.pos.set(w.x, c.pos.y, w.z); this.hop(c); }
+        else if (c.task && c.task.type === 'wander') c.task = null;
+        else { c.pos.x = moveTo.x; c.pos.z = moveTo.z; this.hop(c); }
+      }
     } else c.speed = 0;
     if (g.vet.examCat !== c) {
       const sp0 = c.task && c.task.spot, perched = sp0 && sp0.y > 0.45 && Math.hypot(sp0.x - c.pos.x, sp0.z - c.pos.z) < 0.35;
@@ -428,11 +478,14 @@ export class CatManager {
 
   decide(c, dist, cs) {
     const d = c.data, lvl = this.level(c), lp = this.game.lady.group.position, def = this.def(c);
-    // night: head into the cottage to sleep
+    // night: off to bed. Favorite (bond 3+) cats head for her bed in the cottage, the rest to their own bed in the Cats' House
     if (this.isNight()) {
-      const i = this.joined().indexOf(c);
-      const spot = lvl >= 3 ? BED_PILE[i % 3] : NIGHT_SPOTS[i % 3];
-      return { type: 'sleepAt', spot: new THREE.Vector3(spot[0], spot[1], spot[2]), t: 40 };
+      if (lvl >= 3) {
+        const i = this.joined().filter((o) => this.level(o) >= 3).indexOf(c);
+        const spot = BED_PILE[Math.max(0, i) % 3];
+        return { type: 'sleepAt', spot: new THREE.Vector3(spot[0], spot[1], spot[2]), t: 40 };
+      }
+      return { type: 'sleepAt', spot: this.bed(c).spot.clone(), t: 40 };
     }
     // a little unwell: show soft cues
     if (cs && cs.stage === 'noticed' && Math.random() < 0.6) return { type: 'symptom', t: 5 + Math.random() * 4 };
@@ -467,6 +520,19 @@ export class CatManager {
     return { type: 'idle', anim: ['sit', 'groom', 'stretch', 'stand', 'sit'][Math.floor(Math.random() * 5)], t: 3 + Math.random() * 5 };
   }
 
+  finishMeal(c) {
+    const g = this.game, d = c.data, n = d.needs, ill = g.vet.activeCase(d.id)?.issue === 'stomach';
+    this.state.bowls[d.id] = false; g.world.catsHouse.setBowl(d.id, false);
+    n.hunger = Math.min(100, n.hunger + (ill ? 20 : 45));
+    g.floatAt(c.pos, ill ? `${d.name} nibbles a little` : `${d.name} licks the bowl clean`, '#5b4256', 'food');
+    if (this.cooldownOk(c, 'feed', 3)) this.addBond(c, 1);
+    if (!d.discovered.treat) { d.discovered.treat = true; g.journal.log(`${d.name}'s favorite treat flavor is ${this.def(c).favTreat}.`, d.id); }
+    if (!d.firsts.bowl) { d.firsts.bowl = true; g.journal.log(`${d.name} ate from ${pron('{his}', this.def(c))} very own bowl at the Cats' House for the first time.`, d.id); }
+    sound.play('eat');
+    c.task = { type: 'idle', anim: 'groom', t: 3 + Math.random() * 3 };
+    g.save();
+  }
+
   homeArea(c) {
     const def = this.def(c);
     if (def.personality === 'shy') return { x: 5, z: -1, r: 4 };
@@ -492,7 +558,7 @@ export class CatManager {
 
   /** Walk toward a destination through doors; returns the next point to walk to, or null when there. */
   goTo(c, dest, tol) {
-    if (!c.path.length || c.pathDest !== dest) { c.path = this.route(c.pos, dest); c.pathDest = dest; }
+    if (!c.path.length || c.pathDest !== dest) { c.path = this.route(c.pos, dest); c.pathDest = dest; c.routeKey = null; }
     while (c.path.length) {
       const w = c.path[0];
       if (Math.hypot(w.x - c.pos.x, w.z - c.pos.z) > (c.path.length === 1 ? tol : 0.35)) return w;
@@ -500,24 +566,31 @@ export class CatManager {
     }
     return null;
   }
+  /** Next point to walk to when heading for a moving target (her): through doors when she's in another room. */
   routeTarget(c, lp) {
     const a = this.region(c.pos.x, c.pos.z), b = this.region(lp.x, lp.z);
-    if (a === b) { c.path = []; return lp; }
-    const p = this.route(c.pos, lp);
-    return p.length > 1 ? p[0] : lp;
+    if (a === b) { if (c.routeKey) { c.path = []; c.routeKey = null; } return lp; }
+    const key = a + '>' + b;
+    // keep the planned door waypoints and tick them off as she reaches them
+    // (re-planning every frame kept aiming at the first door point and the cat circled it)
+    if (c.routeKey !== key || !c.path.length) { c.path = this.route(c.pos, lp).slice(0, -1); c.routeKey = key; c.pathDest = null; }
+    while (c.path.length && Math.hypot(c.path[0].x - c.pos.x, c.path[0].z - c.pos.z) < 0.35) c.path.shift();
+    return c.path.length ? c.path[0] : lp;
   }
+  hop(c) { c.model.pounce(); this.flashIcon(c, 'sparkle', 0.9); }
   region(x, z) {
     const W = this.game.world;
     if (W.cottage.isInside(x, z)) return 'cottage';
     if (W.clinic.isInside(x, z)) return 'clinic';
+    if (W.catsHouse.isInside(x, z)) return 'barn';
     if (x > -3.9 && x < 3.9 && z > -6.6 && z < -4.1) return 'porch';
     return 'out';
   }
   route(from, dest) {
     const a = this.region(from.x, from.z), b = this.region(dest.x, dest.z);
     const pts = [];
-    const graph = { out: { porch: 'out-porch', clinic: 'out-clinic' }, porch: { out: 'out-porch', cottage: 'porch-cottage' }, cottage: { porch: 'porch-cottage' }, clinic: { out: 'out-clinic' } };
-    // breadth-first search over the 4 regions
+    const graph = { out: { porch: 'out-porch', clinic: 'out-clinic', barn: 'out-barn' }, porch: { out: 'out-porch', cottage: 'porch-cottage' }, cottage: { porch: 'porch-cottage' }, clinic: { out: 'out-clinic' }, barn: { out: 'out-barn' } };
+    // breadth-first search over the 5 regions
     const prev = { [a]: null }, q = [a];
     while (q.length) { const r = q.shift(); if (r === b) break; for (const n in graph[r]) if (!(n in prev)) { prev[n] = r; q.push(n); } }
     const chain = []; let r = b; while (r && r !== a) { chain.unshift([prev[r], r]); r = prev[r]; }

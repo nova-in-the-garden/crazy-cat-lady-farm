@@ -95,6 +95,9 @@ setTimeout(() => { host.sayKind('welcome', 7); lady.wave(); }, 900);
 function shortestAngle(a) { return Math.atan2(Math.sin(a), Math.cos(a)); }
 const focus = new THREE.Vector3();
 const examLook = new THREE.Vector3();
+// after an exam the camera eases back to the normal follow view instead of snapping
+let easeBack = null, hadCamView = false;
+const easeTmp = new THREE.Vector3();
 
 function frame(now) {
   timer.update(now);
@@ -121,16 +124,26 @@ function frame(now) {
     lady.group.rotation.y = state.heading;
     moveAmount = Math.min(state.speed / WALK_SPEED, 1);
     focus.set(pos.x, pos.y + 1.3, pos.z);
-    const indoors = world.clinic.isInside(pos.x, pos.z) || world.cottage.isInside(pos.x, pos.z);
+    const indoors = world.clinic.isInside(pos.x, pos.z) || world.cottage.isInside(pos.x, pos.z) || world.catsHouse.isInside(pos.x, pos.z);
     if (game.camView) {
       // calm close-up during a vet exam
       const ck = game.camView.instant ? 1 : Math.min(1, dt * 3);
       camera.position.lerp(game.camView.pos, ck);
       examLook.lerp(game.camView.look, ck);
       camera.lookAt(examLook);
+      hadCamView = true; easeBack = null;
     } else {
+      if (hadCamView) { hadCamView = false; easeBack = { pos: camera.position.clone(), look: examLook.clone(), t: 0, dur: 1.4 }; }
       controls.updateCamera(dt, focus, false, indoors ? { minPitch: 0.75, maxDist: 9 } : {});
-      examLook.copy(focus);
+      if (easeBack) {
+        easeBack.t += dt;
+        const u = Math.min(1, easeBack.t / easeBack.dur), e = u * u * (3 - 2 * u); // smoothstep
+        easeTmp.copy(camera.position);
+        camera.position.lerpVectors(easeBack.pos, easeTmp, e);
+        examLook.lerpVectors(easeBack.look, controls.target, e);
+        camera.lookAt(examLook);
+        if (u >= 1) easeBack = null;
+      } else examLook.copy(focus);
     }
   } else {
     // Title screen: slow, cinematic drift around her, with the cottage behind

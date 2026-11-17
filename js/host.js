@@ -58,12 +58,19 @@ const LINES = {
     "Welcome to my Cat Food Kitchen! Bring me crops and I'll cook them at the stove.",
     'One carrot makes one portion, a cabbage makes two, and a pumpkin makes four!',
     "The pantry shelf fills up with cans as we cook. The cats will be so pleased.",
-    'Tired? My bed is right there. Sleep and the cats will pile on with you.',
-    'The litter box is by the door. Scoop it now and then, the cats will thank you.',
+    'Tired? My bed is right there. My very favorite cats like to pile on with me.',
+    "The cats' food bowls and litter boxes are over in the Cats' House now. The old barn!",
   ],
   barn: [
-    "The old barn. Hay bales make purr-fect napping spots.",
+    "That's the Cats' House! It used to be the old barn. Now it's all theirs.",
     "See the weathervane? It's a cat, naturally.",
+  ],
+  catsHouse: [
+    "Welcome to the Cats' House, dearie! Bowls, litter boxes and a bed with every cat's name on it.",
+    'Press E at the feeding station to fill the bowls. The food comes from our kitchen pantry.',
+    "Breakfast at 8 and supper at 6 get served here too, as long as the pantry has food.",
+    'Scoop the litter boxes when they get clumpy. Clean boxes make happy, tidy kitties.',
+    'At night the cats curl up in their own little beds here. My best friends sneak onto my bed instead!',
   ],
   pond: [
     'Careful by the pond, dearie. Cats and water do NOT mix.',

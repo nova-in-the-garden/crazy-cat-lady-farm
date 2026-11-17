@@ -45,7 +45,7 @@ export const TOOLS = [
 ];
 
 export class GameUI {
-  constructor({ onSelectTool, onUse, onToggleMute, onReset, onJournal }) {
+  constructor({ onSelectTool, onUse, onToggleMute, onReset, onJournal, onSleep }) {
     const el = (tag, cls, html = '') => { const e = document.createElement(tag); if (cls) e.className = cls; e.innerHTML = html; return e; };
     // status panel (top-left)
     this.status = el('div', 'gpanel hidden'); this.status.id = 'status';
@@ -55,6 +55,7 @@ export class GameUI {
       <div class="pantry-note"></div>
       <div class="row cats-row">${icon('paw', 20)}<b>Cats</b><span class="cats-count">0</span></div>
       <div class="cats-note"></div>
+      <div class="bedtime-note hidden">${icon('moon', 18)}<span>Bedtime! Sleep in the cottage bed.</span></div>
       <div class="row crops">${CROP_IDS.map((c) => `<span class="crop" title="${CROPS[c].plural} (cook them in the kitchen)">${icon(c, 20)}<span data-crop="${c}">0</span></span>`).join('')}</div>`;
     document.body.appendChild(this.status);
     this.journalBtn = el('button', 'hidden', `${icon('book', 22)}<span>Journal</span><kbd>J</kbd>`); this.journalBtn.id = 'journal-btn'; this.journalBtn.type = 'button';
@@ -77,6 +78,10 @@ export class GameUI {
     this.actBtn = el('button', 'hidden', 'Use'); this.actBtn.id = 'act-btn'; this.actBtn.type = 'button';
     this.actBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); onUse(); });
     document.body.appendChild(this.actBtn);
+    // big Sleep button: shows when she's next to the bed (works with mouse and touch)
+    this.sleepBtn = el('button', 'hidden', `${icon('moon', 24)}<span>Sleep</span><small>wake at 6 AM</small>`); this.sleepBtn.id = 'sleep-btn'; this.sleepBtn.type = 'button';
+    this.sleepBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); onSleep && onSleep(); });
+    document.body.appendChild(this.sleepBtn);
     // floating text layer + sleep fade
     this.floatLayer = el('div'); this.floatLayer.id = 'floaters'; document.body.appendChild(this.floatLayer);
     this.fade = el('div', '', '<div class="zzz">Z z z . . .</div>'); this.fade.id = 'sleep-fade'; document.body.appendChild(this.fade);
@@ -121,6 +126,8 @@ export class GameUI {
     const iconName = night ? 'moon' : 'sun';
     if (this._icon !== iconName) { q('.clock-icon').innerHTML = icon(iconName, 22); this._icon = iconName; }
     q('.day').textContent = `Day ${state.day}`;
+    const bed = !!dayCycle.bedtime;
+    if (bed !== this._bed) { this._bed = bed; q('.bedtime-note').classList.toggle('hidden', !bed); this.status.classList.toggle('bedtime', bed); this.sleepBtn.classList.toggle('bedtime', bed); }
     q('.time').textContent = dayCycle.label();
     q('.food-count').textContent = state.food;
     q('.pantry-note').textContent = state.food === 0 && state.cats && state.cats.some((c) => c.joined) ? 'Pantry empty. The cats are peckish!' : state.food === 0 ? 'Pantry empty. Grow crops and cook them!' : state.food < 10 ? 'A little food stocked for the cats' : 'Pantry well stocked for the cats!';
@@ -143,6 +150,7 @@ export class GameUI {
   }
 
   setPrompt(action, touch) {
+    this.sleepBtn.classList.toggle('hidden', !(action && action.sleep));
     if (!action) { this.prompt.classList.add('hidden'); this.actBtn.classList.add('dim'); return; }
     const key = action.ok ? `<kbd>${touch ? 'Use' : 'E'}</kbd>` : '';
     const html = `${key}<span>${action.label}</span>`;
