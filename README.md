@@ -8,7 +8,7 @@ The farm is now a **cat sanctuary**, open to cats. Its host is the
 cozy cat thoughts when you stand still. Cats arrive over time (up to **10 at once**), each one gets a Welcome
 Vet Check (where you name them), and from then on you feed, pet, play with, groom and doctor them. Poorly cats stay
 in the clinic kennels until they're healed. Happy, healthy, bonded cats can be **adopted out** to kind visitors for
-coins, and those coins buy cat food and medicine at the **Supply Shelf**. The garden grows Granny's own
+coins, and those coins buy cat food and medicine at the **Farmers Market**. The garden grows Granny's own
 meals, plus **catnip** treats.
 
 It stays cozy: no cat dies or gets worse than "a bit run-down". Neglect only lowers happiness and health down to a
@@ -82,7 +82,7 @@ written down automatically.
 ## How to play: the economy
 - **Coins** (top-left panel): you start with 60. Adoption fees are the main income; the **donation jar** adds a few
   coins every morning (more when you have more cats).
-- **The Supply Shelf** (the striped market stall between the cottage and the Cats' House): press E to buy **cat food
+- **The Farmers Market** (the striped market stall between the cottage and the Cats' House): press E to buy **cat food
   bags** (6 portions, the cats' main food), **medicine**, **shots**, **bandage rolls**, and catnip, veggie and
   chamomile seeds. You start with 12 portions of cat food and a few clinic supplies.
 - **Her own needs:** Granny has soft **hunger** and **energy** bars (top-left). Cook garden veggies at
@@ -108,7 +108,7 @@ bottom tells you what will happen.
   (a cat treat), chamomile 16 h (vet remedies).
 - A full day lasts 6 real minutes. **At 10 PM it's bedtime: the clock stops** until you walk to the **bed** in the
   cottage and press **E** or the big **Sleep** button. You wake at 6 AM. You can go to bed early from 6 PM.
-- The **seed box** next to the garden has free seeds every morning.
+- The **mailbox** at the end of the drive gets 3 random seed packets from the seed club every morning ("You Got Mail! 📬").
 - Everything is saved in the browser automatically. Use **Reset garden** in the controls panel to start over.
 
 ## The cottage and kitchen
@@ -123,9 +123,9 @@ food you have), her bed with a paw-print quilt, a nightstand, a little tea table
 - A pastel cottage (enterable, kitchen and her bed inside) with a porch, chimney smoke, flower boxes and a cat flap
 - The Cats' House: the old red barn turned into the cats' home (10 beds, 10 bowls, 5 litter boxes, cat tree,
   scratching post), plus a cat weathervane and hay bales outside
-- **The Supply Shelf**: a pink-and-white striped market stall (Whisker Supply Co.)
+- **The Farmers Market**: a pink-and-white striped market stall (Whisker Supply Co.)
 - Adoption visitors who wait by the path on adoption days
-- A fenced garden plot (6 × 4 tiles), a cat-eared scarecrow and a free-seed box
+- A fenced garden plot (6 × 4 tiles), and a cat-eared scarecrow
 - A pond with lily pads and cattails, dirt paths, stepping stones, trees, bushes, flowers, rocks and butterflies
 - An entrance arch sign and a mailbox with a paw-print flag
 
@@ -142,7 +142,7 @@ food you have), her bed with a paw-print quilt, a nightstand, a little tea table
 | Sleep (wake at 6 AM) | E next to the cottage bed, or the Sleep button | Sleep button by the bed |
 | Care for a cat | E next to the cat, then 1-7 | Use next to the cat, then a button |
 | Cat stats card | click the cat | tap the cat |
-| Shop / kennel care / adoption | E at the Supply Shelf, a kennel, or a visitor | Use button |
+| Shop / kennel care / adoption | E at the Farmers Market, a kennel, or a visitor | Use button |
 | Cat Journal | J, or the Journal button | Journal button |
 | Close a menu | Esc | the × button |
 | Mute sounds | M, or the Sound button | Sound button |
@@ -185,7 +185,7 @@ js/catData.js       the starter cats, personalities, favorite spots, vet issues 
 js/catMenu.js       the care menu that opens next to a cat
 js/catsHouse.js     the Cats' House (old barn): 10 beds, 10 bowls, 5 litter boxes, cat tree
 js/statsCard.js     the cat stats card (portrait, bars, condition, kennel care buttons)
-js/shop.js          the Supply Shelf stall and its shop card
+js/shop.js          the Farmers Market stall and its shop card
 js/adoption.js      adoption visitors, the adoption card and confirm step
 js/vet.js           Welcome Vet Checks, naming card, cases: examine, diagnose, admit, kennel care, discharge
 js/journal.js       the Cat Journal (profiles, vet cases, moments) and Vet Knowledge
@@ -227,3 +227,19 @@ tools/bump_version.py  cache-busting version stamp (run before deploying)
 - **Granny's coffee:** the sage percolator on the kitchen counter. *Pour a cup of coffee* and she zooms at 1.8x speed
   for 45 seconds (speed lines, dust puffs, a ☕ countdown pill by the Save button). The pot takes 60 s to perk a fresh
   batch; no coffee at bedtime. The boost and the pot timer are saved with the game.
+
+## Farmers Market, mailbox and deliveries
+
+- **Farmers Market:** the striped roadside stand at the end of the drive, just outside the gate (across the drive from
+  the mailbox). Same catalog as before (cat food bags, medicine, shots, bandages, seeds), but nothing lands in your apron:
+  every order is **delivered**.
+- **Delivery:** a little Farmers Market van pulls up on the road, the courier walks up the drive with a box, sets the
+  parcel by the porch steps, waves and heads off (about 15 s). "Your Farmers Market order is on the porch 📦".
+  Walk over and press E (**Open delivery**) to put it all away. Everything bought before he sets off (or while he's
+  still walking up) rides in the same box; later buys go on the next trip. Deliveries run 6 AM-9 PM; late orders come
+  first thing next morning. Pending orders and parcels on the porch are saved (a courier caught mid-walk by a reload
+  just starts his trip again).
+- **Mail:** each morning (and on the very first day) the seed club sends **3 random seed packets** (carrot most often,
+  then cabbage, pumpkin, chamomile and catnip). The paw flag goes up, an envelope bobs over the mailbox and a big
+  **You Got Mail! 📬** banner pops up. **Check the mail** at the mailbox to collect. The box holds up to 9 packets
+  (3 days' worth), so missing a day or two is fine. The old free seed box is gone.

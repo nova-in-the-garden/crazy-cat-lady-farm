@@ -86,6 +86,7 @@ export class GameUI {
     this.journalBtn.classList.remove('hidden');
     this.saveToastEl = el('div', 'hidden'); this.saveToastEl.id = 'save-toast'; this.saveToastEl.setAttribute('role', 'status'); document.body.appendChild(this.saveToastEl);
     this.toastEl = el('div', 'hidden'); this.toastEl.id = 'toast'; document.body.appendChild(this.toastEl);
+    this.bannerEl = el('div', 'hidden'); this.bannerEl.id = 'banner'; this.bannerEl.setAttribute('role', 'status'); document.body.appendChild(this.bannerEl);
     // hotbar (bottom-center)
     this.hotbar = el('div', 'hidden'); this.hotbar.id = 'hotbar';
     TOOLS.forEach((t, i) => {
@@ -141,6 +142,15 @@ export class GameUI {
     this.buffEl.classList.toggle('ending', n <= 8);
   }
 
+  /** A big friendly banner for "You Got Mail! 📬" and deliveries. */
+  banner(text, kind = '') {
+    const b = this.bannerEl;
+    b.innerHTML = `<span>${text}</span>`;
+    b.className = kind;
+    b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+    clearTimeout(this._bannerT); this._bannerT = setTimeout(() => b.classList.add('hidden'), 4200);
+  }
+
   /** A gentle little notification for journal moments. */
   toast(text) {
     this.toastEl.innerHTML = `${icon('book', 18)}<span>${text}</span>`;
@@ -178,7 +188,7 @@ export class GameUI {
     q('.food-count').textContent = state.food;
     q('.coins-count').textContent = state.coins;
     const nCats = state.cats ? state.cats.filter((c) => c.joined).length : 0;
-    q('.pantry-note').textContent = state.food === 0 && nCats ? 'Out of cat food! Buy a bag at the Supply Shelf' : state.food < nCats * 2 ? 'Cat food running low: Supply Shelf sells bags' : 'Cat food stocked for the bowls';
+    q('.pantry-note').textContent = state.food === 0 && nCats ? 'Out of cat food! Order a bag at the Farmers Market' : state.food < nCats * 2 ? 'Cat food running low: the Farmers Market delivers bags' : 'Cat food stocked for the bowls';
     const L = state.lady || { hunger: 100, energy: 100 };
     const hb = q('.lady-row .hunger'), eb = q('.lady-row .energy');
     hb.style.width = `${Math.round(L.hunger)}%`; eb.style.width = `${Math.round(L.energy)}%`;

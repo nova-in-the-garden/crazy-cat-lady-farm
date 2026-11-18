@@ -534,24 +534,11 @@ function buildBarn(scene) {
 /* ------------------------------------------------------------------ */
 /* Garden plot                                                         */
 /* ------------------------------------------------------------------ */
-const seedBox = {};
 function buildGarden(scene) {
   const GX = -11, GZ = 2, W = 7, D = 6;
   const rand = mulberry32(5);
   const g = new THREE.Group(); g.position.set(GX, 0, GZ); scene.add(g);
   // (the crop tiles themselves are built by js/garden.js)
-  // Seed box by the gate: a crate of seed packets that refills every morning
-  const box = new THREE.Group(); box.position.set(GX + W / 2 + 0.9, 0, GZ + 2.3); box.rotation.y = -0.3; scene.add(box);
-  box.add(mesh(new THREE.BoxGeometry(0.9, 0.5, 0.6), mat(PALETTE.wood), { y: 0.25 }));
-  [-0.15, 0.15].forEach((y) => box.add(mesh(new THREE.BoxGeometry(0.92, 0.06, 0.62), mat(PALETTE.woodDark), { y: 0.25 + y, cast: false })));
-  const packets = new THREE.Group(); box.add(packets);
-  ['#f59a4f', '#9edb7f', '#f5a35c', '#f7a8c4', '#c8aaf2'].forEach((c, i) => packets.add(mesh(new THREE.BoxGeometry(0.16, 0.22, 0.03), mat(c), { x: -0.3 + i * 0.15, y: 0.58, z: (i % 2) * 0.12 - 0.06, rz: (i - 2) * 0.12, cast: false })));
-  box.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5), mat(PALETTE.woodDark), { x: 0.5, y: 0.45, z: -0.2 }));
-  const seedSignTex = signTexture(['Free seeds', 'every morning'], { w: 256, h: 128, font: 40, paws: false, bg: '#fff3e0', fg: '#8f6446' });
-  box.add(mesh(new THREE.PlaneGeometry(0.6, 0.3), new THREE.MeshStandardMaterial({ map: seedSignTex, roughness: 0.9 }), { x: 0.5, y: 0.95, z: -0.17, cast: false }));
-  addCircle(GX + W / 2 + 0.9, GZ + 2.3, 0.5);
-  seedBox.position = new THREE.Vector3(GX + W / 2 + 0.9, 0, GZ + 2.3);
-  seedBox.packets = packets;
   // fence around it, with an opening on the +x side facing the path
   const x0 = GX - W / 2, x1 = GX + W / 2, z0 = GZ - D / 2, z1 = GZ + D / 2;
   fenceLine(scene, x0, z0, x1, z0);
@@ -641,16 +628,69 @@ function buildEntrance(scene) {
   // hanging little flower pots
   [-1.2, 1.2].forEach((x) => scene.add(mesh(new THREE.SphereGeometry(0.16, 8, 6), mat('#f7a8c4'), { x, y: 2.35, z: Z + 0.05 })));
 
-  // Mailbox with a paw-print flag
-  const mb = new THREE.Group(); mb.position.set(2.8, 0, Z - 0.9); mb.rotation.y = -Math.PI / 2;
+  return buildMailbox(scene, wood);
+}
+
+/* ------------------------------------------------------------------ */
+/* Mailbox at the end of the drive (by the road). Its flag goes up when */
+/* the seed club's packets arrive in the morning.                       */
+/* ------------------------------------------------------------------ */
+export const MAILBOX = { x: 2.35, z: 19.1 };
+function buildMailbox(scene, wood) {
+  const mb = new THREE.Group(); mb.position.set(MAILBOX.x, 0, MAILBOX.z); mb.rotation.y = -Math.PI / 2;
   mb.add(mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), wood, { y: 0.55 }));
   const body = new THREE.Shape(); body.moveTo(-0.22, 0); body.lineTo(0.22, 0); body.lineTo(0.22, 0.25); body.absarc(0, 0.25, 0.22, 0, Math.PI, false); body.closePath();
   mb.add(mesh(new THREE.ExtrudeGeometry(body, { depth: 0.65, bevelEnabled: false, curveSegments: 10 }), mat('#9fd0ef'), { y: 1.1, z: -0.32 }));
-  mb.add(mesh(new THREE.BoxGeometry(0.03, 0.4, 0.04), mat('#e8798f'), { x: 0.24, y: 1.45, z: 0 }));
+  mb.add(mesh(new THREE.BoxGeometry(0.4, 0.42, 0.02), mat('#8cc0e0'), { y: 1.31, z: 0.335, cast: false })); // little door
+  // the flag (pivots at its base: up = mail waiting)
+  const flag = new THREE.Group(); flag.position.set(0.24, 1.25, 0.1); mb.add(flag);
+  flag.add(mesh(new THREE.BoxGeometry(0.03, 0.4, 0.04), mat('#e8798f'), { y: 0.2 }));
   const pawTex = canvasTexture(128, 128, (ctx) => { ctx.fillStyle = '#fff6e8'; ctx.beginPath(); ctx.arc(64, 64, 62, 0, Math.PI * 2); ctx.fill(); drawPaw(ctx, 64, 70, 70, '#e8798f'); });
-  mb.add(mesh(new THREE.CircleGeometry(0.17, 16), new THREE.MeshStandardMaterial({ map: pawTex, roughness: 0.8 }), { x: 0.24, y: 1.7, z: 0, ry: Math.PI / 2, cast: false }));
-  mb.add(mesh(new THREE.CircleGeometry(0.17, 16), new THREE.MeshStandardMaterial({ map: pawTex, roughness: 0.8 }), { x: 0.255, y: 1.7, z: 0, ry: -Math.PI / 2, cast: false }));
-  scene.add(mb); addCircle(2.8, Z - 0.9, 0.3);
+  flag.add(mesh(new THREE.CircleGeometry(0.17, 16), new THREE.MeshStandardMaterial({ map: pawTex, roughness: 0.8 }), { x: 0.0, y: 0.45, z: 0, ry: Math.PI / 2, cast: false }));
+  flag.add(mesh(new THREE.CircleGeometry(0.17, 16), new THREE.MeshStandardMaterial({ map: pawTex, roughness: 0.8 }), { x: 0.016, y: 0.45, z: 0, ry: -Math.PI / 2, cast: false }));
+  // a pastel envelope that bobs above the mailbox while mail is waiting (easy to spot from the porch)
+  const envTex = canvasTexture(128, 96, (ctx, w, h) => {
+    ctx.fillStyle = '#fff6ec'; ctx.strokeStyle = '#e8798f'; ctx.lineWidth = 7; ctx.beginPath(); ctx.roundRect(6, 6, w - 12, h - 12, 10); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, 10); ctx.lineTo(w / 2, h / 2 + 6); ctx.lineTo(w - 8, 10); ctx.stroke();
+    drawPaw(ctx, w / 2, h / 2 + 18, 26, '#e8798f');
+  });
+  const env = new THREE.Sprite(new THREE.SpriteMaterial({ map: envTex, transparent: true }));
+  env.scale.set(0.5, 0.375, 1); env.position.set(MAILBOX.x, 2.2, MAILBOX.z); scene.add(env);
+  scene.add(mb); addCircle(MAILBOX.x, MAILBOX.z, 0.3);
+  let up = 0, want = 0;
+  return {
+    group: mb,
+    pos: new THREE.Vector3(MAILBOX.x - 0.85, 0, MAILBOX.z),       // stand here to check the mail
+    setFlag(v) { want = v ? 1 : 0; },
+    update(dt, t) {
+      up += (want - up) * Math.min(1, dt * 4);
+      flag.rotation.x = -(1 - up) * Math.PI / 2;                       // down = lying flat along the box
+      env.visible = up > 0.5;
+      env.position.y = 2.15 + Math.sin(t * 2.4) * 0.08;
+      env.material.rotation = Math.sin(t * 1.7) * 0.12;
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* The country road along the front of the farm (past the gate)        */
+/* ------------------------------------------------------------------ */
+export const ROAD_Z = 22.2;
+function buildRoad(scene) {
+  const W = 3.4, N = 120, X0 = -70, X1 = 70;
+  const pos = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const x = X0 + (X1 - X0) * (i / N);
+    for (const dz of [-W / 2, W / 2]) { const z = ROAD_Z + dz; pos.push(x, terrainHeight(x, z) * (Math.hypot(x, z) > HILL_START ? 1 : 0) + 0.035, z); }
+    if (i < N) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  const road = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: '#cdb59a', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  road.receiveShadow = true; scene.add(road);
+  // a soft dashed centre line
+  for (let x = -40; x <= 40; x += 2.4) scene.add(mesh(new THREE.BoxGeometry(1.0, 0.01, 0.12), mat('#fff3d6'), { x, y: 0.045 + terrainHeight(x, ROAD_Z) * (Math.hypot(x, ROAD_Z) > HILL_START ? 1 : 0), z: ROAD_Z, cast: false }));
+  // the drive meets the road
+  scene.add(mesh(new THREE.BoxGeometry(1.7, 0.02, 3.6), mat(PALETTE.path), { x: 0, y: 0.022, z: 19.0, cast: false }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -752,7 +792,8 @@ export function buildWorld(scene) {
   const catsHouse = buildBarn(scene);
   buildGarden(scene);
   const pond = buildPond(scene, lilies);
-  buildEntrance(scene);
+  const mailbox = buildEntrance(scene);
+  buildRoad(scene);
   const clinic = buildClinic(scene);
   const supplyStall = buildSupplyStall(scene);
   // path from the main path to the clinic door
@@ -763,7 +804,7 @@ export function buildWorld(scene) {
     { x: 0, z: -9.5, w: 11, d: 13 }, { x: 12, z: -6, w: 10, d: 10 }, { x: -11, z: 2, w: 9, d: 8 },
     { x: 9, z: 7.5, w: 9, d: 7 }, { x: 0, z: 6, w: 3.2, d: 26 }, { x: 5, z: 0, w: 8, d: 3 }, { x: -4, z: 4, w: 7, d: 3 },
     { x: 0, z: 17, w: 44, d: 1.5 }, { x: 3, z: 16, w: 2, d: 2 }, { x: 0, z: 2, w: 6, d: 6 }, { x: -6.6, z: 4.3, w: 2, d: 2 },
-    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 }, { x: 6.6, z: -4.6, w: 3.6, d: 3.6 },
+    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 }, { x: -3.9, z: 19.0, w: 3.6, d: 3.6 }, { x: 0, z: ROAD_Z, w: 160, d: 5 }, { x: 2.3, z: 19.1, w: 1.5, d: 1.5 }, { x: -1.2, z: -3.4, w: 2, d: 2 },
   ];
   scatter(scene, keepOut);
   const butterflies = buildButterflies(scene);
@@ -780,7 +821,8 @@ export function buildWorld(scene) {
     { id: 'garden', x: -11, z: 2, r: 5 },
     { id: 'catsHouse', test: (x, z) => catsHouse.isInside(x, z) },
     { id: 'barn', x: 8.5, z: -6, r: 3 },
-    { id: 'shop', x: 6.6, z: -3.6, r: 2.2 },
+    { id: 'shop', x: -3.0, z: 19.0, r: 2.4 },
+    { id: 'mailbox', x: 1.9, z: 19.6, r: 2.0 },
     { id: 'pond', x: pond.x, z: pond.z, r: 5 },
     { id: 'gate', x: 0, z: 16, r: 3.5 },
   ];
@@ -789,6 +831,7 @@ export function buildWorld(scene) {
     clinic.update(dt, ladyPos, camera);
     cottage.update(dt, t, ladyPos, camera);
     catsHouse.update(dt, ladyPos, camera);
+    mailbox.update(dt, t);
     for (const p of smokePuffs) {
       const k = (t * 0.18 + p.userData.phase) % 1;
       p.position.copy(p.userData.base).add(new THREE.Vector3(Math.sin(k * 6 + p.userData.phase * 9) * 0.3 + k * 0.8, k * 3.2, 0));
@@ -812,5 +855,5 @@ export function buildWorld(scene) {
   // the porch swing joins the list of seats as a special swinging one
   const sw = cottage.swing;
   SEATS.push({ id: SEATS.length, kind: 'swing', label: 'Sit on the porch swing', noun: 'porch swing', swing: sw, lap: false, front: sw.front, heading: 0, catFront: sw.catFront, catHeading: 0 });
-  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, supplyStall, sky, seedBox, pond, seats: SEATS, spawn: new THREE.Vector3(0, 0, 3.5) };
+  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, supplyStall, mailbox, sky, pond, seats: SEATS, spawn: new THREE.Vector3(0, 0, 3.5) };
 }

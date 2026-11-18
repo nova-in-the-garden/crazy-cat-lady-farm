@@ -1,4 +1,5 @@
-// The Whisker Supply Co. stall (the Supply Shelf): buy cat food, clinic supplies and seeds with coins.
+// The Farmers Market: a roadside stand at the end of the drive (across from the mailbox).
+// Buy cat food, clinic supplies and seeds with coins; orders are delivered to the porch by a courier (delivery.js).
 // Coins come from adoption fees and the little donation jar that fills a bit every morning.
 import * as THREE from 'three';
 import { mat, mesh, canvasTexture, drawPaw } from './util.js';
@@ -7,7 +8,7 @@ import { SHOP, SUPPLY_LABELS, CROPS } from './state.js';
 import { icon } from './ui.js';
 import { sound } from './sound.js';
 
-export const STALL = { x: 6.6, z: -4.7 };
+export const STALL = { x: -3.9, z: 19.0, ry: Math.PI / 2 };   // faces the drive (+x)
 
 function signTex() {
   return canvasTexture(768, 192, (ctx, w, h) => {
@@ -15,14 +16,14 @@ function signTex() {
     ctx.strokeStyle = '#3f9a8b'; ctx.lineWidth = 10; ctx.stroke();
     drawPaw(ctx, 90, h / 2, 80, '#9fd6bf', -0.3); drawPaw(ctx, w - 90, h / 2, 80, '#9fd6bf', 0.3);
     ctx.fillStyle = '#2f6f66'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = '700 62px Fredoka, "Trebuchet MS", sans-serif'; ctx.fillText('Supply Shelf', w / 2, h / 2 - 22);
-    ctx.font = '600 36px Fredoka, "Trebuchet MS", sans-serif'; ctx.fillStyle = '#c95c74'; ctx.fillText('Whisker Supply Co.', w / 2, h / 2 + 38);
+    ctx.font = '700 62px Fredoka, "Trebuchet MS", sans-serif'; ctx.fillText('Farmers Market', w / 2, h / 2 - 22);
+    ctx.font = '600 36px Fredoka, "Trebuchet MS", sans-serif'; ctx.fillStyle = '#c95c74'; ctx.fillText('fresh · local · we deliver!', w / 2, h / 2 + 38);
   });
 }
 
-/** The market stall between the cottage and the Cats' House. */
+/** The Farmers Market stand by the road. */
 export function buildSupplyStall(scene) {
-  const g = new THREE.Group(); g.position.set(STALL.x, 0, STALL.z); scene.add(g);
+  const g = new THREE.Group(); g.position.set(STALL.x, 0, STALL.z); g.rotation.y = STALL.ry; scene.add(g);
   const wood = mat('#c1906a'), dark = mat('#9a6a48'), mint = mat('#9fd6bf');
   // counter
   g.add(mesh(new THREE.BoxGeometry(2.3, 0.85, 0.7), mint, { y: 0.43, z: 0.3 }));
@@ -60,8 +61,28 @@ export function buildSupplyStall(scene) {
   // a sleepy shop cat statue on the counter
   g.add(mesh(new THREE.SphereGeometry(0.12, 10, 8), mat('#a9adb8'), { x: -0.25, y: 1.0, z: 0.35, sy: 0.75 }));
   g.add(mesh(new THREE.SphereGeometry(0.075, 10, 8), mat('#a9adb8'), { x: -0.13, y: 1.06, z: 0.42 }));
-  addBox(STALL.x, STALL.z + 0.1, 2.5, 1.4);
-  return { pos: new THREE.Vector3(STALL.x, 0, STALL.z + 1.3), group: g };
+  // farmers-market touches: crates of veggies out front and a chalkboard
+  const crate = (x, z, cols) => {
+    const c = new THREE.Group(); c.position.set(x, 0, z); g.add(c);
+    c.add(mesh(new THREE.BoxGeometry(0.55, 0.32, 0.4), wood, { y: 0.16 }));
+    for (let i = 0; i < 6; i++) c.add(mesh(new THREE.SphereGeometry(0.075, 8, 6), mat(cols[i % cols.length]), { x: -0.17 + (i % 3) * 0.17, y: 0.36, z: i < 3 ? -0.08 : 0.08 }));
+  };
+  crate(-1.55, 0.55, ['#f59a4f', '#f7b267']);   // carrots
+  crate(1.55, 0.55, ['#9edb7f', '#7fc463']);    // cabbages
+  crate(1.55, 1.0, ['#f5a35c', '#e98d3f']);     // pumpkins
+  const cb = new THREE.Group(); cb.position.set(-1.45, 0, 1.25); cb.rotation.y = 0.35; g.add(cb);
+  const chalk = canvasTexture(256, 320, (ctx, w, h) => {
+    ctx.fillStyle = '#3d4a44'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#c1906a'; ctx.lineWidth = 16; ctx.strokeRect(0, 0, w, h);
+    ctx.fillStyle = '#fff6ec'; ctx.textAlign = 'center'; ctx.font = '700 40px Fredoka, sans-serif'; ctx.fillText('Today', w / 2, 62);
+    ctx.font = '500 28px Fredoka, sans-serif'; ['cat food', 'seeds', 'medicine', 'bandages'].forEach((t, i) => ctx.fillText(t, w / 2, 118 + i * 40));
+    ctx.fillStyle = '#ffd76e'; ctx.font = '600 26px Fredoka, sans-serif'; ctx.fillText('free delivery!', w / 2, 290);
+  });
+  [-0.22, 0.22].forEach((x) => cb.add(mesh(new THREE.BoxGeometry(0.04, 0.95, 0.04), wood, { x, y: 0.47, rx: -0.15, z: 0.07 })));
+  cb.add(mesh(new THREE.PlaneGeometry(0.5, 0.62), new THREE.MeshStandardMaterial({ map: chalk, roughness: 0.9 }), { y: 0.62, z: 0.1, rx: -0.15, cast: false }));
+  // (the stand is turned to face the drive, so its footprint is rotated too)
+  addBox(STALL.x - 0.1, STALL.z, 1.4, 2.5);
+  addBox(STALL.x + 0.55, STALL.z, 0.45, 3.6);   // veggie crates out front
+  return { pos: new THREE.Vector3(STALL.x + 1.35, 0, STALL.z), group: g };
 }
 
 /** The shop card (opened with E at the stall). */
@@ -70,9 +91,9 @@ export class Shop {
     this.game = game;
     const el = document.createElement('div');
     el.id = 'shop'; el.className = 'overlay-modal hidden';
-    el.innerHTML = `<div class="gcard shop-card"><div class="jr-head">${icon('shop', 28)}<h2>Supply Shelf</h2><span class="coins-pill"></span><button type="button" class="jr-close" title="Close (Esc)">&times;</button></div>
-      <p class="shop-sub">Whisker Supply Co. · cat food is the cats' main meal now. Coins come from adoptions and the donation jar.</p>
-      <div class="shop-list"></div><div class="shop-stock"></div></div>`;
+    el.innerHTML = `<div class="gcard shop-card"><div class="jr-head">${icon('shop', 28)}<h2>Farmers Market</h2><span class="coins-pill"></span><button type="button" class="jr-close" title="Close (Esc)">&times;</button></div>
+      <p class="shop-sub">Fresh, local and delivered! Everything you buy is brought up the drive to Granny's porch. Coins come from adoptions and the donation jar.</p>
+      <div class="shop-list"></div><div class="shop-order"></div><div class="shop-stock"></div></div>`;
     document.body.appendChild(el);
     this.el = el; this.list = el.querySelector('.shop-list');
     el.querySelector('.jr-close').addEventListener('click', () => this.toggle(false));
@@ -87,16 +108,13 @@ export class Shop {
     this.el.classList.toggle('hidden', !v);
     this.game.shopOpen = v;
     sound.play(v ? 'page' : 'click');
-    if (v) { this.render(); if (!this.game.state.flags.shopHello) { this.game.state.flags.shopHello = true; this.game.host.say('The Supply Shelf! Cat food bags for the bowls, medicine, shots and bandages for the clinic, and seeds. Adoption fees keep it all going.', 8); } }
+    if (v) { this.render(); if (!this.game.state.flags.shopHello) { this.game.state.flags.shopHello = true; this.game.host.say("The Farmers Market! Cat food bags, medicine, shots, bandages and seeds. Whatever we buy, the delivery fellow brings it up to the porch.", 8); } }
   }
   buy(id) {
     const g = this.game, s = g.state, item = SHOP.find((i) => i.id === id);
     if (!item || s.coins < item.price) { sound.play('nope'); return; }
     s.coins -= item.price;
-    const gv = item.give;
-    if (gv.food) g.api_food.add(gv.food);
-    if (gv.supplies) Object.entries(gv.supplies).forEach(([k, v]) => (s.supplies[k] = (s.supplies[k] || 0) + v));
-    if (gv.seeds) Object.entries(gv.seeds).forEach(([k, v]) => (s.seeds[k] = (s.seeds[k] || 0) + v));
+    g.delivery.order(item.give);          // delivered to the porch, not straight into her apron
     sound.play('pickup'); g.lady.act();
     s.stats.bought = (s.stats.bought || 0) + 1;
     this.render(); g.save();
@@ -107,6 +125,8 @@ export class Shop {
     this.list.innerHTML = SHOP.map((it) => `<div class="shop-item">${icon(it.icon, 30)}<div><b>${it.name}</b><span>${it.desc}</span></div>
       <button type="button" data-buy="${it.id}" ${s.coins >= it.price ? '' : 'disabled'}>${icon('coin', 16)}${it.price}</button></div>`).join('');
     const seeds = Object.entries(s.seeds).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${CROPS[k].name.toLowerCase()}`).join(', ') || 'none';
+    const d = this.game.delivery;
+    this.el.querySelector('.shop-order').innerHTML = d && d.hasPending() ? `📦 <b>Ordered:</b> ${d.describe(s.market.pending)}. <span>${d.statusText()}</span>` : '';
     this.el.querySelector('.shop-stock').innerHTML = `<b>You have:</b> ${s.food} cat food · ${Object.entries(SUPPLY_LABELS).map(([k, l]) => `${s.supplies[k] || 0} ${l.toLowerCase()}`).join(' · ')} · seeds: ${seeds}`;
   }
 }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="build" content="202611181236" />
+  <meta name="build" content="202611181302" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Granny's Cat Sanctuary · Crazy Cat Lady Simulator</title>
   <meta name="description" content="Visit Granny's cozy 3D cat sanctuary, right in your browser. The first piece of the Crazy Cat Lady Simulator." />
@@ -10,43 +10,44 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=202611181236" />
+  <link rel="stylesheet" href="css/style.css?v=202611181302" />
   <!-- Three.js is vendored locally (r187) so the site works anywhere, including GitHub Pages. -->
   <script type="importmap">
     {
       "imports": {
-        "three": "./vendor/three/three.module.js?v=202611181236",
-        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611181236",
-        "./js/adoption.js": "./js/adoption.js?v=202611181236",
-        "./js/building.js": "./js/building.js?v=202611181236",
-        "./js/catData.js": "./js/catData.js?v=202611181236",
-        "./js/catLady.js": "./js/catLady.js?v=202611181236",
-        "./js/catMenu.js": "./js/catMenu.js?v=202611181236",
-        "./js/catModel.js": "./js/catModel.js?v=202611181236",
-        "./js/cats.js": "./js/cats.js?v=202611181236",
-        "./js/catsHouse.js": "./js/catsHouse.js?v=202611181236",
-        "./js/clinic.js": "./js/clinic.js?v=202611181236",
-        "./js/collision.js": "./js/collision.js?v=202611181236",
-        "./js/controls.js": "./js/controls.js?v=202611181236",
-        "./js/game.js": "./js/game.js?v=202611181236",
-        "./js/garden.js": "./js/garden.js?v=202611181236",
-        "./js/host.js": "./js/host.js?v=202611181236",
-        "./js/journal.js": "./js/journal.js?v=202611181236",
-        "./js/kitchen.js": "./js/kitchen.js?v=202611181236",
-        "./js/main.js": "./js/main.js?v=202611181236",
-        "./js/particles.js": "./js/particles.js?v=202611181236",
-        "./js/saves.js": "./js/saves.js?v=202611181236",
-        "./js/seats.js": "./js/seats.js?v=202611181236",
-        "./js/shop.js": "./js/shop.js?v=202611181236",
-        "./js/sound.js": "./js/sound.js?v=202611181236",
-        "./js/startScreen.js": "./js/startScreen.js?v=202611181236",
-        "./js/state.js": "./js/state.js?v=202611181236",
-        "./js/statsCard.js": "./js/statsCard.js?v=202611181236",
-        "./js/time.js": "./js/time.js?v=202611181236",
-        "./js/ui.js": "./js/ui.js?v=202611181236",
-        "./js/util.js": "./js/util.js?v=202611181236",
-        "./js/vet.js": "./js/vet.js?v=202611181236",
-        "./js/world.js": "./js/world.js?v=202611181236"
+        "three": "./vendor/three/three.module.js?v=202611181302",
+        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611181302",
+        "./js/adoption.js": "./js/adoption.js?v=202611181302",
+        "./js/building.js": "./js/building.js?v=202611181302",
+        "./js/catData.js": "./js/catData.js?v=202611181302",
+        "./js/catLady.js": "./js/catLady.js?v=202611181302",
+        "./js/catMenu.js": "./js/catMenu.js?v=202611181302",
+        "./js/catModel.js": "./js/catModel.js?v=202611181302",
+        "./js/cats.js": "./js/cats.js?v=202611181302",
+        "./js/catsHouse.js": "./js/catsHouse.js?v=202611181302",
+        "./js/clinic.js": "./js/clinic.js?v=202611181302",
+        "./js/collision.js": "./js/collision.js?v=202611181302",
+        "./js/controls.js": "./js/controls.js?v=202611181302",
+        "./js/delivery.js": "./js/delivery.js?v=202611181302",
+        "./js/game.js": "./js/game.js?v=202611181302",
+        "./js/garden.js": "./js/garden.js?v=202611181302",
+        "./js/host.js": "./js/host.js?v=202611181302",
+        "./js/journal.js": "./js/journal.js?v=202611181302",
+        "./js/kitchen.js": "./js/kitchen.js?v=202611181302",
+        "./js/main.js": "./js/main.js?v=202611181302",
+        "./js/particles.js": "./js/particles.js?v=202611181302",
+        "./js/saves.js": "./js/saves.js?v=202611181302",
+        "./js/seats.js": "./js/seats.js?v=202611181302",
+        "./js/shop.js": "./js/shop.js?v=202611181302",
+        "./js/sound.js": "./js/sound.js?v=202611181302",
+        "./js/startScreen.js": "./js/startScreen.js?v=202611181302",
+        "./js/state.js": "./js/state.js?v=202611181302",
+        "./js/statsCard.js": "./js/statsCard.js?v=202611181302",
+        "./js/time.js": "./js/time.js?v=202611181302",
+        "./js/ui.js": "./js/ui.js?v=202611181302",
+        "./js/util.js": "./js/util.js?v=202611181302",
+        "./js/vet.js": "./js/vet.js?v=202611181302",
+        "./js/world.js": "./js/world.js?v=202611181302"
       }
     }
   </script>
@@ -103,7 +104,8 @@
       <div><kbd>E</kbd> near a cat: care menu (<kbd>1</kbd>-<kbd>7</kbd>)</div>
       <div>Click a cat: stats card</div>
       <div>Cats' House (barn): <kbd>E</kbd> to fill bowls, scoop litter</div>
-      <div>Supply Shelf: <kbd>E</kbd> to shop (cat food, meds)</div>
+      <div>Farmers Market (by the road): <kbd>E</kbd> to shop, delivered to the porch</div>
+      <div>Mailbox: <kbd>E</kbd> to collect the morning seed packets</div>
       <div>Clinic kennels: <kbd>E</kbd> for daily care</div>
       <div><kbd>J</kbd> Cat Journal, <kbd>Esc</kbd> close</div>
       <div>10 PM: <kbd>E</kbd> at the bed to sleep</div>
@@ -116,6 +118,6 @@
 
   <div id="loading">Tidying up the farm...</div>
 
-  <script type="module" src="js/main.js?v=202611181236"></script>
+  <script type="module" src="js/main.js?v=202611181302"></script>
 </body>
 </html>

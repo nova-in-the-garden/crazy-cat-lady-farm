@@ -23,7 +23,7 @@ const LINES = {
     'Have you ever seen a cat in a sunbeam? Pure magic.',
     'My cat-ear headband? Oh, I never take it off, dearie.',
     "Cats choose you, you know. I'm just making it easy for them.",
-    'Breakfast is at 8 and supper at 6, served in the Cats\' House bowls. Cat food comes in bags from the Supply Shelf.',
+    'Breakfast is at 8 and supper at 6, served in the Cats\' House bowls. Cat food comes in bags from the Farmers Market.',
     'We can look after up to ten cats at once. When a cat is healthy, happy and loves us, a kind family may adopt them.',
     'Click or tap any cat to see their stats card: health, happiness, hunger, cleanliness and energy.',
     'A little catnip from the garden makes any cat do zoomies. And it grows your bond!',
@@ -32,7 +32,7 @@ const LINES = {
     'Press J to open the Cat Journal. I write down every little moment with the cats.',
     'A cat that seems a little off just needs a gentle check at the clinic. Nothing scary, I promise.',
     'Play with each cat using different toys. Everyone has a favorite!',
-    'No cat goes hungry here. Keep an eye on the cat food and pop by the Supply Shelf when it runs low.',
+    'No cat goes hungry here. Keep an eye on the cat food and pop by the Farmers Market when it runs low.',
     'Need water? The pond is just past the path. Fill the can and the crops will thank you.',
     "Have you seen my new animal hospital? It's just past the garden.",
     "Purring is the best sound in the whole wide world.",
@@ -47,7 +47,7 @@ const LINES = {
     'Do a few checks and read the clipboard. A wrong guess never hurts anyone, it just means a rest day.',
     'Poorly kitties stay in the kennels until they are healed. Visit each day for their medicine and a gentle check.',
     'Missed a dose? No harm done, dearie. Healing just takes a little longer.',
-    'Shots, medicine and bandages come from the Supply Shelf. Keep a few in stock!',
+    'Shots, medicine and bandages come from the Farmers Market. Keep a few in stock!',
     'Press E at a kennel to see the healing bar and today\'s care.',
     'Chamomile from the garden makes every remedy work faster.',
   ],
@@ -67,7 +67,7 @@ const LINES = {
   kitchen: [
     "Welcome to my kitchen! Bring me veggies and I'll cook us a hearty meal at the stove.",
     'One carrot makes one meal, a cabbage makes two, and a pumpkin makes three!',
-    "The cans on the pantry shelf are the cats' food. The Supply Shelf sells it by the bag.",
+    "The cans on the pantry shelf are the cats' food. The Farmers Market sells it by the bag.",
     'Tired? My bedroom is just through the living room. My very favorite cats like to pile on with me.',
     'Mind the cinnamon rolls, dearie, they are still cooling!',
     "The cats' food bowls and litter boxes are over in the Cats' House now. The old barn!",
@@ -91,15 +91,16 @@ const LINES = {
   ],
   catsHouse: [
     "Welcome to the Cats' House, dearie! Bowls, litter boxes and a bed with every cat's name on it.",
-    'Press E at the feeding station to fill the bowls. Cat food comes in bags from the Supply Shelf.',
+    'Press E at the feeding station to fill the bowls. Cat food comes in bags from the Farmers Market.',
     "Breakfast at 8 and supper at 6 get served here too, as long as we have cat food.",
     'Ten beds, ten bowls and five litter boxes. Room for a whole cat family!',
     'Scoop the litter boxes when they get clumpy. Clean boxes make happy, tidy kitties.',
     'At night the cats curl up in their own little beds here. My best friends sneak onto my bed instead!',
   ],
   shop: [
-    "The Supply Shelf! Cat food bags, medicine, shots, bandages and seeds. Press E to browse.",
+    "The Farmers Market! Cat food bags, medicine, shots, bandages and seeds. Press E to browse, and the courier brings it all up to the porch.",
     'Coins come from adoption fees and the donation jar. Spend them on the cats, dearie.',
+    "Our courier drives the little van. He leaves the parcels right by my porch steps.",
   ],
   pond: [
     'Careful by the pond, dearie. Cats and water do NOT mix.',
@@ -107,7 +108,11 @@ const LINES = {
   ],
   gate: [
     "That's my gate. New arrivals come right through here, and I always meet them with a smile.",
-    'The mailbox has a paw on it. I get letters from my cat club!',
+    'The Farmers Market is just outside the gate, and the mailbox is right across the drive.',
+  ],
+  mailbox: [
+    'The mailbox! When the paw flag is up, the seed club has sent fresh packets. Press E to check the mail.',
+    'Three seed packets every morning, a surprise every time. I do love getting mail.',
   ],
   talk: [
     'Yes, dearie?',

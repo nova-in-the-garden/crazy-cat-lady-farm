@@ -47,6 +47,8 @@ const SOUNDS = {
   hmm: () => { tone(392, 0.14, { type: 'triangle', vol: 0.12 }); tone(349, 0.2, { type: 'triangle', vol: 0.1, delay: 0.13 }); },
   heal: () => { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.3, { vol: 0.11, delay: i * 0.08 })); noise(0.6, { freq: 6000, vol: 0.04 }); },
   scoop: () => { noise(0.25, { freq: 1800, q: 0.8, vol: 0.18 }); noise(0.2, { freq: 900, vol: 0.12, delay: 0.25 }); },
+  mail: () => { [784, 988, 1319].forEach((f, i) => tone(f, 0.22, { vol: 0.14, delay: i * 0.12, type: 'triangle' })); },
+  pop: () => { noise(0.12, { freq: 400, type: 'lowpass', vol: 0.4 }); tone(180, 0.1, { type: 'triangle', vol: 0.2, slide: -60 }); },
   page: () => { noise(0.18, { freq: 3500, q: 0.5, vol: 0.1 }); },
 };
 

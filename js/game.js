@@ -2,7 +2,7 @@
 // buy cat food and clinic supplies with coins from adoptions, and care for up to 10 cats.
 // Ties together the garden, clock, kitchen, UI, sounds and Granny's comments.
 import * as THREE from 'three';
-import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, SUPPLY_LABELS, COFFEE_SECONDS, COFFEE_PERK, COFFEE_SPEED, defaultState, restoreState } from './state.js';
+import { CROPS, CROP_IDS, FOOD_CROPS, MAIL_SEEDS, MAIL_MAX, MAIL_WEIGHTS, SUPPLY_LABELS, COFFEE_SECONDS, COFFEE_PERK, COFFEE_SPEED, defaultState, restoreState } from './state.js';
 import { writeSlot } from './saves.js';
 import { Garden, GRID, tileAt, stageOf, tileCenter } from './garden.js';
 import { DayCycle, DAY_SECONDS } from './time.js';
@@ -17,6 +17,7 @@ import { ISSUES, MAX_CATS } from './catData.js';
 import { Shop } from './shop.js';
 import { StatsCard } from './statsCard.js';
 import { Adoption } from './adoption.js';
+import { Delivery } from './delivery.js';
 
 const TILE_COUNT = GRID.cols * GRID.rows;
 
@@ -66,13 +67,14 @@ export class Game {
     this.statsCard = new StatsCard(this);
     this.shop = new Shop(this);
     this.adoption = new Adoption(this);
+    this.delivery = new Delivery(this);
     this.shopOpen = false; this.adoptOpen = false;
     this.needNag = 60;
 
     this.day.onDawn = () => this.dawn();
     this.day.onBedtime = () => this.bedtime();
     world.cottage.setFood(this.state.food);
-    this.updateSeedBox();
+    this.updateMailbox();
     lady.setTool(TOOLS[this.state.tool].id === 'hands' ? 'basket' : TOOLS[this.state.tool].id);
 
     addEventListener('keydown', (e) => {
@@ -115,6 +117,13 @@ export class Game {
       this.lady.group.position.set(v.x, this.world.groundHeight(v.x, v.z), v.z);
       this.lady.group.rotation.y = Number.isFinite(lp.heading) ? lp.heading : 0;
     }
+    // the seed club's mail (first morning of a new game too); waiting mail is announced on every load
+    this.deliverMail(false);
+    setTimeout(() => {
+      if (!this.playing || !this.mailCount()) return;
+      this.announceMail();
+      if (!this.state.flags.mailHint) { this.state.flags.mailHint = true; setTimeout(() => this.host.say('Ooh, the mailbox flag is up! Seed packets come every morning. The mailbox is at the end of the drive, by the road.', 8), 5000); }
+    }, 2500);
     this.save();
     sound.unlock();
     this.ui.show(this.touch);
@@ -149,6 +158,8 @@ export class Game {
     if (this.sitting) return { ok: true, label: 'Stand up', run: () => this.standUp() };
     const table = this.vet.tableAction();
     if (table && table.ok) return table;
+    const parcel = this.delivery.action(p);
+    if (parcel) return parcel;
     const seat = this.nearestSeat();
     if (seat) return { ok: true, label: seat.label, run: () => this.sitDown(seat) };
     // at the cottage bed, Sleep wins (even with cats piled on the bed)
@@ -178,11 +189,11 @@ export class Game {
     }
     if (W.catsHouse.isInside(p.x, p.z)) return this.catsHouseAction(p);
     if (W.clinic.isInside(p.x, p.z)) { const k = this.kennelAction(p); if (k) return k; }
-    if (near(W.supplyStall.pos, 1.5)) return { ok: true, label: `Browse the Supply Shelf (${s.coins} coins)`, run: () => this.shop.toggle(true) };
-    if (near(W.seedBox.position, 1.6)) {
-      return s.seedBoxDay < s.day
-        ? { ok: true, label: "Collect today's free seeds", run: () => this.collectSeeds() }
-        : { ok: false, label: 'Seed box is empty. It refills every morning' };
+    if (near(W.supplyStall.pos, 1.5)) return { ok: true, label: `Browse the Farmers Market (${s.coins} coins)`, run: () => this.shop.toggle(true) };
+    if (near(W.mailbox.pos, 1.3)) {
+      const n = this.mailCount();
+      return n ? { ok: true, label: `Check the mail (${n} seed packet${n > 1 ? 's' : ''})`, run: () => this.checkMail() }
+        : { ok: false, label: 'The mailbox is empty. The seed club sends 3 packets every morning' };
     }
     if (s.tool === 2 && near(W.pond, 4.4)) {
       return s.water < s.waterMax ? { ok: true, label: 'Fill the watering can', run: () => this.fillCan() } : { ok: false, label: 'Watering can is full' };
@@ -203,7 +214,7 @@ export class Game {
       if (tool === 'seeds') {
         const n = s.seeds[s.seedType], name = CROPS[s.seedType].name;
         return n > 0 ? { ...base, ok: true, label: `Plant ${name} (${n} left)`, run: () => this.plant(i) }
-          : { ...base, ok: false, label: `No ${name} seeds. Press Q to switch, or visit the seed box` };
+          : { ...base, ok: false, label: `No ${name} seeds. Press Q to switch, or check the mailbox` };
       }
       if (tool === 'can') return this.waterAction(i, 'soil');
       return { ...base, ok: false, label: `Plowed soil${t.wet ? ' (watered)' : ''}. Plant seeds [2]` };
@@ -309,7 +320,7 @@ export class Game {
     s.meals--; s.lady.hunger = Math.min(100, s.lady.hunger + 45); s.lady.energy = Math.min(100, s.lady.energy + 15);
     this.lady.act(); sound.play('eat');
     this.floatAtLady('Mmm, a warm home-cooked meal! (+hunger, +energy)', '#c95c74', 'meal');
-    if (!s.flags.ateMeal) { s.flags.ateMeal = true; this.host.say('Ahh, much better. A cat lady needs her veggies too! The garden feeds me now, and cat food comes in bags from the Supply Shelf.', 7); }
+    if (!s.flags.ateMeal) { s.flags.ateMeal = true; this.host.say('Ahh, much better. A cat lady needs her veggies too! The garden feeds me now, and cat food comes in bags from the Farmers Market.', 7); }
   }
 
   catAction(c) {
@@ -332,7 +343,7 @@ export class Game {
       if (!joined.length) return { ok: false, label: 'Feeding station: no cats live here yet' };
       const empty = joined.filter((c) => !s.bowls[c.data.id]);
       if (!empty.length) return { ok: false, label: 'All the bowls are full. The cats are on their way!' };
-      if (s.food <= 0) return { ok: false, label: 'Out of cat food. Buy a bag at the Supply Shelf (by the Cats\' House)' };
+      if (s.food <= 0) return { ok: false, label: 'Out of cat food. Order a bag at the Farmers Market (down by the road)' };
       const n = Math.min(empty.length, s.food);
       return { ok: true, label: `Fill ${n} food bowl${n > 1 ? 's' : ''} (${s.food} cat food left)`, run: () => this.feedCats() };
     }
@@ -353,7 +364,7 @@ export class Game {
     const p = this.world.catsHouse.bowls[4].pos;
     this.particles.emit(new THREE.Vector3(p.x - 0.2, 0.4, p.z + 0.6), { color: '#f4a3b5', count: 10, speed: 0.6, up: 1.4, gravity: 0.5, size: 0.045, emissive: true, life: 1.2 });
     this.floatAtLady(`Filled ${n} bowl${n > 1 ? 's' : ''}. Dinner time, kitties!`, '#c95c74', 'food');
-    if (!this.state.flags.fedHouse) { this.state.flags.fedHouse = true; this.host.say("Shake the scoop and they come running! Each cat has their own bowl. Cat food comes in bags from the Supply Shelf now.", 7); }
+    if (!this.state.flags.fedHouse) { this.state.flags.fedHouse = true; this.host.say("Shake the scoop and they come running! Each cat has their own bowl. Cat food comes in bags from the Farmers Market now.", 7); }
     else this.host.say('Here kitty kitty! Dinner is served.', 4);
   }
   cleanLitter(i) {
@@ -472,13 +483,42 @@ export class Game {
       this.save({ toast: `Game saved 🐾 Good morning, Day ${this.state.day}!` });
     });
   }
-  collectSeeds() {
-    const s = this.state;
-    CROP_IDS.forEach((c) => (s.seeds[c] += DAILY_SEEDS[c]));
-    s.seedBoxDay = s.day; this.updateSeedBox();
-    sound.play('pickup'); this.lady.act();
-    this.floatAtLady(`+${DAILY_SEEDS.carrot} carrot, +${DAILY_SEEDS.cabbage} cabbage, +${DAILY_SEEDS.pumpkin} pumpkin, +${DAILY_SEEDS.chamomile} chamomile, +${DAILY_SEEDS.catnip} catnip seeds`, '#5b4256', 'seeds');
+  /* ---------------- the mailbox: the seed club sends 3 random packets every morning ---------------- */
+  mailCount() { return Object.values(this.state.mail.seeds).reduce((a, b) => a + b, 0); }
+  /** Morning mail (once per day; the box holds up to MAIL_MAX packets so a few missed days still wait for her). */
+  deliverMail(announce = true) {
+    const s = this.state, m = s.mail;
+    if (m.day >= s.day) return false;
+    m.day = s.day;
+    const room = Math.max(0, MAIL_MAX - this.mailCount());
+    const total = Object.values(MAIL_WEIGHTS).reduce((a, b) => a + b, 0);
+    for (let i = 0; i < Math.min(MAIL_SEEDS, room); i++) {
+      let r = Math.random() * total, pick = 'carrot';
+      for (const [k, w] of Object.entries(MAIL_WEIGHTS)) { if ((r -= w) <= 0) { pick = k; break; } }
+      m.seeds[pick] = (m.seeds[pick] || 0) + 1;
+    }
+    this.updateMailbox();
+    if (announce) this.announceMail();
+    return true;
   }
+  announceMail() {
+    if (!this.mailCount()) return;
+    this.ui.banner('You Got Mail! 📬', 'mail');
+    sound.play('mail');
+  }
+  checkMail() {
+    const s = this.state, got = s.mail.seeds;
+    const list = Object.entries(got).map(([k, n]) => `${n} ${CROPS[k].name.toLowerCase()}`);
+    Object.entries(got).forEach(([k, n]) => (s.seeds[k] = (s.seeds[k] || 0) + n));
+    s.mail.seeds = {};
+    this.updateMailbox();
+    sound.play('pickup'); this.lady.act();
+    this.floatAtLady(`+ ${list.join(', ')} seeds`, '#5b4256', 'seeds');
+    this.host.say(`Mail from the seed club! ${list.join(', ')} seed${list.length > 1 || /^[2-9]/.test(list[0]) ? 's' : ''}. Let's get them in the ground, dearie.`, 6);
+    if (!s.flags.firstMail) { s.flags.firstMail = true; this.journal.log('Granny checked the mailbox and found seed packets from the seed club. Fresh ones come every morning!'); }
+    this.save();
+  }
+  updateMailbox() { this.world.mailbox.setFlag(this.mailCount() > 0); }
   fillCan() {
     this.state.water = this.state.waterMax; sound.play('fill'); this.lady.act();
     const p = this.lady.group.position;
@@ -489,9 +529,10 @@ export class Game {
   /* ---------------- daily rhythm ---------------- */
   dawn() {
     this.garden.dryAll();
-    this.updateSeedBox();
+    this.deliverMail(false);
+    setTimeout(() => this.announceMail(), 1800);
     const ripe = this.garden.ripeCount, planted = this.garden.count((t) => t.state === 'planted' && t.growth < 1);
-    let line = 'Good morning, dearie! Fresh seeds are in the seed box.';
+    let line = 'Good morning, dearie! The seed club sent fresh packets: check the mailbox by the road.';
     if (planted) line = 'Good morning! The soil dried overnight, so give the crops some water.';
     if (ripe) line += ` ${ripe} crop${ripe > 1 ? 's are' : ' is'} ripe and waiting. No rush, they never wilt!`;
     if (this.cats.joined().length) line = `Good morning! Let's check on the cats: a pet, a play and breakfast at 8. ${line.replace(/^Good morning[!,]\s*(dearie!\s*)?/, '')}`;
@@ -510,7 +551,6 @@ export class Game {
     this.host.say(list.length > 1 ? `${list.length} crops just ripened! They'll stay ripe until you pick them.` : `Ooh, a ${c.name.toLowerCase()} is ripe! It'll wait for you, no rush.`, 5);
     this.chatCooldown = 25;
   }
-  updateSeedBox() { this.world.seedBox.packets.visible = this.state.seedBoxDay < this.state.day; }
   firstTime(key, line) { if (this.firsts[key] || this.state.stats[key + 'ed'] > 1) return; this.firsts[key] = true; this.host.say(line, 6); }
 
   /* ---------------- helpers ---------------- */
@@ -634,6 +674,7 @@ export class Game {
     this.updateLady(dt, hours);
     this.updateSwing(dt, t);
     this.updateCoffee(dt);
+    this.delivery.update(dt, t);
     const joined = this.cats.joined();
     const waiting = this.cats.list.find((c) => !c.data.joined);
     if (joined.length) {
@@ -715,6 +756,10 @@ export class Game {
         use: () => g.use(),
         save: (toast) => g.save(toast ? { toast: 'Game saved 🐾' } : {}),
         get slot() { return g.slot; },
+        mail: () => ({ ...g.state.mail.seeds }), mailDay: () => g.state.mail.day, checkMail: () => g.checkMail(),
+        market: () => JSON.parse(JSON.stringify(g.state.market)), deliveryPhase: () => g.delivery.phase,
+        deliveryStep: (sec) => g.delivery.step(sec), courier: () => g.delivery.courier && g.delivery.courier.group.visible && g.delivery.courier.group.position.toArray().map((v) => +v.toFixed(2)),
+        buy: (id) => g.shop.buy(id),
         sit: (i) => g.sitDown(i === undefined ? undefined : g.world.seats[i]), stand: () => g.standUp(), get sitting() { return !!g.sitting; },
         seats: () => g.world.seats.map((x) => ({ id: x.id, kind: x.kind, label: x.label, front: [+x.front.x.toFixed(2), +x.front.y.toFixed(2), +x.front.z.toFixed(2)], heading: +x.heading.toFixed(2) })),
         seat: () => g.sitting && g.sitting.seat.id,

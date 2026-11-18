@@ -256,7 +256,7 @@ export class Vet {
     const ex = this.exam, g = this.game, s = g.state, cs = ex.cs, cat = ex.cat, care = CARE[type];
     cs.first ||= {};
     if (cs.first[type]) return;
-    if (care.supply && (s.supplies[care.supply] || 0) <= 0) { sound.play('nope'); g.host.say(`We're out of ${care.supply === 'shot' ? 'shots' : care.supply === 'bandage' ? 'bandages' : 'medicine'}. The Supply Shelf has more, or we can admit ${pron('{him}', cat.def)} anyway and heal a little slower.`, 7); return; }
+    if (care.supply && (s.supplies[care.supply] || 0) <= 0) { sound.play('nope'); g.host.say(`We're out of ${care.supply === 'shot' ? 'shots' : care.supply === 'bandage' ? 'bandages' : 'medicine'}. The Farmers Market has more, or we can admit ${pron('{him}', cat.def)} anyway and heal a little slower.`, 7); return; }
     if (care.supply) s.supplies[care.supply]--;
     cs.first[type] = true;
     if (type === 'bandage') cs.bandaged = true;
@@ -310,7 +310,7 @@ export class Vet {
     if (!cs || cs.stage !== 'kennel') return false;
     cs.today ||= {};
     if (cs.today[type] || !this.dailyTasks(cs).includes(type)) return false;
-    if (care.supply && (s.supplies[care.supply] || 0) <= 0) { sound.play('nope'); g.host.say(`Out of ${care.supply === 'medicine' ? 'medicine' : care.supply + 's'}! The Supply Shelf has more. Skipping it just means slower healing.`, 6); return false; }
+    if (care.supply && (s.supplies[care.supply] || 0) <= 0) { sound.play('nope'); g.host.say(`Out of ${care.supply === 'medicine' ? 'medicine' : care.supply + 's'}! The Farmers Market has more. Skipping it just means slower healing.`, 6); return false; }
     if (care.supply) s.supplies[care.supply]--;
     cs.today[type] = true;
     g.lady.act();
@@ -475,7 +475,7 @@ export class Vet {
       body += `<p class="ex-ask"><b>${ISSUES[cs.diagnosis].name}</b>. Good thinking! The care plan: ${plan.text}</p>`;
       if (plan.first.length) {
         body += `<div class="ex-care">${plan.first.map((t) => { const c = CARE[t], have = c.supply ? st.supplies[c.supply] || 0 : 99, done = cs.first && cs.first[t];
-          return `<button type="button" data-care="${t}" class="${done ? 'done' : ''}" ${done || have <= 0 ? 'disabled' : ''}>${icon(c.icon, 30)}<b>${done ? c.done + ' ✓' : c.label}</b><span>${done ? 'Done' : have > 0 ? `${have} in stock` : 'Out of stock: Supply Shelf'}</span></button>`; }).join('')}</div>`;
+          return `<button type="button" data-care="${t}" class="${done ? 'done' : ''}" ${done || have <= 0 ? 'disabled' : ''}>${icon(c.icon, 30)}<b>${done ? c.done + ' ✓' : c.label}</b><span>${done ? 'Done' : have > 0 ? `${have} in stock` : 'Out of stock: Farmers Market'}</span></button>`; }).join('')}</div>`;
       }
       if (ex.lastCare) body += `<p class="ex-gentle">${ex.lastCare}</p>`;
       body += `<div class="ex-herb">${icon('chamomile', 20)} Chamomile: <b>${herbs}</b> ${herbs ? '(1 will be used: faster healing)' : '(grow some in the garden to heal faster)'}</div>`;

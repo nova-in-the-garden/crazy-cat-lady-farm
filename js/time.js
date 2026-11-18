@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 
 export const DAY_SECONDS = 360;   // 6 real minutes per in-game day
-export const DAWN = 6;            // soil dries and the seed box refills at 6:00
+export const DAWN = 6;            // soil dries and the seed club's mail arrives at 6:00
 export const BEDTIME = 22;        // at 10 PM the clock stops until she goes to bed and sleeps
 
 const C = (h) => new THREE.Color(h);

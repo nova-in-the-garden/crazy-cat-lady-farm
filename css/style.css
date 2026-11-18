@@ -475,3 +475,15 @@ body.exam-open #sleep-btn { display: none !important; }
 #save-dialog textarea { width: 100%; min-height: 96px; border-radius: 12px; border: 2px solid #ead7e4; padding: 8px; font: 0.78rem ui-monospace, monospace; color: var(--ink); resize: vertical; word-break: break-all; }
 #save-dialog .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
 #save-dialog .err { color: #c4384f; font-size: 0.85rem; min-height: 1.1em; margin: 6px 0 0; }
+
+/* "You Got Mail! 📬" / delivery banner */
+#banner { position: fixed; left: 50%; top: 128px; transform: translateX(-50%); z-index: 17; pointer-events: none; white-space: nowrap;
+  background: #fff6ec; border: 4px solid #9fd0ef; border-radius: 22px; padding: 12px 26px; font-weight: 700; font-size: 1.55rem; color: #3d5a78;
+  box-shadow: 0 10px 26px rgba(91, 66, 86, 0.25); animation: bannerIn 0.6s cubic-bezier(.2, 1.6, .4, 1); }
+#banner.parcel { border-color: #e8c9a4; color: #7a4a2a; font-size: 1.2rem; }
+#banner.hidden { display: none; }
+@keyframes bannerIn { from { opacity: 0; transform: translate(-50%, -24px) scale(0.7); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@media (max-width: 640px), (pointer: coarse) { #banner { top: auto; bottom: 280px; font-size: 1.2rem; padding: 9px 18px; white-space: normal; text-align: center; max-width: 86vw; } #banner.parcel { font-size: 1rem; } }
+.shop-order { margin: 8px 2px 0; padding: 8px 12px; border-radius: 14px; background: #fff3e0; color: #7a4a2a; font-size: 0.9rem; }
+.shop-order:empty { display: none; }
+.shop-order span { color: #3f9a8b; }

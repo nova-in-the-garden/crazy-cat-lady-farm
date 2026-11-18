@@ -17,9 +17,11 @@ export const CROPS = {
 };
 export const FOOD_CROPS = Object.keys(CROPS).filter((c) => CROPS[c].food > 0);
 export const CROP_IDS = Object.keys(CROPS);
-export const DAILY_SEEDS = { carrot: 2, cabbage: 1, pumpkin: 1, chamomile: 1, catnip: 1 };
+/** The seed club's daily mail: 3 random packets each morning, picked with these weights. Mail waits in the box (up to MAIL_MAX packets). */
+export const MAIL_SEEDS = 3, MAIL_MAX = 9;
+export const MAIL_WEIGHTS = { carrot: 3, cabbage: 2.5, pumpkin: 1.5, chamomile: 1.5, catnip: 1.5 };
 
-/** The Supply Shelf (Whisker Supply Co. stall). price in coins; give = what you get. */
+/** The Farmers Market (roadside stand). price in coins; give = what gets delivered to the porch. */
 export const SHOP = [
   { id: 'foodBag', name: 'Cat food bag', desc: '6 portions for the Cats\' House bowls', price: 12, icon: 'food', give: { food: 6 } },
   { id: 'medicine', name: 'Medicine', desc: 'One daily dose (pills or drops)', price: 5, icon: 'pill', give: { supplies: { medicine: 1 } } },
@@ -39,13 +41,14 @@ export function defaultState(tileCount) {
     crops: { carrot: 0, cabbage: 0, pumpkin: 0, chamomile: 0, catnip: 1 },     // harvested (veggies get cooked into her meals)
     food: 12,                                         // cat food portions in the pantry (a starter bag or two)
     coins: 60,                                        // sanctuary coins: adoption fees + the donation jar
-    supplies: { medicine: 3, shot: 1, bandage: 2 },   // clinic supplies (refill at the Supply Shelf)
+    supplies: { medicine: 3, shot: 1, bandage: 2 },   // clinic supplies (order more at the Farmers Market)
     meals: 2,                                         // home-cooked meals for Granny herself
     lady: { hunger: 85, energy: 100, coffee: 0, perk: 0 }, // her own soft needs; coffee = seconds of zoom left, perk = seconds until a fresh pot
     adopted: [], visitor: null, nextCat: 4,
     water: 10, waterMax: 10,                          // watering can
     tool: 0, seedType: 'carrot',
-    seedBoxDay: 0,                                    // last day the free seed box was collected
+    mail: { seeds: {}, day: 0 },                      // seed packets waiting in the mailbox; day = last morning mail came
+    market: { pending: null, parcels: [] },           // Farmers Market: ordered but not yet on the porch, and parcels waiting on the porch
     // tile.state: 'grass' | 'plowed' | 'planted'; growth 0..1 (1 = ripe, and it stays ripe); wet resets each dawn
     tiles: Array.from({ length: tileCount }, () => ({ state: 'grass', crop: null, growth: 0, wet: false })),
     stats: { plowed: 0, planted: 0, watered: 0, harvested: 0, cooked: 0 },
@@ -121,6 +124,19 @@ export function restoreState(saved, tileCount) {
   out.journal.moments = Array.isArray(out.journal.moments) ? out.journal.moments.filter(isObj) : [];
   if (out.litterBoxes !== null && !Array.isArray(out.litterBoxes)) out.litterBoxes = null;
   if (out.visitor !== null && !isObj(out.visitor)) out.visitor = null;
+  // mailbox + deliveries
+  const cleanCounts = (o, keys) => { const r = {}; if (isObj(o)) for (const k of keys) { const n = Math.floor(num(o[k], 0)); if (n > 0) r[k] = Math.min(999, n); } return r; };
+  const cleanGive = (gv) => {
+    if (!isObj(gv)) return null;
+    const r = {}; const f = Math.floor(num(gv.food, 0)); if (f > 0) r.food = Math.min(999, f);
+    const sp = cleanCounts(gv.supplies, Object.keys(SUPPLY_LABELS)); if (Object.keys(sp).length) r.supplies = sp;
+    const sd = cleanCounts(gv.seeds, CROP_IDS); if (Object.keys(sd).length) r.seeds = sd;
+    return Object.keys(r).length ? r : null;
+  };
+  out.mail = { seeds: cleanCounts(out.mail && out.mail.seeds, CROP_IDS), day: Math.max(0, Math.floor(num(out.mail && out.mail.day, 0))) };
+  const mk = isObj(out.market) ? out.market : {};
+  out.market = { pending: cleanGive(mk.pending), parcels: (Array.isArray(mk.parcels) ? mk.parcels : []).map(cleanGive).filter(Boolean).slice(0, 12) };
+  delete out.seedBoxDay;
   out.lady.coffee = Math.min(COFFEE_SECONDS, Math.max(0, +out.lady.coffee || 0));
   out.lady.perk = Math.min(COFFEE_PERK, Math.max(0, +out.lady.perk || 0));
   if (!isObj(out.ladyPos) || !Number.isFinite(out.ladyPos.x) || !Number.isFinite(out.ladyPos.z)) out.ladyPos = null;

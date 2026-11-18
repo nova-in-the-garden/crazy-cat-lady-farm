@@ -488,7 +488,7 @@ export class CatManager {
     }
     const meal = hour < 12 ? 'Breakfast' : 'Supper';
     if (scheduled) {
-      if (filled < want.length) g.host.say(`${meal} time, but we ran out of cat food. The kitties are a bit peckish. Let's buy a bag at the Supply Shelf, dearie!`, 7);
+      if (filled < want.length) g.host.say(`${meal} time, but we ran out of cat food. The kitties are a bit peckish. Let's order a bag at the Farmers Market, dearie!`, 7);
       else g.host.say(`${meal} is served in the Cats' House! ${filled} bowl${filled > 1 ? 's' : ''} filled from the pantry.`, 5);
     }
     if (filled) sound.play('pickup');
