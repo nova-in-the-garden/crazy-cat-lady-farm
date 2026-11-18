@@ -1,4 +1,4 @@
-// The Crazy Cat Lady's personality: her floating nameplate and speech bubble.
+// Granny's personality (she's the Crazy Cat Lady): her floating nameplate and speech bubble.
 // She greets visitors, chats about whatever spot of the farm she's near,
 // and mutters cozy cat thoughts when you leave her standing around.
 import * as THREE from 'three';
@@ -112,7 +112,7 @@ const LINES = {
   talk: [
     'Yes, dearie?',
     "Oh, you want to chat? I could talk about cats for hours. Days, really.",
-    "Did I mention I'm the Crazy Cat Lady? It's a title I've earned!",
+    "Folks call me the Crazy Cat Lady. Granny to my friends! It's a title I've earned.",
     'Tea? Cocoa? A ball of yarn?',
   ],
 };

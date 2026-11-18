@@ -1,4 +1,4 @@
-// The Crazy Cat Lady herself, built from simple shapes.
+// Granny (the Crazy Cat Lady) herself, built from simple shapes.
 // She faces +z in her own space; the game turns her with group.rotation.y.
 // createCatLady() returns { group, headAnchor, update(dt, moveAmount, running), wave() }.
 import * as THREE from 'three';
@@ -155,11 +155,18 @@ export function createCatLady() {
   tools.basket = new THREE.Group();
   tools.basket.add(mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.12, 10), mat('#d9ad7f'), { y: -0.16, z: 0.04 }));
   tools.basket.add(mesh(new THREE.TorusGeometry(0.11, 0.012, 4, 12, Math.PI), mat('#b98a5e'), { y: -0.1, z: 0.04, ry: Math.PI / 2 }));
+  // a cup of coffee (only while she drinks)
+  tools.mug = new THREE.Group();
+  tools.mug.add(mesh(new THREE.CylinderGeometry(0.06, 0.052, 0.12, 12), mat('#f4ead2', { flatShading: false }), { y: -0.12, z: 0.06 }));
+  tools.mug.add(mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.01, 12), mat('#6b4226'), { y: -0.065, z: 0.06, cast: false }));
+  tools.mug.add(mesh(new THREE.TorusGeometry(0.035, 0.012, 4, 10), mat('#f4ead2'), { x: 0.065, y: -0.12, z: 0.06, ry: Math.PI / 2 }));
+  tools.mug.add(mesh(new THREE.SphereGeometry(0.018, 6, 5), mat('#e59a8f'), { y: -0.12, z: 0.118, sz: 0.4, cast: false }));
   Object.values(tools).forEach((t) => { t.visible = false; t.traverse((o) => { if (o.isMesh) o.userData.isLady = true; }); handAnchor.add(t); });
-  function setTool(name) { for (const k in tools) tools[k].visible = k === name; }
+  let toolName = null;
+  function setTool(name) { toolName = name; for (const k in tools) tools[k].visible = k === (drinkTime > 0 ? 'mug' : name); }
 
   /* --- Animation --- */
-  let phase = 0, t = 0, blinkTimer = 2, waveTime = 0, actTime = 0, sitting = false;
+  let phase = 0, t = 0, blinkTimer = 2, waveTime = 0, actTime = 0, sitting = false, drinkTime = 0;
   function update(dt, move, running) {
     t += dt;
     const stride = running ? 13 : 9;
@@ -194,6 +201,14 @@ export function createCatLady() {
       const k = Math.sin((1 - actTime / 0.5) * Math.PI);
       arms[1].rotation.x = -1.1 * k; body.rotation.x = 0.15 * k;
     }
+    // sipping a cup of coffee: mug up to her mouth, head tipped back a touch
+    if (drinkTime > 0) {
+      drinkTime -= dt;
+      const k = Math.min(1, drinkTime * 3, (2.4 - drinkTime) * 3);
+      arms[1].rotation.x = -2.3 * k + arms[1].rotation.x * (1 - k); arms[1].rotation.z = 0.35 * k;
+      head.rotation.x = -0.25 * k * (0.7 + Math.sin(t * 5) * 0.3);
+      if (drinkTime <= 0) { head.rotation.x = 0; setTool(toolName); }
+    }
     // blink
     blinkTimer -= dt;
     const closed = blinkTimer < 0.12;
@@ -203,7 +218,8 @@ export function createCatLady() {
   function wave() { waveTime = 2.2; }
   function act() { actTime = 0.5; }
   function setSitting(v) { sitting = !!v; }
+  function drink() { drinkTime = 2.4; setTool(toolName); }
 
   group.traverse((o) => { if (o.isMesh) o.userData.isLady = true; });
-  return { group, headAnchor, update, wave, act, setTool, setSitting, get sitting() { return sitting; } };
+  return { group, headAnchor, update, wave, act, drink, setTool, setSitting, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
 }

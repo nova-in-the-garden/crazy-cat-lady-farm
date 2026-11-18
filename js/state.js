@@ -2,7 +2,10 @@
 // The whole object is saved into a browser save slot (see saves.js), so everything here is plain JSON.
 export const STATE_VERSION = 2;
 
-/** Crops you can grow. hours = watered in-game hours needed to ripen, food = home-cooked meals it makes for the Crazy Cat Lady. */
+/** Granny's coffee: seconds of speed boost per cup, and seconds before the percolator has a fresh pot. */
+export const COFFEE_SECONDS = 45, COFFEE_PERK = 60, COFFEE_SPEED = 1.8;
+
+/** Crops you can grow. hours = watered in-game hours needed to ripen, food = home-cooked meals it makes for Granny. */
 export const CROPS = {
   carrot: { name: 'Carrot', plural: 'Carrots', hours: 12, food: 1, color: '#f59a4f' },
   cabbage: { name: 'Cabbage', plural: 'Cabbages', hours: 20, food: 2, color: '#9edb7f' },
@@ -37,8 +40,8 @@ export function defaultState(tileCount) {
     food: 12,                                         // cat food portions in the pantry (a starter bag or two)
     coins: 60,                                        // sanctuary coins: adoption fees + the donation jar
     supplies: { medicine: 3, shot: 1, bandage: 2 },   // clinic supplies (refill at the Supply Shelf)
-    meals: 2,                                         // home-cooked meals for the Crazy Cat Lady herself
-    lady: { hunger: 85, energy: 100 },                // her own soft needs (only slow her down a little)
+    meals: 2,                                         // home-cooked meals for Granny herself
+    lady: { hunger: 85, energy: 100, coffee: 0, perk: 0 }, // her own soft needs; coffee = seconds of zoom left, perk = seconds until a fresh pot
     adopted: [], visitor: null, nextCat: 4,
     water: 10, waterMax: 10,                          // watering can
     tool: 0, seedType: 'carrot',
@@ -118,6 +121,8 @@ export function restoreState(saved, tileCount) {
   out.journal.moments = Array.isArray(out.journal.moments) ? out.journal.moments.filter(isObj) : [];
   if (out.litterBoxes !== null && !Array.isArray(out.litterBoxes)) out.litterBoxes = null;
   if (out.visitor !== null && !isObj(out.visitor)) out.visitor = null;
+  out.lady.coffee = Math.min(COFFEE_SECONDS, Math.max(0, +out.lady.coffee || 0));
+  out.lady.perk = Math.min(COFFEE_PERK, Math.max(0, +out.lady.perk || 0));
   if (!isObj(out.ladyPos) || !Number.isFinite(out.ladyPos.x) || !Number.isFinite(out.ladyPos.z)) out.ladyPos = null;
   return out;
 }

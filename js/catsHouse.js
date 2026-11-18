@@ -1,7 +1,7 @@
 // The Cats' House: the old red barn, now the cats' own home.
 // Inside: a feeding station with a bowl per cat, litter boxes, a named little bed for every cat,
 // a scratching post and a cat tree. Like the clinic and cottage, the roof and near walls fade
-// when the Crazy Cat Lady steps inside.
+// when Granny steps inside.
 import * as THREE from 'three';
 import { mat, mesh, canvasTexture, drawPaw } from './util.js';
 import { addBox, addCircle } from './collision.js';

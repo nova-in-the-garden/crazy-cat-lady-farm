@@ -1,4 +1,4 @@
-// Inside the Crazy Cat Lady's cottage: four real rooms with walls and doorways.
+// Inside Granny's cottage: four real rooms with walls and doorways.
 //   Living room (front door opens here): woodstove, sofa, armchair, bookshelf, cat beds
 //   Country kitchen (back left): sage glass-front cabinets, honey-wood cupboards, butcher block,
 //     farmhouse sink with a brass faucet, vintage cream stove, worn table + mismatched chairs
@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { mat, mesh, canvasTexture, drawPaw } from './util.js';
 import { addBox, addCircle } from './collision.js';
 import { fadeable, setOpacity } from './building.js';
+import { addSeat } from './seats.js';
 
 // warm "country grandma" palette (from the user's reference kitchen)
 const P = {
@@ -225,7 +226,7 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   [-1, 1].forEach((s) => wmesh('back', new THREE.PlaneGeometry(0.42, 0.55), sheer, { x: winX + s * 0.27, y: 1.2, z: -IZ + 0.09, cast: false }));
   wmesh('back', new THREE.CylinderGeometry(0.012, 0.012, 1.1, 5), brass, { x: winX, y: 1.47, z: -IZ + 0.09, rz: Math.PI / 2, cast: false });
   // jars + crock on the counter
-  [['#efe1c2', -2.25, 0.12], ['#d9b98a', -2.1, 0.09], ['#c9884f', -1.35, 0.1]].forEach(([c, x, r]) => cyl(r * 0.8, r, r * 2, mat(c, { flatShading: false }), { x, y: 0.89 + r, z: backZ - 0.12 }, 10));
+  [['#efe1c2', -2.25, 0.12], ['#d9b98a', -2.1, 0.09]].forEach(([c, x, r]) => cyl(r * 0.8, r, r * 2, mat(c, { flatShading: false }), { x, y: 0.89 + r, z: backZ - 0.12 }, 10));
   // wooden shelf with plants + jars above the sink, and a tea-towel rod
   wmesh('back', new THREE.BoxGeometry(0.85, 0.04, 0.2), honeyDark, { x: sinkX, y: 1.62, z: -IZ + 0.12 });
   [-0.3, 0, 0.3].forEach((dx, i) => { wmesh('back', new THREE.CylinderGeometry(0.06, 0.05, 0.1, 8), mat(['#c97b5a', '#f4ead2', '#d9b98a'][i]), { x: sinkX + dx, y: 1.69, z: -IZ + 0.12 }); if (i !== 1) wmesh('back', new THREE.IcosahedronGeometry(0.08, 0), mat('#7fa868'), { x: sinkX + dx, y: 1.8, z: -IZ + 0.12 }); });
@@ -348,10 +349,15 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
     for (let i = 0; i < 4; i++) c.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 5), m, { x: -0.1 + i * 0.067, y: 0.72, z: 0.18 }));
     c.add(mesh(new THREE.BoxGeometry(0.44, 0.07, 0.05), m, { y: 1.0, z: 0.18 }));
     addCircle(HX + x, HZ + z, 0.22);
+    return c;
   };
-  chair(tX - 0.78, tZ, Math.PI / 2, P.sage);
-  chair(tX + 0.78, tZ + 0.05, -Math.PI / 2, P.cream);
-  chair(tX - 0.15, tZ - 0.62, 0, P.cream);
+  // backs away from the table, so she sits facing it; she slides the chair out (out = local spot she stands on)
+  const kc = [
+    [chair(tX - 0.78, tZ, -Math.PI / 2, P.sage), [0.62, 0.02]],
+    [chair(tX + 0.78, tZ + 0.05, Math.PI / 2, P.cream), [0, 0.66]],
+    [chair(tX - 0.15, tZ - 0.62, Math.PI, P.cream), [0, 0.64]],
+  ];
+  kc.forEach(([c, out]) => addSeat({ parent: c, top: [0, 0.485, 0.02], back: 1, out, label: 'Sit at the kitchen table', kind: 'chair', noun: 'kitchen chair' }));
   // pantry shelf (cans of cat food fill it up) against the left wall near the door
   const pantry = new THREE.Group(); pantry.position.set(-IX + 0.24, 0, -1.0 + 0.0); pantry.rotation.y = Math.PI / 2; g.add(pantry);
   pantry.add(mesh(new THREE.BoxGeometry(1.0, 1.9, 0.04), mat('#e9dcc0'), { y: 0.95, z: -0.2 }));
@@ -525,6 +531,7 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   const granny = canvasTexture(64, 64, (ctx) => { const cs = ['#f7e1a0', '#e59a8f', '#a9b98e', '#fbf6ec']; for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { ctx.fillStyle = '#5b4256'; ctx.fillRect(x * 16, y * 16, 16, 16); ctx.fillStyle = cs[(x + y) % 4]; ctx.fillRect(x * 16 + 2, y * 16 + 2, 12, 12); ctx.fillStyle = cs[(x + y + 2) % 4]; ctx.fillRect(x * 16 + 5, y * 16 + 5, 6, 6); } });
   sofa.add(mesh(new THREE.BoxGeometry(0.5, 0.04, 0.85), new THREE.MeshStandardMaterial({ map: granny, roughness: 1 }), { x: 0.6, y: 0.59, z: 0.0 }));
   addBox(HX - 3.2, HZ + ZMID + 0.48, 1.75, 0.82);
+  addSeat({ parent: sofa, top: [-0.42, 0.57, 0.06], back: -1, cat: [0.45, 0.57, 0.06], label: 'Sit on the sofa', kind: 'sofa', noun: 'sofa' });
   // armchair angled toward the woodstove
   const arm = new THREE.Group(); arm.position.set(-2.9, 0, 3.15); arm.rotation.y = -Math.PI * 0.72; g.add(arm);
   const armM = mat('#a9b98e'), armD = mat('#8e9f74');
@@ -532,9 +539,10 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   arm.add(mesh(new THREE.BoxGeometry(0.78, 0.75, 0.18), armD, { y: 0.7, z: -0.28 }));
   arm.add(mesh(new THREE.BoxGeometry(0.6, 0.14, 0.55), armM, { y: 0.5, z: 0.06 }));
   [-1, 1].forEach((s) => arm.add(mesh(new THREE.BoxGeometry(0.12, 0.55, 0.72), armD, { x: s * 0.39, y: 0.4 })));
-  arm.add(mesh(new THREE.SphereGeometry(0.11, 8, 6), mat('#e59a8f'), { x: 0.1, y: 0.66, z: 0.05 })); // ball of yarn
-  arm.add(mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.4, 3), mat('#cfd6dc'), { x: 0.15, y: 0.72, z: 0.05, rz: 0.6 }));
+  arm.add(mesh(new THREE.SphereGeometry(0.11, 8, 6), mat('#e59a8f'), { x: 0.6, y: 0.11, z: 0.3 })); // ball of yarn (on the floor, so she can sit)
+  arm.add(mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.4, 3), mat('#cfd6dc'), { x: 0.64, y: 0.18, z: 0.3, rz: 0.6 }));
   addCircle(HX - 2.9, HZ + 3.15, 0.45);
+  addSeat({ parent: arm, top: [0, 0.57, 0.04], back: -1, out: [0, 0.8], label: 'Sit in the armchair', kind: 'armchair', noun: 'armchair' });
   // little coffee table with a teacup and a book
   box(0.7, 0.05, 0.45, mat('#c8935a'), { x: -2.0, y: 0.42, z: 1.85 });
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => box(0.04, 0.4, 0.04, mat('#a8723c'), { x: -2.0 + sx * 0.3, y: 0.2, z: 1.85 + sz * 0.18 }));
@@ -600,6 +608,30 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
     p.userData.phase = i / 6; stove.add(p); steam.push(p);
   }
   let cooking = 0;
+  // vintage sage-enamel coffee percolator with a glass perk knob, two mugs on a little tray
+  const potX = -1.35;
+  const perc = new THREE.Group(); perc.position.set(potX, 0.89, backZ - 0.08); g.add(perc);
+  const enamel = mat('#9fb487', { flatShading: false, roughness: 0.35 }), chrome = mat('#d9dde0', { metalness: 0.6, roughness: 0.3, flatShading: false });
+  perc.add(mesh(new THREE.CylinderGeometry(0.085, 0.105, 0.26, 14), enamel, { y: 0.13 }));
+  perc.add(mesh(new THREE.CylinderGeometry(0.108, 0.108, 0.025, 14), chrome, { y: 0.012 }));
+  perc.add(mesh(new THREE.CylinderGeometry(0.09, 0.085, 0.03, 14), chrome, { y: 0.27 }));
+  perc.add(mesh(new THREE.SphereGeometry(0.035, 10, 8), mat('#e8a35a', { transparent: true, opacity: 0.85, emissive: '#c8742a', emissiveIntensity: 0.25, flatShading: false }), { y: 0.3 }));
+  perc.add(mesh(new THREE.TorusGeometry(0.065, 0.014, 5, 10, Math.PI), mat('#3d2b3a'), { x: 0.1, y: 0.15, rz: -Math.PI / 2 }));
+  perc.add(mesh(new THREE.CylinderGeometry(0.012, 0.022, 0.13, 6), enamel, { x: -0.11, y: 0.2, rz: 0.7 }));
+  // a white daisy on the front of the perc
+  for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; perc.add(mesh(new THREE.SphereGeometry(0.014, 6, 5), mat('#ffffff'), { x: Math.cos(a) * 0.022, y: 0.14 + Math.sin(a) * 0.022, z: 0.098, sz: 0.4, cast: false })); }
+  perc.add(mesh(new THREE.SphereGeometry(0.012, 6, 5), mat('#ffd76e'), { y: 0.14, z: 0.1, sz: 0.4, cast: false }));
+  box(0.36, 0.015, 0.2, mat('#b8834f'), { x: potX + 0.26, y: 0.9, z: backZ - 0.04, cast: false });
+  [[0.18, '#f4ead2'], [0.34, '#e59a8f']].forEach(([dx, c]) => {
+    cyl(0.04, 0.035, 0.08, mat(c, { flatShading: false }), { x: potX + dx, y: 0.95, z: backZ - 0.04 }, 10);
+    add(mesh(new THREE.TorusGeometry(0.022, 0.008, 4, 8), mat(c), { x: potX + dx + 0.045, y: 0.95, z: backZ - 0.04, ry: Math.PI / 2, cast: false }));
+  });
+  const potSteam = [];
+  for (let i = 0; i < 4; i++) {
+    const p = mesh(new THREE.IcosahedronGeometry(0.035, 1), steamMat.clone(), { cast: false, receive: false });
+    p.userData.phase = i / 4; perc.add(p); potSteam.push(p);
+  }
+  let perking = 1;   // 1 = fresh perc ready (steams a little), 0 = re-perking
 
   /* ---------- rooms + doorways (for cats walking between rooms) ---------- */
   const roomOf = (x, z) => { // world coords; assumes inside the cottage
@@ -647,6 +679,9 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
     stovePos: toWorld(stoveX, backZ + 0.75),           // stand here to cook
     bedPos: toWorld(bedX - 1.05, bedZ + 0.6),          // beside the bed, in the bedroom
     pantryPos: toWorld(-IX + 0.95, -1.0),
+    coffeePos: toWorld(potX + 0.05, backZ + 0.75),      // stand here to pour a cup
+    coffeePot: toWorld(potX, backZ - 0.08).setY(FLOOR + 1.2),
+    setCoffeeReady(v) { perking = v ? 1 : 0; },
     rooms: ROOMS, roomOf, links,
     bedTop: { x: HX + bedX, y: FLOOR + 0.6, z: HZ + bedZ },
     catBeds: [catBedA, catBedB].map((v) => toWorld(v.x, v.z).setY(FLOOR + 0.05)),
@@ -667,6 +702,13 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
         p.position.set(-0.18 + Math.sin(k * 7 + p.userData.phase * 9) * 0.06, 1.2 + k * 0.7, -0.12);
         p.scale.setScalar(0.6 + k * 1.4);
         p.material.opacity = 0.65 * (1 - k) * on;
+      }
+      // the percolator steams gently when a fresh pot is ready
+      for (const p of potSteam) {
+        const k = (t * 0.45 + p.userData.phase) % 1;
+        p.position.set(Math.sin(k * 6 + p.userData.phase * 7) * 0.03, 0.33 + k * 0.4, 0);
+        p.scale.setScalar(0.6 + k * 1.3);
+        p.material.opacity = 0.5 * (1 - k) * perking;
       }
       // the woodstove fire flickers
       const f = 0.8 + Math.sin(t * 11) * 0.12 + Math.sin(t * 23.7) * 0.08;

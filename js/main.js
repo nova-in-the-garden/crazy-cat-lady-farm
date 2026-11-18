@@ -1,5 +1,5 @@
 // Crazy Cat Lady's Farm: entry point.
-// Sets up the renderer, lights and camera, builds the world and the Crazy Cat Lady,
+// Sets up the renderer, lights and camera, builds the world and Granny,
 // then runs the game loop. Future features (cats!) can plug into the loop below.
 import * as THREE from 'three';
 import { buildWorld } from './world.js';
@@ -44,7 +44,7 @@ const fill = new THREE.DirectionalLight('#ffd9e6', 0.45); // pinkish fill from t
 fill.position.set(-15, 10, -8);
 scene.add(fill);
 
-/* --- World + the Crazy Cat Lady --- */
+/* --- World + Granny --- */
 const world = buildWorld(scene);
 const lady = createCatLady();
 lady.group.position.copy(world.spawn);
@@ -180,7 +180,7 @@ function frame(now) {
     controls.target.set(pos.x, 1.3, pos.z);
   }
 
-  lady.update(dt, moveAmount, running && moveAmount > 0.5);
+  lady.update(dt, moveAmount, (running || (game && game.ladySpeed > 1.3)) && moveAmount > 0.5); // coffee zoom = quick little steps
   if (game) game.update(dt, state.time);
   world.update(state.time, dt, pos, camera);
   host.update(dt, moveAmount > 0.1, state.playing);

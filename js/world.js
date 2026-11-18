@@ -1,4 +1,4 @@
-// The Crazy Cat Lady's farm: everything built from Three.js primitives.
+// Granny's farm: everything built from Three.js primitives.
 // buildWorld(scene) returns helpers the rest of the game uses:
 //   colliders / resolve(pos, radius)  -> keep the cat lady out of walls, trees and fences
 //   groundHeight(x, z)                -> how high the floor is (porch deck is raised)
@@ -13,6 +13,7 @@ import { buildCottageInterior } from './kitchen.js';
 import { buildCatsHouse } from './catsHouse.js';
 import { MAX_CATS } from './catData.js';
 import { buildSupplyStall } from './shop.js';
+import { addSeat, SEATS } from './seats.js';
 
 export const PALETTE = {
   grass: '#a9d98b', grassDark: '#8fca78', grassLight: '#c2e5a0',
@@ -476,6 +477,8 @@ function buildCottage(scene, smokePuffs) {
   chair.add(mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), mat('#f6b7c9'), { y: 0.52 }));
   house.add(chair);
   addCircle(HX + 3.75, HZ + D / 2 + 1.6, 0.42);
+  chair.rotation.order = 'YXZ'; // so the game can rock it on its own runners
+  addSeat({ parent: chair, top: [0, 0.56, 0.0], back: -1, out: [0, 0.78], label: 'Sit in the rocking chair', kind: 'rocker', noun: 'rocking chair', rock: true });
   const basket = mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.22, 10), mat(PALETTE.wood), { x: -1.55, y: deckH + 0.11, z: D / 2 + 1.85 });
   house.add(basket);
   ['#f58fa8', '#9fd0ef', '#ffd76e'].forEach((c, i) => house.add(mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(c), { x: -1.63 + i * 0.09, y: deckH + 0.27, z: D / 2 + 1.82 + (i % 2) * 0.06 })));
@@ -631,7 +634,7 @@ function buildEntrance(scene) {
   // arch sign
   const wood = mat(PALETTE.woodDark);
   [-1.7, 1.7].forEach((x) => { scene.add(mesh(new THREE.CylinderGeometry(0.13, 0.15, 3.1, 7), wood, { x, y: 1.55, z: Z })); addCircle(x, Z, 0.2); });
-  const tex = signTexture(["Crazy Cat Lady's Cat Sanctuary", 'now open - all cats welcome'], { w: 1024, h: 300, font: 76 });
+  const tex = signTexture(["Granny's Cat Sanctuary", 'now open - all cats welcome'], { w: 1024, h: 300, font: 76 });
   const sign = mesh(new THREE.BoxGeometry(4.2, 1.1, 0.12), [wood, wood, wood, wood, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })], { y: 3.0, z: Z });
   scene.add(sign);
   // (box UVs read correctly from both the front and back faces)
@@ -806,5 +809,8 @@ export function buildWorld(scene) {
     }
   }
 
-  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, supplyStall, sky, seedBox, pond, spawn: new THREE.Vector3(0, 0, 3.5) };
+  // the porch swing joins the list of seats as a special swinging one
+  const sw = cottage.swing;
+  SEATS.push({ id: SEATS.length, kind: 'swing', label: 'Sit on the porch swing', noun: 'porch swing', swing: sw, lap: false, front: sw.front, heading: 0, catFront: sw.catFront, catHeading: 0 });
+  return { resolve, groundHeight, zones, update, clinic, cottage, catsHouse, supplyStall, sky, seedBox, pond, seats: SEATS, spawn: new THREE.Vector3(0, 0, 3.5) };
 }

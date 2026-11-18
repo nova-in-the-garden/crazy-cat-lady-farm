@@ -1,6 +1,6 @@
 // Shared helpers for buildings you can walk into (the clinic and the cottage).
 // Walls and roofs are grouped so each group can fade out on its own when the
-// Crazy Cat Lady is inside and that piece would block the camera.
+// Granny is inside and that piece would block the camera.
 import * as THREE from 'three';
 
 /** Make every material inside a group unique so the group can fade on its own. */

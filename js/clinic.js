@@ -1,7 +1,8 @@
 // Whisker Wellness Animal Hospital: the sanctuary's vet clinic, where sick cats will go.
-// The building is enterable. When the Crazy Cat Lady steps inside, the roof and any wall
+// The building is enterable. When Granny steps inside, the roof and any wall
 // between her and the camera fade away so you can see the room.
 import * as THREE from 'three';
+import { addSeat } from './seats.js';
 import { mulberry32, mat, mesh, canvasTexture, drawPaw } from './util.js';
 import { addBox, addCircle } from './collision.js';
 import { fadeable, setOpacity, makeFader } from './building.js';
@@ -315,8 +316,10 @@ export function buildClinic(scene) {
     b.add(mesh(new THREE.BoxGeometry(1.5, 0.35, 0.06), mat('#c1906a'), { y: 0.75, z: -0.2, rx: -0.12 }));
     [-0.6, 0.6].forEach((x) => b.add(mesh(new THREE.BoxGeometry(0.08, 0.45, 0.4), mat('#6aae9f'), { x, y: 0.22 })));
     b.add(mesh(new THREE.BoxGeometry(0.4, 0.1, 0.35), mat('#f7c6d2'), { x: 0.35, y: 0.53 })); // cushion
+    return b;
   };
-  bench(-3.2, D / 2 + 1.4, 0.15); addBox(CX - 3.2, CZ + D / 2 + 1.4, 1.5, 0.5);
+  const benchG = bench(-3.2, D / 2 + 1.4, 0.15);
+  addSeat({ parent: benchG, top: [-0.32, 0.49, 0.0], back: -1, cat: [0.36, 0.58, 0.0], label: 'Sit on the bench', kind: 'bench', noun: 'bench' }); addBox(CX - 3.2, CZ + D / 2 + 1.4, 1.5, 0.5);
   // Cat ambulance wagon: a white cart with a pink cross, big wheels and a handle
   const amb = new THREE.Group(); amb.position.set(W / 2 + 1.3, 0, 1.8); amb.rotation.y = -0.4; out.add(amb);
   amb.add(mesh(new THREE.BoxGeometry(1.5, 0.75, 0.95), mat('#ffffff'), { y: 0.75 }));

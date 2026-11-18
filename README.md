@@ -1,14 +1,14 @@
-# Crazy Cat Lady's Cat Sanctuary
+# Granny's Cat Sanctuary
 
 A cozy, browser-playable 3D world for the **Crazy Cat Lady Simulator** game idea:
 a life sim where you find, raise, breed, feed, pet, love and rehome cats, and act as a part-time vet.
 
 The farm is now a **cat sanctuary**, open to cats. Its host is the
-**Crazy Cat Lady**, who lives at the heart of the sanctuary, greets visitors ("Welcome to my cat sanctuary, dearie!"), chats about each spot you visit and mutters
+**Granny** (the Crazy Cat Lady), who lives at the heart of the sanctuary, greets visitors ("Welcome to my cat sanctuary, dearie!"), chats about each spot you visit and mutters
 cozy cat thoughts when you stand still. Cats arrive over time (up to **10 at once**), each one gets a Welcome
 Vet Check (where you name them), and from then on you feed, pet, play with, groom and doctor them. Poorly cats stay
 in the clinic kennels until they're healed. Happy, healthy, bonded cats can be **adopted out** to kind visitors for
-coins, and those coins buy cat food and medicine at the **Supply Shelf**. The garden grows the Crazy Cat Lady's own
+coins, and those coins buy cat food and medicine at the **Supply Shelf**. The garden grows Granny's own
 meals, plus **catnip** treats.
 
 It stays cozy: no cat dies or gets worse than "a bit run-down". Neglect only lowers happiness and health down to a
@@ -85,7 +85,7 @@ written down automatically.
 - **The Supply Shelf** (the striped market stall between the cottage and the Cats' House): press E to buy **cat food
   bags** (6 portions, the cats' main food), **medicine**, **shots**, **bandage rolls**, and catnip, veggie and
   chamomile seeds. You start with 12 portions of cat food and a few clinic supplies.
-- **Her own needs:** the Crazy Cat Lady has soft **hunger** and **energy** bars (top-left). Cook garden veggies at
+- **Her own needs:** Granny has soft **hunger** and **energy** bars (top-left). Cook garden veggies at
   the cottage **stove** into home-cooked meals and eat one (E at the stove or pantry). Sleep restores energy. If
   either runs very low she just walks a bit slower and mentions it. No fail state.
 
@@ -195,7 +195,7 @@ js/sound.js         little synthesized sound effects (Web Audio)
 js/particles.js     dirt, water, seed and sparkle particles
 js/clinic.js        Whisker Wellness Animal Hospital (enterable vet clinic + fading roof/walls)
 js/collision.js     simple circle/box collisions and raised floors
-js/catLady.js       the Crazy Cat Lady model and her walk / idle / wave / blink animations
+js/catLady.js       Granny's model and her walk / idle / wave / blink animations
 js/host.js          her personality: nameplate, speech bubble and everything she says
 js/controls.js      keyboard, mouse orbit camera, zoom and the touch joystick
 js/util.js          shared helpers (materials, seeded random numbers, canvas textures)
@@ -217,3 +217,13 @@ tools/bump_version.py  cache-busting version stamp (run before deploying)
   lower the floor and fill in `onDecline` (and a memorial journal entry) when you're ready.
 - `window.game` exposes the sim (`game.cats.list()`, `game.vet.cases()`, `game.journal.moments()`, debug helpers), including `game.food.count()`, `game.food.add(n)` and `game.food.consume(n)` for when the cats arrive and start eating.
 - `window.ccl` in the browser console exposes the scene, camera, lady, world and a `teleport(x, z)` helper for testing.
+
+## Sitting and coffee
+
+- **Sit anywhere comfy:** the porch swing, the porch rocking chair, the three kitchen-table chairs, the living-room
+  sofa and armchair, and the bench outside the clinic. Walk up and press **E** (or tap **Use**): she sits facing the right
+  way. **E** again or just walk off to stand up. Her energy trickles back while she rests, and a friendly cat may hop
+  up beside her (sofa, bench, swing) or curl up in her lap (chairs, armchair, rocker) for a little bond.
+- **Granny's coffee:** the sage percolator on the kitchen counter. *Pour a cup of coffee* and she zooms at 1.8x speed
+  for 45 seconds (speed lines, dust puffs, a ☕ countdown pill by the Save button). The pot takes 60 s to perk a fresh
+  batch; no coffee at bedtime. The boost and the pot timer are saved with the game.

@@ -1,8 +1,8 @@
-// The sanctuary sim: grow veggies for the Crazy Cat Lady's own meals (and catnip treats),
+// The sanctuary sim: grow veggies for Granny's own meals (and catnip treats),
 // buy cat food and clinic supplies with coins from adoptions, and care for up to 10 cats.
-// Ties together the garden, clock, kitchen, UI, sounds and the Crazy Cat Lady's comments.
+// Ties together the garden, clock, kitchen, UI, sounds and Granny's comments.
 import * as THREE from 'three';
-import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, SUPPLY_LABELS, defaultState, restoreState } from './state.js';
+import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, SUPPLY_LABELS, COFFEE_SECONDS, COFFEE_PERK, COFFEE_SPEED, defaultState, restoreState } from './state.js';
 import { writeSlot } from './saves.js';
 import { Garden, GRID, tileAt, stageOf, tileCenter } from './garden.js';
 import { DayCycle, DAY_SECONDS } from './time.js';
@@ -149,8 +149,8 @@ export class Game {
     if (this.sitting) return { ok: true, label: 'Stand up', run: () => this.standUp() };
     const table = this.vet.tableAction();
     if (table && table.ok) return table;
-    const sw = W.cottage.swing;
-    if (sw && near(sw.front, 1.15) && Math.abs(p.y - sw.front.y) < 0.3) return { ok: true, label: 'Sit on the porch swing', run: () => this.sitDown() };
+    const seat = this.nearestSeat();
+    if (seat) return { ok: true, label: seat.label, run: () => this.sitDown(seat) };
     // at the cottage bed, Sleep wins (even with cats piled on the bed)
     if (W.cottage.isInside(p.x, p.z) && near(W.cottage.bedPos, 1.2)) return this.bedAction();
     // a cat right in front of her (farming tools still win on a tile they can work)
@@ -165,6 +165,8 @@ export class Game {
     const visitor = this.adoption.action(p);
     if (visitor) return visitor;
     if (W.cottage.isInside(p.x, p.z)) {
+      const dCof = Math.hypot(p.x - W.cottage.coffeePos.x, p.z - W.cottage.coffeePos.z), dStove = Math.hypot(p.x - W.cottage.stovePos.x, p.z - W.cottage.stovePos.z);
+      if (dCof < 0.8 && dCof <= dStove) return this.coffeeAction();
       if (near(W.cottage.stovePos, 1.3)) {
         if (crops > 0) return { ok: true, label: `Cook ${crops} veggie${crops > 1 ? 's' : ''} into home-cooked meals`, run: () => this.cook() };
         if (s.meals > 0) return this.eatAction();
@@ -237,6 +239,65 @@ export class Game {
     const todo = this.vet.dailyTasks(cs).filter((t) => !cs.today?.[t]).length;
     return { ok: true, label: todo ? `Care for ${cat.data.name} in ${label.toLowerCase()} (${todo} to do today)` : `${cat.data.name}: all of today's care done (healing ${Math.round(cs.heal)}%)`, run: () => this.statsCard.open(cat) };
   }
+  /* ---------------- coffee: a cup from the percolator = a burst of speed ---------------- */
+  coffeeAction() {
+    const L = this.state.lady;
+    if (this.day.bedtime) return { ok: false, label: 'Coffee at bedtime? Not tonight, dearie. Off to bed!' };
+    if (L.perk > 0) return { ok: false, label: `The percolator is perking a fresh pot... ready in ${Math.ceil(L.perk)}s` };
+    return { ok: true, label: 'Pour a cup of coffee ☕', run: () => this.drinkCoffee() };
+  }
+  drinkCoffee() {
+    const L = this.state.lady, s = this.state;
+    L.coffee = COFFEE_SECONDS; L.perk = COFFEE_PERK;
+    this.coffeeWarned = false;
+    this.lady.drink();
+    sound.play('click');
+    const pot = this.world.cottage.coffeePot;
+    this.particles.emit(pot, { color: '#fff6e8', count: 10, speed: 0.3, up: 1.2, gravity: -0.4, size: 0.04, emissive: true, life: 1.4 });
+    this.ui.saveToast("Granny's had her coffee ☕ Zoom zoom!", { plain: true });
+    const lines = ["Ahh, fresh from the percolator! Watch out, cats, Granny's got places to be!", 'Mmm, strong enough to stand a spoon in. Zoom zoom!', "One cup and I'm faster than a cat who heard the can opener!"];
+    this.host.say(lines[Math.floor(Math.random() * lines.length)], 5);
+    if (!s.flags.coffee) { s.flags.coffee = true; this.journal.log("Granny poured her first cup from the old percolator and zoomed around the sanctuary like a kitten."); }
+    this.save();
+  }
+  /** Coffee timers + the zoomy look while it lasts (speed lines, dust puffs, a little steam trail). */
+  updateCoffee(dt) {
+    const L = this.state.lady;
+    const was = L.coffee > 0;
+    if (this.playing) { L.coffee = Math.max(0, L.coffee - dt); L.perk = Math.max(0, L.perk - dt); }
+    this.world.cottage.setCoffeeReady(L.perk <= 0);
+    this.ui.setBuff(L.coffee);
+    if (was && L.coffee <= 0 && this.playing) this.host.say("Whew, the coffee's wearing off. Back to Granny pace!", 4);
+    // zoom lines behind her
+    if (!this.zoom) {
+      this.zoom = new THREE.Group(); this.lady.group.add(this.zoom);
+      this.zoomLines = [];
+      for (let i = 0; i < 9; i++) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.9), new THREE.MeshBasicMaterial({ color: i % 3 ? '#ffffff' : '#ffe2b8', transparent: true, opacity: 0.0, depthWrite: false }));
+        m.userData = { x: (i / 8 - 0.5) * 1.0 + (Math.random() - 0.5) * 0.12, y: 0.2 + Math.random() * 1.5, ph: Math.random() };
+        this.zoom.add(m); this.zoomLines.push(m);
+      }
+    }
+    const spd = (window.ccl && window.ccl.state.speed) || 0;
+    const zooming = L.coffee > 0 && spd > 1.5 && !this.sitting;
+    this.zoomT = (this.zoomT || 0) + dt;
+    for (const m of this.zoomLines) {
+      const k = (this.zoomT * 2.2 + m.userData.ph) % 1;
+      m.position.set(m.userData.x, m.userData.y, -0.5 - k * 1.1);
+      m.material.opacity = zooming ? 0.95 * Math.sin(k * Math.PI) : 0;
+      m.visible = zooming;
+    }
+    if (zooming) {
+      this.puffT = (this.puffT || 0) - dt;
+      if (this.puffT <= 0) {
+        this.puffT = 0.09;
+        const p = this.lady.group.position, h = this.lady.group.rotation.y;
+        this.particles.emit(new THREE.Vector3(p.x - Math.sin(h) * 0.35, p.y + 0.06, p.z - Math.cos(h) * 0.35), { color: '#efe2c8', count: 2, speed: 0.5, up: 0.7, gravity: 0.6, size: 0.07, life: 0.55, spread: 0.3 });
+        if (Math.random() < 0.35) this.particles.emit(new THREE.Vector3(p.x, p.y + 1.95, p.z), { color: '#fff6e8', count: 1, speed: 0.1, up: 0.8, gravity: -0.2, size: 0.04, emissive: true, life: 0.9, spread: 0.2 });
+      }
+    }
+  }
+
   eatAction() {
     const L = this.state.lady;
     if (L.hunger > 92) return { ok: false, label: `Not hungry right now (${this.state.meals} home-cooked meal${this.state.meals === 1 ? '' : 's'} ready)` };
@@ -369,7 +430,7 @@ export class Game {
     else if (c === 'chamomile') this.firstTime('harvest', 'Chamomile! The clinic uses it to make remedies work faster.');
     else this.firstTime('harvest', 'A harvest! Cook it at the stove in my cottage. That\'s my dinner sorted!');
   }
-  /** Veggies from the garden become home-cooked meals for the Crazy Cat Lady herself. */
+  /** Veggies from the garden become home-cooked meals for Granny herself. */
   cook() {
     const s = this.state;
     let made = 0;
@@ -460,8 +521,8 @@ export class Game {
   /** Save into this game's slot. opts.toast = text for the little "saved" note (autosaves use a tiny one). */
   save(opts = {}) {
     if (!this.started) return false;
-    const p = this.sitting ? this.world.cottage.swing.front : this.lady.group.position;
-    this.state.ladyPos = { x: +p.x.toFixed(2), z: +p.z.toFixed(2), heading: +(this.sitting ? Math.PI : this.lady.group.rotation.y).toFixed(3) };
+    const p = this.sitting ? this.sitting.seat.front : this.lady.group.position;
+    this.state.ladyPos = { x: +p.x.toFixed(2), z: +p.z.toFixed(2), heading: +(this.sitting ? this.sitting.seat.heading : this.lady.group.rotation.y).toFixed(3) };
     const ok = writeSlot(this.slot, this.state);
     if (opts.toast) this.ui.saveToast(ok ? opts.toast : 'Couldn\'t save: this browser is blocking storage (private mode?)', { mini: !!opts.mini, error: !ok });
     if (opts.toast && ok && !opts.mini) sound.play('click');
@@ -474,47 +535,77 @@ export class Game {
     location.reload();
   }
 
-  /* ---------------- porch swing ---------------- */
-  sitDown() {
-    const sw = this.world.cottage.swing;
-    if (!sw || this.sitting) return;
-    this.sitting = { t: 0, phase: 0, amp: this.swingAmp || 0, catT: 3 + Math.random() * 3, cat: null };
+  /* ---------------- sitting: porch swing, chairs, sofa, armchair, rocker, bench ---------------- */
+  /** The seat she's close enough to sit on (closest wins), or null. */
+  nearestSeat() {
+    const p = this.lady.group.position;
+    let best = null, bd = Infinity;
+    for (const st of this.world.seats) {
+      if (Math.abs(p.y - st.front.y) > 0.35) continue;
+      const dFront = Math.hypot(p.x - st.front.x, p.z - st.front.z);
+      const c = st.sitPos || st.front;
+      const dSeat = Math.hypot(p.x - c.x, p.z - c.z);
+      const d = Math.min(dFront, dSeat);
+      if (d < (st.kind === 'swing' ? 1.15 : 0.85) && d < bd) { bd = d; best = st; }
+    }
+    return best;
+  }
+  sitDown(seat = this.world.seats.find((x) => x.kind === 'swing')) {
+    if (!seat || this.sitting) return;
+    this.sitting = { seat, t: 0, catT: 3 + Math.random() * 3, cat: null };
     this.lady.setSitting(true);
     this.catMenu.close?.();
     sound.play('click');
-    const lines = ['Ahh, nothing like a gentle swing on the porch.', 'Swing, swing... I can see the whole garden from here.', 'Just a little rest, dearie. Walk off whenever you like.'];
+    if (seat.kind !== 'swing') { this.lady.group.position.copy(seat.sitPos); this.lady.group.rotation.set(0, seat.heading, 0); }
+    const LINES = {
+      swing: ['Ahh, nothing like a gentle swing on the porch.', 'Swing, swing... I can see the whole garden from here.', 'Just a little rest, dearie. Walk off whenever you like.'],
+      chair: ['A sit-down at the kitchen table. Smells like cinnamon in here!', 'Just resting my feet a minute, dearie.', 'Best seat in the house for a cup of something warm.'],
+      sofa: ['Oof, this old sofa is the comfiest spot in the house.', 'Room for a cat or two beside me, I should think.'],
+      armchair: ['My knitting chair! Warm toes by the woodstove.', 'Ahh, my favorite armchair. Any lap cats about?'],
+      rocker: ['Rock-a-bye, Granny... this old rocker never gets old.', 'Rocking on the porch, watching the garden grow.'],
+      bench: ['A little bench break outside the clinic.', 'Just catching my breath before the next patient.'],
+    };
+    const lines = LINES[seat.kind] || LINES.chair;
     this.host.say(lines[Math.floor(Math.random() * lines.length)], 5);
   }
   standUp() {
-    const sw = this.world.cottage.swing;
     if (!this.sitting) return;
+    const seat = this.sitting.seat;
     if (this.sitting.cat) this.cats.leaveSwing(this.sitting.cat);
     this.sitting = null;
     this.lady.setSitting(false);
-    this.lady.group.rotation.x = 0;
-    this.lady.group.position.set(sw.front.x, sw.front.y, sw.front.z);
-    this.lady.group.rotation.y = 0;
-    if (window.ccl) { window.ccl.state.heading = 0; window.ccl.state.speed = 0; }
+    this.lady.group.rotation.set(0, seat.heading, 0);
+    if (seat.obj && seat.rock) seat.obj.rotation.x = 0;
+    this.lady.group.position.set(seat.front.x, seat.front.y, seat.front.z);
+    if (window.ccl) { window.ccl.state.heading = seat.heading; window.ccl.state.speed = 0; }
   }
   updateSwing(dt, t) {
     const sw = this.world.cottage.swing;
     if (!sw) return;
-    const S = this.sitting;
+    const S = this.sitting, onSwing = S && S.seat.kind === 'swing';
     // swing amplitude eases up while she sits and settles to a gentle idle sway otherwise
-    const want = S ? 0.2 : 0.025;
-    this.swingAmp = (this.swingAmp ?? 0.025) + (want - (this.swingAmp ?? 0.025)) * Math.min(1, dt * (S ? 0.8 : 0.5));
+    const want = onSwing ? 0.2 : 0.025;
+    this.swingAmp = (this.swingAmp ?? 0.025) + (want - (this.swingAmp ?? 0.025)) * Math.min(1, dt * (onSwing ? 0.8 : 0.5));
     this.swingPhase = (this.swingPhase || 0) + dt * 1.9;     // ~3.3 s per swing: a natural pendulum for 2 m ropes
     sw.pivot.rotation.x = Math.sin(this.swingPhase) * this.swingAmp;
     if (!S) return;
     S.t += dt;
-    sw.pivot.updateMatrixWorld(true);
-    const v = new THREE.Vector3(); sw.seatAnchor.getWorldPosition(v);
-    this.lady.group.position.copy(v);
-    this.lady.group.rotation.set(sw.pivot.rotation.x, 0, 0);
+    if (onSwing) {
+      sw.pivot.updateMatrixWorld(true);
+      const v = new THREE.Vector3(); sw.seatAnchor.getWorldPosition(v);
+      this.lady.group.position.copy(v);
+      this.lady.group.rotation.set(sw.pivot.rotation.x, 0, 0);
+    } else {
+      const seat = S.seat;
+      this.lady.group.position.copy(seat.sitPos);
+      const rock = seat.rock ? Math.sin(S.t * 1.7) * 0.07 * Math.min(1, S.t) : 0;
+      if (seat.rock) seat.obj.rotation.x = rock;
+      this.lady.group.rotation.set(rock, seat.heading, 0, 'YXZ');
+    }
     // a little rest: her energy comes back slowly (very slowly at bedtime, the bed is for sleeping)
     const L = this.state.lady;
     L.energy = Math.min(100, L.energy + dt * (this.day.bedtime ? 0.05 : 0.35));
-    // after a few seconds a friendly cat may hop up beside her
+    // after a few seconds a friendly cat may hop up beside her (or into her lap)
     if (!S.cat) {
       S.catT -= dt;
       if (S.catT <= 0) { S.catT = 8; S.cat = this.cats.inviteToSwing(); }
@@ -542,6 +633,7 @@ export class Game {
     this.adoption.update(dt, t);
     this.updateLady(dt, hours);
     this.updateSwing(dt, t);
+    this.updateCoffee(dt);
     const joined = this.cats.joined();
     const waiting = this.cats.list.find((c) => !c.data.joined);
     if (joined.length) {
@@ -577,7 +669,7 @@ export class Game {
       L.hunger = Math.max(5, L.hunger - hours * 4.5);
       L.energy = Math.max(5, L.energy - hours * 3.4);
     }
-    this.ladySpeed = (L.hunger < 20 || L.energy < 15) ? 0.8 : 1;
+    this.ladySpeed = ((L.hunger < 20 || L.energy < 15) ? 0.8 : 1) * (L.coffee > 0 ? COFFEE_SPEED : 1);
     if (!this.playing || this.blocked) return;
     this.needNag -= dt;
     if (this.needNag <= 0) {
@@ -623,7 +715,10 @@ export class Game {
         use: () => g.use(),
         save: (toast) => g.save(toast ? { toast: 'Game saved 🐾' } : {}),
         get slot() { return g.slot; },
-        sit: () => g.sitDown(), stand: () => g.standUp(), get sitting() { return !!g.sitting; },
+        sit: (i) => g.sitDown(i === undefined ? undefined : g.world.seats[i]), stand: () => g.standUp(), get sitting() { return !!g.sitting; },
+        seats: () => g.world.seats.map((x) => ({ id: x.id, kind: x.kind, label: x.label, front: [+x.front.x.toFixed(2), +x.front.y.toFixed(2), +x.front.z.toFixed(2)], heading: +x.heading.toFixed(2) })),
+        seat: () => g.sitting && g.sitting.seat.id,
+        coffee: () => ({ boost: +g.state.lady.coffee.toFixed(1), perk: +g.state.lady.perk.toFixed(1), speed: g.ladySpeed }),
         swingCat: () => g.sitting && g.sitting.cat && g.sitting.cat.data.id,
         inviteCat() { if (g.sitting && !g.sitting.cat) g.sitting.cat = g.cats.inviteToSwing(); return g.sitting && g.sitting.cat && g.sitting.cat.data.id; },
       },

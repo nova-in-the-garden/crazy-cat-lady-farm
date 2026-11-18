@@ -597,17 +597,18 @@ export class CatManager {
           break;
         }
         case 'symptom': anim = ISSUES[cs?.issue]?.anim || 'sit'; break;
-        case 'swing': {
-          const sw = g.world.cottage.swing;
-          if (!g.sitting) { c.task = null; break; }
+        case 'swing': {   // joining her on a seat: the porch swing, the sofa beside her, or her lap
+          if (!g.sitting || (c.seat && g.sitting.seat !== c.seat)) { c.task = null; break; }
+          const seat = g.sitting.seat; c.seat = seat;
           if (!c.onSwing) {
-            moveTo = this.goTo(c, sw.catFront, 0.3); speed = Math.max(speed, 1.5);
-            if (!moveTo || c.stuck > 1.5) { c.onSwing = true; c.path = []; this.hop(c); this.swingJoined(c); }
+            moveTo = this.goTo(c, seat.catFront, 0.3); speed = Math.max(speed, 1.5);
+            if (!moveTo || c.stuck > 1.5) { c.onSwing = true; c.path = []; this.hop(c); this.swingJoined(c, seat); }
           }
           if (c.onSwing) {
             moveTo = null;
-            const v = new THREE.Vector3(); sw.catAnchor.getWorldPosition(v);
-            c.pos.copy(v); c.heading = 0;
+            if (seat.kind === 'swing') { const v = new THREE.Vector3(); seat.swing.catAnchor.getWorldPosition(v); c.pos.copy(v); }
+            else c.pos.copy(seat.catPos);
+            c.heading = seat.catHeading;
             task.st = (task.st || 0) + dt;
             anim = task.st > 14 ? 'sleep' : 'sit';
             if (Math.floor(task.st) % 5 === 0 && Math.floor(task.st - dt) % 5 !== 0) d.needs.affection = Math.min(100, d.needs.affection + 3);
@@ -712,7 +713,7 @@ export class CatManager {
     return { type: 'idle', anim: ['sit', 'groom', 'stretch', 'stand', 'sit'][Math.floor(Math.random() * 5)], t: 3 + Math.random() * 5 };
   }
 
-  /** She sat down on the porch swing: the friendliest free cat nearby may come and hop up beside her. */
+  /** She sat down (swing, sofa, chair...): the friendliest free cat nearby may come and hop up beside her or into her lap. */
   inviteToSwing() {
     const g = this.game, lp = g.lady.group.position;
     const ok = this.joined().filter((c) => !c.escort && !c.leaving && !c.caged && !this.inKennel(c) && g.vet.examCat !== c && !g.vet.activeCase(c.data.id)
@@ -723,18 +724,25 @@ export class CatManager {
     c.task = { type: 'swing', t: 9999 }; c.path = [];
     return c;
   }
-  swingJoined(c) {
+  swingJoined(c, seat) {
     const g = this.game, d = c.data;
     sound.play('meow'); this.flashIcon(c, 'heart', 2);
-    g.floatAt(c.pos, `${d.name} hops up beside you`, '#c95c74', 'heart');
+    const kind = seat.kind === 'swing' ? 'swing' : seat.lap ? 'lap' : 'beside';
+    g.floatAt(c.pos, kind === 'lap' ? `${d.name} curls up in your lap` : `${d.name} hops up beside you`, '#c95c74', 'heart');
     if (this.cooldownOk(c, 'swing', 12)) { this.addBond(c, 1); d.needs.affection = Math.min(100, d.needs.affection + 10); }
-    if (!d.firsts.swing) { d.firsts.swing = true; g.journal.log(`${d.name} hopped up on the porch swing and swung along with you.`, d.id); }
+    if (!d.firsts[kind]) {
+      d.firsts[kind] = true;
+      g.journal.log(kind === 'swing' ? `${d.name} hopped up on the porch swing and swung along with you.`
+        : kind === 'lap' ? `${d.name} curled up in Granny's lap on the ${seat.noun} and purred and purred.`
+        : `${d.name} snuggled up next to Granny on the ${seat.noun}.`, d.id);
+    }
   }
-  /** Off the swing: hop down onto the porch. */
+  /** Off the seat (she stood up): hop down beside it. */
   leaveSwing(c, quiet = false) {
     if (!c) return;
-    const sw = this.game.world.cottage.swing;
-    if (c.onSwing) { c.onSwing = false; c.pos.set(sw.catFront.x, sw.catFront.y, sw.catFront.z); if (!quiet) this.hop(c); }
+    const seat = c.seat;
+    if (c.onSwing) { c.onSwing = false; if (seat) c.pos.set(seat.catFront.x, seat.catFront.y, seat.catFront.z); if (!quiet) this.hop(c); }
+    c.seat = null;
     if (c.task && c.task.type === 'swing') c.task = { type: 'idle', anim: 'stretch', t: 2.5 };
   }
 

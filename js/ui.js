@@ -78,7 +78,10 @@ export class GameUI {
     this.sideBtns = el('div', 'hidden'); this.sideBtns.id = 'side-btns';
     this.saveBtn = el('button', '', `${icon('save', 20)}<span>Save</span>`); this.saveBtn.id = 'save-btn'; this.saveBtn.type = 'button'; this.saveBtn.title = 'Save your game (it also autosaves)';
     this.saveBtn.addEventListener('click', (e) => { e.stopPropagation(); onSave && onSave(); });
-    this.sideBtns.append(this.journalBtn, this.saveBtn);
+    // coffee buff: a little pill with a countdown while Granny's zooming
+    this.buffEl = el('div', 'hidden'); this.buffEl.id = 'buff'; this.buffEl.title = 'Coffee zoom: Granny walks and runs faster';
+    this.buffEl.innerHTML = '<span class="cup">☕</span><span class="txt">Zoom!</span><b>0:45</b><i class="bar"><i></i></i>';
+    this.sideBtns.append(this.journalBtn, this.saveBtn, this.buffEl);
     document.body.appendChild(this.sideBtns);
     this.journalBtn.classList.remove('hidden');
     this.saveToastEl = el('div', 'hidden'); this.saveToastEl.id = 'save-toast'; this.saveToastEl.setAttribute('role', 'status'); document.body.appendChild(this.saveToastEl);
@@ -127,6 +130,17 @@ export class GameUI {
 
   setMuted(m) { if (this.muteBtn) this.muteBtn.textContent = m ? 'Sound: off' : 'Sound: on'; }
 
+  /** Coffee buff countdown (seconds left; 0 hides it). */
+  setBuff(sec, max = 45) {
+    const on = sec > 0, n = Math.ceil(sec);
+    if (on !== this._buffOn) { this._buffOn = on; this.buffEl.classList.toggle('hidden', !on); }
+    if (!on || n === this._buffN) return;
+    this._buffN = n;
+    this.buffEl.querySelector('b').textContent = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+    this.buffEl.querySelector('.bar i').style.width = `${Math.min(100, (sec / max) * 100)}%`;
+    this.buffEl.classList.toggle('ending', n <= 8);
+  }
+
   /** A gentle little notification for journal moments. */
   toast(text) {
     this.toastEl.innerHTML = `${icon('book', 18)}<span>${text}</span>`;
@@ -136,10 +150,10 @@ export class GameUI {
   }
 
   /** "Game saved 🐾": a cozy little note. mini = the quiet autosave version. */
-  saveToast(text, { mini = false, error = false } = {}) {
+  saveToast(text, { mini = false, error = false, plain = false } = {}) {
     const t = this.saveToastEl;
-    t.innerHTML = `${icon('save', mini ? 14 : 20)}<span>${text}</span>`;
-    t.className = `${mini ? 'mini' : ''} ${error ? 'error' : ''}`;
+    t.innerHTML = `${plain ? '' : icon('save', mini ? 14 : 20)}<span>${text}</span>`;
+    t.className = `${mini ? 'mini' : ''} ${error ? 'error' : ''} ${plain ? 'plain' : ''}`;
     t.style.animation = 'none'; void t.offsetWidth; t.style.animation = '';
     clearTimeout(this._saveT); this._saveT = setTimeout(() => t.classList.add('hidden'), mini ? 1800 : error ? 5000 : 2600);
   }
