@@ -422,7 +422,7 @@ body.exam-open #sleep-btn { display: none !important; }
 }
 
 /* ---------- Saving: toast, start-screen slots, dialogs ---------- */
-#save-toast { position: fixed; left: 50%; top: 64px; transform: translateX(-50%); z-index: 16; white-space: nowrap; display: flex; align-items: center; gap: 8px; pointer-events: none;
+#save-toast { position: fixed; left: 50%; top: 78px; transform: translateX(-50%); z-index: 16; white-space: nowrap; display: flex; align-items: center; gap: 8px; pointer-events: none;
   background: rgba(255, 255, 255, 0.96); border: 3px solid #bfe6d7; border-radius: 999px; padding: 7px 16px 7px 10px; font-weight: 600; font-size: 0.98rem;
   color: var(--ink); box-shadow: 0 6px 18px rgba(91, 66, 86, 0.2); animation: saveIn 0.35s ease-out; }
 #save-toast.mini { padding: 3px 10px 3px 7px; font-size: 0.76rem; font-weight: 500; border-width: 2px; opacity: 0.85; }

@@ -615,6 +615,7 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   };
 
   // interior walls between the camera and her fade away (so you can always see her)
+  let camY = 0, headY = 0, wallTop = 0;
   const cam2 = new THREE.Vector2(), lady2 = new THREE.Vector2(), dir = new THREE.Vector2(), q = new THREE.Vector2();
   /** Is any part of this wall inside the "corridor" between the camera and her (about 4 m wide)? */
   const blocksView = (pt) => {
@@ -623,13 +624,17 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
     for (let i = 0; i <= n; i++) {
       q.copy(pt.a).lerp(pt.b, i / n).sub(cam2);
       const along = q.dot(dir), across = Math.abs(q.x * dir.y - q.y * dir.x);
-      if (along > -0.5 && along < L - 0.25 && across < 2.0 + along * 0.15) return true;
+      if (along > -0.5 && along < L - 0.25 && across < 1.5 + along * 0.12) {
+        // only if the sight line (camera -> her head) actually dips below the top of this wall here
+        const h = camY + (headY - camY) * Math.max(0, along) / L;
+        if (h < wallTop + 0.15) return true;
+      }
     }
     return false;
   };
   function fadePartitions(dt, ladyPos, camera, inside) {
     const k = Math.min(1, dt * 7);
-    if (camera && ladyPos) { cam2.set(camera.position.x, camera.position.z); lady2.set(ladyPos.x, ladyPos.z); }
+    if (camera && ladyPos) { cam2.set(camera.position.x, camera.position.z); lady2.set(ladyPos.x, ladyPos.z); camY = camera.position.y; headY = ladyPos.y + 1.3; wallTop = ladyPos.y + H; }
     for (const pt of partitions) {
       let target = 1;
       if (inside && camera && blocksView(pt)) target = 0.1;
