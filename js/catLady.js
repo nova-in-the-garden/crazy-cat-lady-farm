@@ -159,7 +159,7 @@ export function createCatLady() {
   function setTool(name) { for (const k in tools) tools[k].visible = k === name; }
 
   /* --- Animation --- */
-  let phase = 0, t = 0, blinkTimer = 2, waveTime = 0, actTime = 0;
+  let phase = 0, t = 0, blinkTimer = 2, waveTime = 0, actTime = 0, sitting = false;
   function update(dt, move, running) {
     t += dt;
     const stride = running ? 13 : 9;
@@ -175,6 +175,13 @@ export function createCatLady() {
     head.rotation.z = Math.sin(t * 0.9) * 0.06 * idle;
     head.rotation.y = Math.sin(t * 0.45) * 0.25 * idle;
     arms[0].rotation.z = -0.05 * idle; arms[1].rotation.z = 0.05 * idle;
+    // sitting (porch swing): legs out in front, hands resting in her lap, a happy little sway
+    if (sitting) {
+      legs[0].rotation.x = legs[1].rotation.x = -1.45 + Math.sin(t * 1.6) * 0.12;
+      arms[0].rotation.x = arms[1].rotation.x = -0.55;
+      arms[0].rotation.z = 0.12; arms[1].rotation.z = -0.12;
+      body.position.y = 0; body.rotation.x = -0.06; body.rotation.z = 0;
+    }
     // waving hello (right arm)
     if (waveTime > 0) {
       waveTime -= dt;
@@ -195,7 +202,8 @@ export function createCatLady() {
   }
   function wave() { waveTime = 2.2; }
   function act() { actTime = 0.5; }
+  function setSitting(v) { sitting = !!v; }
 
   group.traverse((o) => { if (o.isMesh) o.userData.isLady = true; });
-  return { group, headAnchor, update, wave, act, setTool };
+  return { group, headAnchor, update, wave, act, setTool, setSitting, get sitting() { return sitting; } };
 }

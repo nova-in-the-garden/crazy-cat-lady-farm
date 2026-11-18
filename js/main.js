@@ -7,6 +7,8 @@ import { createCatLady } from './catLady.js';
 import { Controls } from './controls.js';
 import { Host } from './host.js';
 import { Game } from './game.js';
+import { migrateLegacy, takeAutostart, deleteSlot, setAutostart } from './saves.js';
+import { initStartScreen } from './startScreen.js';
 
 const WALK_SPEED = 2.8, RUN_SPEED = 5.4, LADY_RADIUS = 0.35;
 
@@ -50,7 +52,9 @@ scene.add(lady.group);
 
 const controls = new Controls(renderer.domElement, camera);
 const host = new Host(lady, camera, world);
-const game = new Game({ scene, world, lady, host, camera, lights: { sun, hemi, fill } });
+// The sanctuary itself is created once the player picks a save slot on the start screen
+let game = null;
+const DEFAULT_SUN = new THREE.Vector3(14, 26, 12);
 
 /* --- Game state --- */
 const state = { playing: false, heading: 0, speed: 0, time: 0 };
@@ -63,6 +67,7 @@ controls.onTap = (x, y) => {
   if (!state.playing) return;
   raycaster.setFromCamera(new THREE.Vector2((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1), camera);
   // tap a cat to care for it
+  if (!game) return;
   for (const c of game.cats.list) {
     if (raycaster.intersectObject(c.model.group, true).some((h) => h.object.userData.isCat)) { game.tapCat(c); return; }
   }
@@ -71,8 +76,20 @@ controls.onTap = (x, y) => {
 
 /* --- Title screen --- */
 const title = document.getElementById('title');
-function start() {
-  if (state.playing) return;
+/** Open a save slot (savedState = null for a brand-new game) and step into the sanctuary. */
+function start(slot = 1, savedState = null) {
+  if (state.playing || game) return;
+  try {
+    game = new Game({ scene, world, lady, host, camera, lights: { sun, hemi, fill }, slot, savedState });
+  } catch (err) {
+    console.error('Could not load save', err);
+    screen.showLoadError(slot, err).then((v) => {
+      if (v === 'new') { deleteSlot(slot); setAutostart(slot, true); }
+      location.reload();
+    });
+    return;
+  }
+  exposeApi();
   state.playing = true;
   title.classList.add('fade');
   document.getElementById('hud').classList.remove('hidden');
@@ -84,8 +101,9 @@ function start() {
   if (game.touch) document.getElementById('hud').classList.add('collapsed');
   renderer.domElement.focus?.();
 }
-document.getElementById('start-btn').addEventListener('click', start);
-addEventListener('keydown', (e) => { if (!state.playing && (e.code === 'Enter' || e.code === 'Space')) start(); });
+migrateLegacy();
+const screen = initStartScreen({ onPlay: (slot, saved) => start(slot, saved) });
+addEventListener('keydown', (e) => { if (!state.playing && !game && (e.code === 'Enter' || e.code === 'Space') && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); screen.quickStart(); } });
 document.getElementById('hud-toggle').addEventListener('click', () => document.getElementById('hud').classList.toggle('collapsed'));
 
 // She greets you while the title is up
@@ -110,6 +128,12 @@ function frame(now) {
     const input = game.blocked ? new THREE.Vector2() : controls.getInput();
     running = controls.running;
     const len = Math.min(input.length(), 1);
+    if (game.sitting) {
+      // on the porch swing: the game moves her with the swing; walking off stands her up
+      state.speed = 0;
+      if (len > 0.35 && !game.blocked) { game.standUp(); }
+    }
+    if (!game.sitting) {
     const target = len * (running ? RUN_SPEED : WALK_SPEED) * (game.ladySpeed || 1);
     state.speed += (target - state.speed) * Math.min(1, dt * 10);
     if (len > 0.05) {
@@ -123,6 +147,7 @@ function frame(now) {
     pos.y += (world.groundHeight(pos.x, pos.z) - pos.y) * Math.min(1, dt * 14);
     lady.group.rotation.y = state.heading;
     moveAmount = Math.min(state.speed / WALK_SPEED, 1);
+    }
     focus.set(pos.x, pos.y + 1.3, pos.z);
     const indoors = world.clinic.isInside(pos.x, pos.z) || world.cottage.isInside(pos.x, pos.z) || world.catsHouse.isInside(pos.x, pos.z);
     if (game.camView) {
@@ -156,13 +181,13 @@ function frame(now) {
   }
 
   lady.update(dt, moveAmount, running && moveAmount > 0.5);
-  game.update(dt, state.time);
+  if (game) game.update(dt, state.time);
   world.update(state.time, dt, pos, camera);
   host.update(dt, moveAmount > 0.1, state.playing);
 
   // shadows follow her so they stay crisp
   sun.target.position.set(pos.x, 0, pos.z);
-  sun.position.copy(sun.target.position).add(game.day.sunOffset);
+  sun.position.copy(sun.target.position).add(game ? game.day.sunOffset : DEFAULT_SUN);
 
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -176,11 +201,13 @@ addEventListener('resize', () => {
 
 document.getElementById('loading').classList.add('done');
 requestAnimationFrame(frame);
+function exposeApi() { window.game = game.api(); game.teleport = (x, z, h) => window.ccl.teleport(x, z, h); }
+// "New Game" after a save failed to load: jump straight back in
+const auto = takeAutostart();
+if (auto) setTimeout(() => start(auto.slot, null), 0);
 
 // Handy hooks for testing in the browser console (and for future features)
-window.game = game.api();
-game.teleport = (x, z, h) => window.ccl.teleport(x, z, h);
 window.ccl = {
-  ready: true, game, scene, camera, lady, world, controls, host, state, start,
+  ready: true, get game() { return game; }, scene, camera, lady, world, controls, host, state, start, screen,
   teleport(x, z, heading = state.heading) { lady.group.position.set(x, world.groundHeight(x, z), z); state.heading = heading; lady.group.rotation.y = heading; state.speed = 0; controls.updateCamera(0, new THREE.Vector3(x, 1.3, z), true); },
 };

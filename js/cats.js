@@ -51,7 +51,7 @@ export class CatManager {
     const old = s.cats || [];
     const extra = old.filter((c) => c.def && !this.defs[c.id]);
     extra.forEach((c) => (this.defs[c.id] = c.def));
-    s.cats = [...STARTER_CATS.filter((d) => !gone.has(d.id)).map((d) => ({ ...defaultCatState(d), ...old.find((c) => c.id === d.id) })), ...extra];
+    s.cats = [...STARTER_CATS.filter((d) => !gone.has(d.id)).map((d) => ({ ...defaultCatState(d), ...old.find((c) => c.id === d.id) })), ...extra.map((c) => ({ ...defaultCatState(c.def), ...c }))];
     // the Cats' House: one litter box per two cats, one bowl and bed per slot (old saves had a single cottage litter box)
     const house = game.world.catsHouse;
     if (!Array.isArray(s.litterBoxes)) s.litterBoxes = [];
@@ -358,7 +358,7 @@ export class CatManager {
     const s = this.state, g = this.game;
     this.checkArrivals(dt);
     this.simulate(hours);
-    // meals at 8 AM and 6 PM from the porch bowls (eats from the pantry)
+    // meals at 8 AM and 6 PM: the bowls in the Cats' House get filled from the pantry
     const h = s.hour;
     [8, 18].forEach((m) => { if (this.prevHour < m && h >= m) this.mealTime(m); });
     this.prevHour = h;
@@ -559,6 +559,8 @@ export class CatManager {
       }
     } else {
       if (c.caged) { c.caged = false; }
+      // the porch swing ride ends as soon as she stands up (or something more important comes along)
+      if (c.onSwing && (!c.task || c.task.type !== 'swing')) this.leaveSwing(c, true);
       // regular free-roaming cat: a full bowl in the Cats' House beats everything else
       if (this.state.bowls[d.id] && (!c.task || (c.task.type !== 'eat' && c.task.type !== 'interact'))) c.task = { type: 'eat', t: 90 };
       if (!c.task || (c.task.t !== undefined && (c.task.t -= dt) <= 0)) c.task = this.decide(c, dist, cs);
@@ -593,6 +595,23 @@ export class CatManager {
           break;
         }
         case 'symptom': anim = ISSUES[cs?.issue]?.anim || 'sit'; break;
+        case 'swing': {
+          const sw = g.world.cottage.swing;
+          if (!g.sitting) { c.task = null; break; }
+          if (!c.onSwing) {
+            moveTo = this.goTo(c, sw.catFront, 0.3); speed = Math.max(speed, 1.5);
+            if (!moveTo || c.stuck > 1.5) { c.onSwing = true; c.path = []; this.hop(c); this.swingJoined(c); }
+          }
+          if (c.onSwing) {
+            moveTo = null;
+            const v = new THREE.Vector3(); sw.catAnchor.getWorldPosition(v);
+            c.pos.copy(v); c.heading = 0;
+            task.st = (task.st || 0) + dt;
+            anim = task.st > 14 ? 'sleep' : 'sit';
+            if (Math.floor(task.st) % 5 === 0 && Math.floor(task.st - dt) % 5 !== 0) d.needs.affection = Math.min(100, d.needs.affection + 3);
+          }
+          break;
+        }
         default: break;
       }
       // bond 1+: say hello when she comes close
@@ -621,7 +640,7 @@ export class CatManager {
         else { c.pos.x = moveTo.x; c.pos.z = moveTo.z; this.hop(c); }
       }
     } else c.speed = 0;
-    if (g.vet.examCat !== c && !c.caged) {
+    if (g.vet.examCat !== c && !c.caged && !c.onSwing) {
       const sp0 = c.task && c.task.spot, perched = sp0 && sp0.y > 0.45 && Math.hypot(sp0.x - c.pos.x, sp0.z - c.pos.z) < 0.35;
       if (!perched) this.game.world.resolve(c.pos, 0.2);
       // height: floors, and hopping up onto perches (bed, hay, cat bed) when standing on them
@@ -689,6 +708,32 @@ export class CatManager {
     }
     void lp;
     return { type: 'idle', anim: ['sit', 'groom', 'stretch', 'stand', 'sit'][Math.floor(Math.random() * 5)], t: 3 + Math.random() * 5 };
+  }
+
+  /** She sat down on the porch swing: the friendliest free cat nearby may come and hop up beside her. */
+  inviteToSwing() {
+    const g = this.game, lp = g.lady.group.position;
+    const ok = this.joined().filter((c) => !c.escort && !c.leaving && !c.caged && !this.inKennel(c) && g.vet.examCat !== c && !g.vet.activeCase(c.data.id)
+      && !this.state.bowls[c.data.id] && this.level(c) >= 1 && Math.hypot(c.pos.x - lp.x, c.pos.z - lp.z) < 26 && !(c.task && (c.task.type === 'eat' || c.task.type === 'interact')));
+    if (!ok.length) return null;
+    ok.sort((a, b) => b.data.bondXP - a.data.bondXP);
+    const c = ok[0];
+    c.task = { type: 'swing', t: 9999 }; c.path = [];
+    return c;
+  }
+  swingJoined(c) {
+    const g = this.game, d = c.data;
+    sound.play('meow'); this.flashIcon(c, 'heart', 2);
+    g.floatAt(c.pos, `${d.name} hops up beside you`, '#c95c74', 'heart');
+    if (this.cooldownOk(c, 'swing', 12)) { this.addBond(c, 1); d.needs.affection = Math.min(100, d.needs.affection + 10); }
+    if (!d.firsts.swing) { d.firsts.swing = true; g.journal.log(`${d.name} hopped up on the porch swing and swung along with you.`, d.id); }
+  }
+  /** Off the swing: hop down onto the porch. */
+  leaveSwing(c, quiet = false) {
+    if (!c) return;
+    const sw = this.game.world.cottage.swing;
+    if (c.onSwing) { c.onSwing = false; c.pos.set(sw.catFront.x, sw.catFront.y, sw.catFront.z); if (!quiet) this.hop(c); }
+    if (c.task && c.task.type === 'swing') c.task = { type: 'idle', anim: 'stretch', t: 2.5 };
   }
 
   finishMeal(c) {

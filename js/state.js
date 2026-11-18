@@ -1,6 +1,6 @@
 // Game state for the sanctuary sim: what's in the garden, the pantry and her pockets.
-// Saved to localStorage so your garden is still there next visit.
-const KEY = 'ccl-sanctuary-save-v1';
+// The whole object is saved into a browser save slot (see saves.js), so everything here is plain JSON.
+export const STATE_VERSION = 2;
 
 /** Crops you can grow. hours = watered in-game hours needed to ripen, food = home-cooked meals it makes for the Crazy Cat Lady. */
 export const CROPS = {
@@ -30,7 +30,7 @@ export const SUPPLY_LABELS = { medicine: 'Medicine', shot: 'Shots', bandage: 'Ba
 
 export function defaultState(tileCount) {
   return {
-    version: 1,
+    version: STATE_VERSION,
     day: 1, hour: 7,                                  // in-game clock
     seeds: { carrot: 6, cabbage: 3, pumpkin: 2, chamomile: 2, catnip: 3 },     // seed packets in her apron
     crops: { carrot: 0, cabbage: 0, pumpkin: 0, chamomile: 0, catnip: 1 },     // harvested (veggies get cooked into her meals)
@@ -49,21 +49,75 @@ export function defaultState(tileCount) {
     // the cats (filled in by cats.js), vet cases, the journal and the litter box
     cats: [], cases: [], journal: { moments: [], vetXP: 0 }, litter: 0, flags: {},
     litterBoxes: null, bowls: {},                    // Cats' House: litter box levels (0 clean..1) and which bowls are full
+    ladyPos: null,                                    // where she was standing when the game was saved
   };
 }
 
-export function loadState(tileCount) {
-  const fresh = defaultState(tileCount);
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return fresh;
-    const s = JSON.parse(raw);
-    if (!s || s.version !== 1 || !Array.isArray(s.tiles) || s.tiles.length !== tileCount) return fresh;
-    // older saves: crops used to become cat food. Give them the new economy's starter pack once.
-    if (s.coins === undefined) { s.coins = fresh.coins; s.food = Math.max(s.food || 0, 8); }
-    return { ...fresh, ...s, seeds: { ...fresh.seeds, ...s.seeds }, crops: { ...fresh.crops, ...s.crops }, supplies: { ...fresh.supplies, ...s.supplies }, lady: { ...fresh.lady, ...s.lady }, stats: { ...fresh.stats, ...s.stats }, journal: { ...fresh.journal, ...s.journal }, flags: { ...fresh.flags, ...s.flags } };
-  } catch { return fresh; }
+const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
+/** Merge a nested object of numbers/strings/bools with its defaults, dropping wrong types. */
+function mergeShallow(def, got) {
+  const out = { ...def };
+  if (!isObj(got)) return out;
+  for (const [k, v] of Object.entries(got)) {
+    if (!(k in def)) { out[k] = v; continue; }           // extra keys (e.g. new stats) are fine
+    if (typeof def[k] === 'number') out[k] = num(v, def[k]);
+    else if (typeof v === typeof def[k] || def[k] === null) out[k] = v;
+  }
+  return out;
 }
 
-export function saveState(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode etc. */ } }
-export function clearState() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } }
+/**
+ * Rebuild a full, valid game state from a saved one (any older version). Missing or broken fields fall
+ * back to defaults, so an old or partly damaged save still loads. Throws only if it isn't a state at all.
+ */
+export function restoreState(saved, tileCount) {
+  const fresh = defaultState(tileCount);
+  if (!isObj(saved)) throw new Error('not a saved state');
+  const s = { ...saved };
+  // v1 saves from before the coin economy: give them the new starter pack once
+  if (s.coins === undefined) { s.coins = fresh.coins; s.food = Math.max(num(s.food, 0), 8); }
+  const out = { ...fresh };
+  for (const [k, v] of Object.entries(s)) {
+    if (k === 'version') continue;
+    const d = fresh[k];
+    if (d === undefined) out[k] = v;                                     // unknown extras: keep (future features)
+    else if (typeof d === 'number') out[k] = num(v, d);
+    else if (typeof d === 'string') out[k] = typeof v === 'string' ? v : d;
+    else if (Array.isArray(d)) out[k] = Array.isArray(v) ? v : d;
+    else if (d === null) out[k] = v ?? null;
+    else if (isObj(d)) out[k] = (k === 'bowls' || k === 'flags') ? (isObj(v) ? { ...d, ...v } : d) : mergeShallow(d, v);
+  }
+  out.version = STATE_VERSION;
+  // clock, tools and seeds
+  out.day = Math.max(1, Math.floor(out.day));
+  out.hour = Math.min(22, Math.max(0, out.hour));
+  if (!CROP_IDS.includes(out.seedType)) out.seedType = 'carrot';
+  out.tool = Math.min(3, Math.max(0, Math.floor(out.tool)));
+  out.coins = Math.max(0, out.coins); out.food = Math.max(0, out.food);
+  // garden plots: keep what we can, pad/trim to the current garden size
+  const tiles = out.tiles.slice(0, tileCount).map((t) => {
+    if (!isObj(t)) return { state: 'grass', crop: null, growth: 0, wet: false };
+    const st = ['grass', 'plowed', 'planted'].includes(t.state) ? t.state : 'grass';
+    const crop = st === 'planted' && CROPS[t.crop] ? t.crop : null;
+    return { ...t, state: crop || st !== 'planted' ? st : 'plowed', crop, growth: crop ? Math.min(1, Math.max(0, num(t.growth, 0))) : 0, wet: !!t.wet };
+  });
+  while (tiles.length < tileCount) tiles.push({ state: 'grass', crop: null, growth: 0, wet: false });
+  out.tiles = tiles;
+  // cats: only well-formed entries (cats.js fills in any missing needs/fields)
+  out.cats = out.cats.filter((c) => isObj(c) && typeof c.id === 'string').map((c) => {
+    const cc = { ...c };
+    if (!isObj(cc.pos) || !Number.isFinite(cc.pos.x) || !Number.isFinite(cc.pos.z)) delete cc.pos;
+    if (!isObj(cc.needs)) delete cc.needs;
+    if (cc.def !== undefined && !isObj(cc.def)) delete cc.def;
+    return cc;
+  });
+  out.cases = out.cases.filter(isObj);
+  out.adopted = out.adopted.filter(isObj);
+  out.journal.moments = Array.isArray(out.journal.moments) ? out.journal.moments.filter(isObj) : [];
+  if (out.litterBoxes !== null && !Array.isArray(out.litterBoxes)) out.litterBoxes = null;
+  if (out.visitor !== null && !isObj(out.visitor)) out.visitor = null;
+  if (!isObj(out.ladyPos) || !Number.isFinite(out.ladyPos.x) || !Number.isFinite(out.ladyPos.z)) out.ladyPos = null;
+  return out;
+}

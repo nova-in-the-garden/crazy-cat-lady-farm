@@ -2,7 +2,8 @@
 // buy cat food and clinic supplies with coins from adoptions, and care for up to 10 cats.
 // Ties together the garden, clock, kitchen, UI, sounds and the Crazy Cat Lady's comments.
 import * as THREE from 'three';
-import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, SUPPLY_LABELS, loadState, saveState, clearState } from './state.js';
+import { CROPS, CROP_IDS, FOOD_CROPS, DAILY_SEEDS, SUPPLY_LABELS, defaultState, restoreState } from './state.js';
+import { writeSlot } from './saves.js';
 import { Garden, GRID, tileAt, stageOf, tileCenter } from './garden.js';
 import { DayCycle, DAY_SECONDS } from './time.js';
 import { GameUI, TOOLS } from './ui.js';
@@ -20,9 +21,11 @@ import { Adoption } from './adoption.js';
 const TILE_COUNT = GRID.cols * GRID.rows;
 
 export class Game {
-  constructor({ scene, world, lady, host, camera, lights }) {
+  constructor({ scene, world, lady, host, camera, lights, slot = 1, savedState = null }) {
     Object.assign(this, { scene, world, lady, host, camera });
-    this.state = loadState(TILE_COUNT);
+    this.slot = slot;           // which browser save slot (1-3) this sanctuary lives in
+    this.state = savedState ? restoreState(savedState, TILE_COUNT) : defaultState(TILE_COUNT);
+    this.isNewGame = !savedState;
     this.garden = new Garden(scene, this.state);
     this.day = new DayCycle(this.state, { ...lights, sky: world.sky, scene });
     this.particles = new Particles(scene);
@@ -38,7 +41,8 @@ export class Game {
       onUse: () => this.use(),
       onSleep: () => this.sleep(),
       onToggleMute: () => this.ui.setMuted(sound.toggle()),
-      onReset: () => this.reset(),
+      onSave: () => this.save({ toast: 'Game saved 🐾' }),
+      onMenu: () => this.mainMenu(),
       onJournal: () => this.journal.toggle(),
     });
     this.ui.setMuted(sound.muted);
@@ -91,15 +95,27 @@ export class Game {
       else if (e.code === 'KeyQ') this.cycleSeed();
       else if (e.code === 'KeyM') this.ui.setMuted(sound.toggle());
     });
-    addEventListener('pagehide', () => saveState(this.state));
-    document.addEventListener('visibilitychange', () => document.hidden && saveState(this.state));
+    // leaving the page (closing the tab, switching apps on a phone): save quietly
+    const quiet = () => { if (this.started) this.save(); };
+    addEventListener('pagehide', quiet);
+    addEventListener('beforeunload', quiet);
+    document.addEventListener('visibilitychange', () => document.hidden && quiet());
   }
 
   /** True while a full-screen card is open (she stands still). */
   get blocked() { return this.locked || this.journalOpen || this.shopOpen || this.adoptOpen; }
 
   start() {
-    this.playing = true;
+    this.playing = true; this.started = true;
+    // put her back where she was when the game was saved
+    const lp = this.state.ladyPos;
+    if (lp) {
+      const v = new THREE.Vector3(lp.x, 0, lp.z);
+      this.world.resolve(v, 0.35);
+      this.lady.group.position.set(v.x, this.world.groundHeight(v.x, v.z), v.z);
+      this.lady.group.rotation.y = Number.isFinite(lp.heading) ? lp.heading : 0;
+    }
+    this.save();
     sound.unlock();
     this.ui.show(this.touch);
   }
@@ -130,8 +146,11 @@ export class Game {
     const s = this.state, p = this.lady.group.position, W = this.world;
     const near = (q, r) => Math.hypot(p.x - q.x, p.z - q.z) < r;
     const crops = FOOD_CROPS.reduce((n, c) => n + s.crops[c], 0);
+    if (this.sitting) return { ok: true, label: 'Stand up', run: () => this.standUp() };
     const table = this.vet.tableAction();
     if (table && table.ok) return table;
+    const sw = W.cottage.swing;
+    if (sw && near(sw.front, 1.15) && Math.abs(p.y - sw.front.y) < 0.3) return { ok: true, label: 'Sit on the porch swing', run: () => this.sitDown() };
     // at the cottage bed, Sleep wins (even with cats piled on the bed)
     if (W.cottage.isInside(p.x, p.z) && near(W.cottage.bedPos, 1.2)) return this.bedAction();
     // a cat right in front of her (farming tools still win on a tile they can work)
@@ -388,7 +407,8 @@ export class Game {
       this.day.sleep(); // triggers dawn()
       this.cats.prevHour = this.state.hour;
       if (ripe.length) this.notifyRipe(ripe);
-      this.playing = true; this.save();
+      this.playing = true;
+      this.save({ toast: `Game saved 🐾 Good morning, Day ${this.state.day}!` });
     });
   }
   collectSeeds() {
@@ -437,10 +457,68 @@ export class Game {
     const v = new THREE.Vector3(); this.lady.headAnchor.getWorldPosition(v); v.y -= 0.6; v.project(this.camera);
     this.ui.float(text, (v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight, color, iconName);
   }
-  save() { saveState(this.state); }
-  reset() {
-    if (!confirm('Start the sanctuary over? Your garden, cat food, cats and journal will all be reset.')) return;
-    clearState(); location.reload();
+  /** Save into this game's slot. opts.toast = text for the little "saved" note (autosaves use a tiny one). */
+  save(opts = {}) {
+    if (!this.started) return false;
+    const p = this.sitting ? this.world.cottage.swing.front : this.lady.group.position;
+    this.state.ladyPos = { x: +p.x.toFixed(2), z: +p.z.toFixed(2), heading: +(this.sitting ? Math.PI : this.lady.group.rotation.y).toFixed(3) };
+    const ok = writeSlot(this.slot, this.state);
+    if (opts.toast) this.ui.saveToast(ok ? opts.toast : 'Couldn\'t save: this browser is blocking storage (private mode?)', { mini: !!opts.mini, error: !ok });
+    if (opts.toast && ok && !opts.mini) sound.play('click');
+    return ok;
+  }
+  /** Save and go back to the start screen (slots, Continue / New Game). */
+  mainMenu() {
+    this.save();
+    this.started = false; // nothing more to save; the page reloads to the title
+    location.reload();
+  }
+
+  /* ---------------- porch swing ---------------- */
+  sitDown() {
+    const sw = this.world.cottage.swing;
+    if (!sw || this.sitting) return;
+    this.sitting = { t: 0, phase: 0, amp: this.swingAmp || 0, catT: 3 + Math.random() * 3, cat: null };
+    this.lady.setSitting(true);
+    this.catMenu.close?.();
+    sound.play('click');
+    const lines = ['Ahh, nothing like a gentle swing on the porch.', 'Swing, swing... I can see the whole garden from here.', 'Just a little rest, dearie. Walk off whenever you like.'];
+    this.host.say(lines[Math.floor(Math.random() * lines.length)], 5);
+  }
+  standUp() {
+    const sw = this.world.cottage.swing;
+    if (!this.sitting) return;
+    if (this.sitting.cat) this.cats.leaveSwing(this.sitting.cat);
+    this.sitting = null;
+    this.lady.setSitting(false);
+    this.lady.group.rotation.x = 0;
+    this.lady.group.position.set(sw.front.x, sw.front.y, sw.front.z);
+    this.lady.group.rotation.y = 0;
+    if (window.ccl) { window.ccl.state.heading = 0; window.ccl.state.speed = 0; }
+  }
+  updateSwing(dt, t) {
+    const sw = this.world.cottage.swing;
+    if (!sw) return;
+    const S = this.sitting;
+    // swing amplitude eases up while she sits and settles to a gentle idle sway otherwise
+    const want = S ? 0.2 : 0.025;
+    this.swingAmp = (this.swingAmp ?? 0.025) + (want - (this.swingAmp ?? 0.025)) * Math.min(1, dt * (S ? 0.8 : 0.5));
+    this.swingPhase = (this.swingPhase || 0) + dt * 1.9;     // ~3.3 s per swing: a natural pendulum for 2 m ropes
+    sw.pivot.rotation.x = Math.sin(this.swingPhase) * this.swingAmp;
+    if (!S) return;
+    S.t += dt;
+    sw.pivot.updateMatrixWorld(true);
+    const v = new THREE.Vector3(); sw.seatAnchor.getWorldPosition(v);
+    this.lady.group.position.copy(v);
+    this.lady.group.rotation.set(sw.pivot.rotation.x, 0, 0);
+    // a little rest: her energy comes back slowly (very slowly at bedtime, the bed is for sleeping)
+    const L = this.state.lady;
+    L.energy = Math.min(100, L.energy + dt * (this.day.bedtime ? 0.05 : 0.35));
+    // after a few seconds a friendly cat may hop up beside her
+    if (!S.cat) {
+      S.catT -= dt;
+      if (S.catT <= 0) { S.catT = 8; S.cat = this.cats.inviteToSwing(); }
+    }
   }
 
   /* ---------------- per frame ---------------- */
@@ -463,6 +541,7 @@ export class Game {
     this.statsCard.update();
     this.adoption.update(dt, t);
     this.updateLady(dt, hours);
+    this.updateSwing(dt, t);
     const joined = this.cats.joined();
     const waiting = this.cats.list.find((c) => !c.data.joined);
     if (joined.length) {
@@ -479,8 +558,12 @@ export class Game {
       this.action = this.findAction();
       this.garden.showHighlight(this.action && this.action.tile !== undefined ? this.action.tile : -1, this.action && this.action.ok);
       this.ui.setPrompt(this.action, this.touch);
+      // autosave: quietly every 15 s, with a tiny "Autosaved" note once a minute
       this.saveTimer += dt;
-      if (this.saveTimer > 5) { this.saveTimer = 0; this.save(); }
+      if (this.saveTimer > 15) {
+        this.saveTimer = 0; this.autosaves = (this.autosaves || 0) + 1;
+        this.save(this.autosaves % 4 === 0 ? { toast: 'Autosaved 🐾', mini: true } : {});
+      }
     } else {
       this.garden.showHighlight(-1);
     }
@@ -538,6 +621,11 @@ export class Game {
         heal(id, v) { const cs = g.vet.activeCase(id); if (cs) { cs.heal = 0; g.vet.addHeal(cs, v); } },
         lady(o) { Object.assign(s.lady, o); },
         use: () => g.use(),
+        save: (toast) => g.save(toast ? { toast: 'Game saved 🐾' } : {}),
+        get slot() { return g.slot; },
+        sit: () => g.sitDown(), stand: () => g.standUp(), get sitting() { return !!g.sitting; },
+        swingCat: () => g.sitting && g.sitting.cat && g.sitting.cat.data.id,
+        inviteCat() { if (g.sitting && !g.sitting.cat) g.sitting.cat = g.cats.inviteToSwing(); return g.sitting && g.sitting.cat && g.sitting.cat.data.id; },
       },
     };
   }

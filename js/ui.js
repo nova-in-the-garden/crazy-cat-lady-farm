@@ -44,6 +44,7 @@ export const ICONS = {
   bolt: '<path d="M13 2 L5 13.5 H11 L10 22 L19 9.5 H13 Z" fill="#ffd35c" stroke="#e0a82e" stroke-width="1"/>',
   meal: '<ellipse cx="12" cy="15" rx="9" ry="4" fill="#fff"/><ellipse cx="12" cy="14" rx="6.5" ry="2.6" fill="#f59a4f"/><circle cx="9.5" cy="13.2" r="1.3" fill="#9edb7f"/><circle cx="13.5" cy="13" r="1.3" fill="#9edb7f"/><path d="M8 9 q1 -3 0 -5 M12 9 q1 -3 0 -5 M16 9 q1 -3 0 -5" stroke="#d6c7d6" stroke-width="1.3" fill="none"/>',
   kennel: '<rect x="3" y="5" width="18" height="15" rx="2" fill="#fff" stroke="#9fb0c4" stroke-width="1.4"/><path d="M7 8 v10 M10 8 v10 M13 8 v10 M16 8 v10" stroke="#b9c4cc" stroke-width="1.2"/><path d="M12 3 v3 M10.3 4.5 h3.4" stroke="#ef7f95" stroke-width="1.8" stroke-linecap="round"/>',
+  save: '<path d="M4 5 a1.5 1.5 0 0 1 1.5 -1.5 H16 L20 7.5 V19 a1.5 1.5 0 0 1 -1.5 1.5 H5.5 A1.5 1.5 0 0 1 4 19 Z" fill="#9fd8c4"/><rect x="7.5" y="3.5" width="8" height="5" rx="1" fill="#fff"/><ellipse cx="12" cy="15.6" rx="2.6" ry="2.1" fill="#fff"/><circle cx="9.2" cy="12.4" r="1" fill="#fff"/><circle cx="11" cy="11.3" r="1" fill="#fff"/><circle cx="13" cy="11.3" r="1" fill="#fff"/><circle cx="14.8" cy="12.4" r="1" fill="#fff"/>',
   door: '<rect x="6" y="3" width="12" height="18" rx="2" fill="#e2b98d"/><circle cx="15" cy="12.5" r="1.2" fill="#8d7388"/><path d="M3 21 h18" stroke="#8d7388" stroke-width="1.6"/>',
 };
 export const icon = (name, size = 24) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -56,7 +57,7 @@ export const TOOLS = [
 ];
 
 export class GameUI {
-  constructor({ onSelectTool, onUse, onToggleMute, onReset, onJournal, onSleep }) {
+  constructor({ onSelectTool, onUse, onToggleMute, onSave, onMenu, onJournal, onSleep }) {
     const el = (tag, cls, html = '') => { const e = document.createElement(tag); if (cls) e.className = cls; e.innerHTML = html; return e; };
     // status panel (top-left)
     this.status = el('div', 'gpanel hidden'); this.status.id = 'status';
@@ -73,7 +74,14 @@ export class GameUI {
     document.body.appendChild(this.status);
     this.journalBtn = el('button', 'hidden', `${icon('book', 22)}<span>Journal</span><kbd>J</kbd>`); this.journalBtn.id = 'journal-btn'; this.journalBtn.type = 'button';
     this.journalBtn.addEventListener('click', (e) => { e.stopPropagation(); onJournal && onJournal(); });
-    document.body.appendChild(this.journalBtn);
+    // Journal + Save buttons sit together under the status panel
+    this.sideBtns = el('div', 'hidden'); this.sideBtns.id = 'side-btns';
+    this.saveBtn = el('button', '', `${icon('save', 20)}<span>Save</span>`); this.saveBtn.id = 'save-btn'; this.saveBtn.type = 'button'; this.saveBtn.title = 'Save your game (it also autosaves)';
+    this.saveBtn.addEventListener('click', (e) => { e.stopPropagation(); onSave && onSave(); });
+    this.sideBtns.append(this.journalBtn, this.saveBtn);
+    document.body.appendChild(this.sideBtns);
+    this.journalBtn.classList.remove('hidden');
+    this.saveToastEl = el('div', 'hidden'); this.saveToastEl.id = 'save-toast'; this.saveToastEl.setAttribute('role', 'status'); document.body.appendChild(this.saveToastEl);
     this.toastEl = el('div', 'hidden'); this.toastEl.id = 'toast'; document.body.appendChild(this.toastEl);
     // hotbar (bottom-center)
     this.hotbar = el('div', 'hidden'); this.hotbar.id = 'hotbar';
@@ -104,14 +112,16 @@ export class GameUI {
       const row = el('div', 'hud-buttons');
       this.muteBtn = el('button', '', 'Sound: on'); this.muteBtn.type = 'button';
       this.muteBtn.addEventListener('click', () => onToggleMute());
-      const reset = el('button', 'danger', 'Reset garden'); reset.type = 'button';
-      reset.addEventListener('click', () => onReset());
-      row.append(this.muteBtn, reset); hud.appendChild(row);
+      const save = el('button', '', 'Save game'); save.type = 'button';
+      save.addEventListener('click', () => onSave && onSave());
+      const menu = el('button', '', 'Main menu'); menu.type = 'button'; menu.title = 'Save and go back to the start screen (save slots, New Game)';
+      menu.addEventListener('click', () => onMenu && onMenu());
+      row.append(this.muteBtn, save, menu); hud.appendChild(row);
     }
   }
 
   show(touch) {
-    this.status.classList.remove('hidden'); this.hotbar.classList.remove('hidden'); this.journalBtn.classList.remove('hidden');
+    this.status.classList.remove('hidden'); this.hotbar.classList.remove('hidden'); this.sideBtns.classList.remove('hidden');
     if (touch) this.actBtn.classList.remove('hidden');
   }
 
@@ -123,6 +133,15 @@ export class GameUI {
     this.toastEl.classList.remove('hidden');
     this.toastEl.style.animation = 'none'; void this.toastEl.offsetWidth; this.toastEl.style.animation = '';
     clearTimeout(this._toastT); this._toastT = setTimeout(() => this.toastEl.classList.add('hidden'), 4200);
+  }
+
+  /** "Game saved 🐾": a cozy little note. mini = the quiet autosave version. */
+  saveToast(text, { mini = false, error = false } = {}) {
+    const t = this.saveToastEl;
+    t.innerHTML = `${icon('save', mini ? 14 : 20)}<span>${text}</span>`;
+    t.className = `${mini ? 'mini' : ''} ${error ? 'error' : ''}`;
+    t.style.animation = 'none'; void t.offsetWidth; t.style.animation = '';
+    clearTimeout(this._saveT); this._saveT = setTimeout(() => t.classList.add('hidden'), mini ? 1800 : error ? 5000 : 2600);
   }
 
   setCats(text, note) {

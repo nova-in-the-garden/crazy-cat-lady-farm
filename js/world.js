@@ -234,6 +234,52 @@ function pathRibbon(points, width, material, y = 0.02) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Porch swing: a wooden bench hanging on ropes from the porch roof.   */
+/* The game swings `pivot` (rotation.x) and seats her at `seatAnchor`.  */
+/* ------------------------------------------------------------------ */
+function buildPorchSwing(house, { HX, HZ, deckH, x, z }) {
+  const L = 2.02, HALF = 0.66;                       // rope length, half the bench width
+  const wood = mat('#c99567'), woodDark = mat(PALETTE.woodDark), rope = mat('#ead6aa'), cushion = mat('#f6b7c9');
+  const topY = deckH + 2.5;
+  // hanging beam tucked under the porch roof (doesn't move)
+  house.add(mesh(new THREE.BoxGeometry(HALF * 2 + 0.4, 0.12, 0.14), woodDark, { x, y: topY + 0.05, z }));
+  [-1, 1].forEach((s) => house.add(mesh(new THREE.TorusGeometry(0.035, 0.012, 5, 10), mat('#9aa3ab', { metalness: 0.5, roughness: 0.4 }), { x: x + s * HALF, y: topY - 0.02, z, ry: Math.PI / 2 })));
+  const pivot = new THREE.Group(); pivot.position.set(x, topY, z); house.add(pivot);
+  const ropeBetween = (a, b) => {
+    const len = a.distanceTo(b), m = mesh(new THREE.CylinderGeometry(0.016, 0.016, len, 5), rope, { cast: false });
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    pivot.add(m);
+  };
+  const V = (a, b, c) => new THREE.Vector3(a, b, c);
+  [-1, 1].forEach((s) => {
+    const split = V(s * HALF, -L + 0.42, 0);
+    ropeBetween(V(s * HALF, -0.02, 0), split);
+    ropeBetween(split, V(s * HALF, -L + 0.02, 0.2));
+    ropeBetween(split, V(s * HALF, -L + 0.02, -0.2));
+    // armrests
+    pivot.add(mesh(new THREE.BoxGeometry(0.07, 0.06, 0.48), woodDark, { x: s * (HALF - 0.04), y: -L + 0.25, z: 0.0 }));
+    pivot.add(mesh(new THREE.BoxGeometry(0.06, 0.25, 0.06), woodDark, { x: s * (HALF - 0.04), y: -L + 0.12, z: 0.2 }));
+  });
+  // seat slats, backrest slats, and a pink cushion
+  for (let i = 0; i < 4; i++) pivot.add(mesh(new THREE.BoxGeometry(HALF * 2, 0.05, 0.11), wood, { y: -L, z: -0.18 + i * 0.12 }));
+  for (let i = 0; i < 3; i++) pivot.add(mesh(new THREE.BoxGeometry(HALF * 2, 0.09, 0.04), wood, { y: -L + 0.17 + i * 0.13, z: -0.25 - i * 0.025, rx: -0.2 }));
+  pivot.add(mesh(new THREE.BoxGeometry(HALF * 2 - 0.25, 0.06, 0.38), cushion, { y: -L + 0.05, z: 0.0 }));
+  pivot.add(mesh(new THREE.BoxGeometry(0.28, 0.24, 0.08), mat('#c9b0e6'), { x: -HALF + 0.22, y: -L + 0.2, z: -0.18, rx: -0.25, rz: 0.15 })); // little pillow
+  // where she sits (her group origin: hips end up on the cushion) and where a cat curls up beside her
+  const seatAnchor = new THREE.Object3D(); seatAnchor.position.set(-0.12, -L + 0.08 - 0.5, 0.02); pivot.add(seatAnchor);
+  const catAnchor = new THREE.Object3D(); catAnchor.position.set(0.42, -L + 0.08, 0.02); pivot.add(catAnchor);
+  pivot.traverse((o) => { if (o.isMesh) o.userData.isSwing = true; });
+  // keep her (and cats) from walking through the bench; she gets seated by the game
+  addBox(HX + x, HZ + z, HALF * 2 + 0.1, 0.5);
+  return {
+    pivot, seatAnchor, catAnchor,
+    front: new THREE.Vector3(HX + x, deckH, HZ + z + 0.85),       // stand here to sit down
+    catFront: new THREE.Vector3(HX + x + 0.42, deckH, HZ + z + 0.6), // a cat hops up from here
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* The cottage (her house) with porch and cat things                   */
 /* ------------------------------------------------------------------ */
 function buildCottage(scene, smokePuffs) {
@@ -416,27 +462,20 @@ function buildCottage(scene, smokePuffs) {
   house.add(ct);
   addCircle(HX - 2.6, HZ + D / 2 + 1.1, 0.5);
 
-  // Food & water bowls, yarn basket, rocking chair (right side)
-  const bowl = (x, z, color, fill) => {
-    const pts = [new THREE.Vector2(0, 0), new THREE.Vector2(0.17, 0), new THREE.Vector2(0.22, 0.1), new THREE.Vector2(0.2, 0.11), new THREE.Vector2(0.15, 0.03), new THREE.Vector2(0, 0.03)];
-    house.add(mesh(new THREE.LatheGeometry(pts, 14), mat(color, { flatShading: false }), { x, y: deckH, z }));
-    house.add(mesh(new THREE.CircleGeometry(0.16, 12), mat(fill, { flatShading: false }), { x, y: deckH + 0.07, z, rx: -Math.PI / 2, cast: false }));
-  };
-  bowl(1.5, D / 2 + 0.5, '#f4a3b5', '#b9784a');
-  bowl(1.95, D / 2 + 0.5, '#9fd0ef', '#cdeefe');
-  bowl(2.4, D / 2 + 0.5, '#c8aaf2', '#b9784a');
+  // Porch swing, rocking chair and yarn basket (right side). Cats eat in the Cats' House now, so no porch bowls.
+  const swing = buildPorchSwing(house, { HX, HZ, deckH, x: 1.85, z: D / 2 + 0.5 });
   const chair = new THREE.Group();
-  chair.position.set(2.7, deckH, D / 2 + 1.3); chair.rotation.y = -0.5;
+  chair.position.set(2.95, deckH, D / 2 + 1.75); chair.rotation.y = -0.5;
   const cw = mat(PALETTE.woodDark);
   chair.add(mesh(new THREE.BoxGeometry(0.6, 0.08, 0.6), cw, { y: 0.45 }));
   chair.add(mesh(new THREE.BoxGeometry(0.6, 0.75, 0.08), cw, { y: 0.85, z: -0.28, rx: -0.12 }));
   [-1, 1].forEach((s) => chair.add(mesh(new THREE.TorusGeometry(0.5, 0.03, 4, 12, Math.PI * 0.6), cw, { x: s * 0.28, y: 0.5, ry: Math.PI / 2, rz: Math.PI * 1.2 })));
   chair.add(mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), mat('#f6b7c9'), { y: 0.52 }));
   house.add(chair);
-  addCircle(HX + 2.7, HZ + D / 2 + 1.3, 0.45);
-  const basket = mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.22, 10), mat(PALETTE.wood), { x: 2.0, y: deckH + 0.11, z: D / 2 + 1.75 });
+  addCircle(HX + 2.95, HZ + D / 2 + 1.75, 0.42);
+  const basket = mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.22, 10), mat(PALETTE.wood), { x: -1.55, y: deckH + 0.11, z: D / 2 + 1.85 });
   house.add(basket);
-  ['#f58fa8', '#9fd0ef', '#ffd76e'].forEach((c, i) => house.add(mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(c), { x: 1.92 + i * 0.09, y: deckH + 0.27, z: D / 2 + 1.72 + (i % 2) * 0.06 })));
+  ['#f58fa8', '#9fd0ef', '#ffd76e'].forEach((c, i) => house.add(mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(c), { x: -1.63 + i * 0.09, y: deckH + 0.27, z: D / 2 + 1.82 + (i % 2) * 0.06 })));
 
   // Bushes along the front
   const rand = mulberry32(31);
@@ -454,6 +493,7 @@ function buildCottage(scene, smokePuffs) {
   });
   return {
     isInside,
+    swing,
     ...interior,
     update(dt, t, ladyPos, camera) { fader(dt, ladyPos && isInside(ladyPos.x, ladyPos.z), camera); interior.animate(dt, t); },
   };
