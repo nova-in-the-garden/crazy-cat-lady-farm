@@ -20,12 +20,14 @@ export const NEGLECT = { enabled: false, floor: 30 };
 // Doors and the porch steps: cats walk through these to get in and out of buildings.
 const LINKS = {
   'out-porch': [[0, -3.4], [0, -4.7]],
-  'porch-cottage': [[0, -5.9], [0, -7.4]],
+  'porch-living': [[0, -5.9], [0, -7.4]],   // front door into the cottage living room
+  // (the doorways between the cottage rooms come from the cottage itself: world.cottage.links)
   'out-clinic': [[-12, -4.9], [-12, -6.9]],
   'out-barn': [[8.5, -7], [10.9, -7]],   // the Cats' House (old barn) doorway faces west
 };
-const BED_PILE = [[2.35, 0.9, -10.15], [2.85, 0.9, -9.85], [2.45, 0.9, -9.5]];
-const NIGHT_SPOTS = [[-0.2, 0.37, -10.25], [0.6, 0.33, -8.8], [-1.5, 0.33, -8.5]];
+// on her quilt in the cottage bedroom (bed centre is at x 2.55, z -13.25)
+const BED_PILE = [[2.3, 0.94, -13.55], [2.85, 0.94, -13.15], [2.4, 0.94, -12.7]];
+const NIGHT_SPOTS = [[-3.8, 0.37, -9.2], [1.35, 0.37, -7.15], [-1.6, 0.33, -8.3]]; // cottage living room (cat beds, rug)
 export const EXAM_SPOT = new THREE.Vector3(-13.6, 0.95, -10.4);
 export const RECOVERY_SPOT = new THREE.Vector3(-9.6, 0.1, -9.0);
 
@@ -796,22 +798,28 @@ export class CatManager {
   hop(c) { c.model.pounce(); this.flashIcon(c, 'sparkle', 0.9); }
   region(x, z) {
     const W = this.game.world;
-    if (W.cottage.isInside(x, z)) return 'cottage';
+    if (W.cottage.isInside(x, z)) return W.cottage.roomOf(x, z);   // living | kitchen | bedroom | bath
     if (W.clinic.isInside(x, z)) return 'clinic';
     if (W.catsHouse.isInside(x, z)) return 'barn';
-    if (x > -3.9 && x < 3.9 && z > -6.6 && z < -4.1) return 'porch';
+    if (x > -4.9 && x < 4.9 && z > -6.6 && z < -4.1) return 'porch';
     return 'out';
   }
   route(from, dest) {
     const a = this.region(from.x, from.z), b = this.region(dest.x, dest.z);
     const pts = [];
-    const graph = { out: { porch: 'out-porch', clinic: 'out-clinic', barn: 'out-barn' }, porch: { out: 'out-porch', cottage: 'porch-cottage' }, cottage: { porch: 'porch-cottage' }, clinic: { out: 'out-clinic' }, barn: { out: 'out-barn' } };
-    // breadth-first search over the 5 regions
+    const graph = {
+      out: { porch: 'out-porch', clinic: 'out-clinic', barn: 'out-barn' }, porch: { out: 'out-porch', living: 'porch-living' },
+      living: { porch: 'porch-living', kitchen: 'living-kitchen', bedroom: 'living-bedroom', bath: 'living-bath' },
+      kitchen: { living: 'living-kitchen' }, bedroom: { living: 'living-bedroom' }, bath: { living: 'living-bath' },
+      clinic: { out: 'out-clinic' }, barn: { out: 'out-barn' },
+    };
+    const links = { ...LINKS, ...this.game.world.cottage.links };
+    // breadth-first search over the regions (yard, porch, the 4 cottage rooms, clinic, Cats' House)
     const prev = { [a]: null }, q = [a];
     while (q.length) { const r = q.shift(); if (r === b) break; for (const n in graph[r]) if (!(n in prev)) { prev[n] = r; q.push(n); } }
     const chain = []; let r = b; while (r && r !== a) { chain.unshift([prev[r], r]); r = prev[r]; }
     for (const [x, y] of chain) {
-      const key = graph[x][y]; let link = LINKS[key].map(([px, pz]) => new THREE.Vector3(px, 0, pz));
+      const key = graph[x][y]; let link = links[key].map(([px, pz]) => new THREE.Vector3(px, 0, pz));
       if (key.split('-')[0] !== x) link = link.reverse();
       pts.push(...link);
     }

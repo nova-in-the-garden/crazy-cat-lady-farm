@@ -284,7 +284,7 @@ function buildPorchSwing(house, { HX, HZ, deckH, x, z }) {
 /* ------------------------------------------------------------------ */
 function buildCottage(scene, smokePuffs) {
   const house = new THREE.Group();
-  const HX = 0, HZ = -9, W = 7, D = 5, H = 2.8, F = 0.3; // F = foundation height (= floor height inside)
+  const W = 9, D = 8, HX = 0, HZ = -6.5 - D / 2, H = 2.8, F = 0.3; // front wall stays at z = -6.5; F = foundation height (= floor height inside)
   const T = 0.2, DOOR = 1.4, FLOOR = 0.32;
   house.position.set(HX, 0, HZ);
   scene.add(house);
@@ -331,7 +331,7 @@ function buildCottage(scene, smokePuffs) {
 
   /* --- Roof group (fades away when she's inside) --- */
   const roof = new THREE.Group(); house.add(roof);
-  const top = F + H, rise = 1.9, over = 0.45;
+  const top = F + H, rise = 2.3, over = 0.45;
   const half = D / 2 + over;
   const slope = Math.hypot(half, rise);
   const ang = Math.atan2(rise, half);
@@ -360,12 +360,14 @@ function buildCottage(scene, smokePuffs) {
   // ceiling seen from below is just the roof underside; add a cozy ceiling beam
   roof.add(mesh(new THREE.BoxGeometry(W - 0.2, 0.15, 0.2), mat(PALETTE.woodDark), { y: top - 0.08 }));
   // Chimney with smoke
-  roof.add(mesh(new THREE.BoxGeometry(0.7, 2.2, 0.7), mat(PALETTE.brick), { x: 2.2, y: top + 1.5, z: -1.1 }));
-  roof.add(mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), mat('#b46d5a'), { x: 2.2, y: top + 2.65, z: -1.1 }));
+  // (above the living-room woodstove)
+  const CHX = -W / 2 + 0.6, CHZ = 2.25;
+  roof.add(mesh(new THREE.BoxGeometry(0.7, 2.2, 0.7), mat(PALETTE.brick), { x: CHX, y: top + 1.5, z: CHZ }));
+  roof.add(mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), mat('#b46d5a'), { x: CHX, y: top + 2.65, z: CHZ }));
   const smokeMat = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.7, roughness: 1, flatShading: true });
   for (let i = 0; i < 6; i++) {
     const puff = mesh(new THREE.IcosahedronGeometry(0.25, 1), smokeMat.clone(), { cast: false, receive: false });
-    puff.userData = { phase: i / 6, base: new THREE.Vector3(HX + 2.2, top + 2.8, HZ - 1.1) };
+    puff.userData = { phase: i / 6, base: new THREE.Vector3(HX + CHX, top + 2.8, HZ + CHZ) };
     scene.add(puff); smokePuffs.push(puff);
   }
 
@@ -382,9 +384,9 @@ function buildCottage(scene, smokePuffs) {
   front.add(door);
   front.add(mesh(new THREE.TorusGeometry(0.16, 0.05, 6, 14), mat('#7fc67c'), { x: 1.15, y: F + 1.85, z: fz + 0.03 })); // heart wreath beside the door
 
-  const windowAt = (parent, x, y, z, ry) => {
+  const windowAt = (parent, x, y, z, ry, sc = 1) => {
     const w = new THREE.Group();
-    w.position.set(x, y, z); w.rotation.y = ry;
+    w.position.set(x, y, z); w.rotation.y = ry; w.scale.set(sc, sc, 1);
     w.add(mesh(new THREE.BoxGeometry(1.15, 1.05, 0.1), mat(PALETTE.trim)));
     w.add(mesh(new THREE.BoxGeometry(0.95, 0.85, 0.12), mat(PALETTE.glass, { emissive: '#ffcf7a', emissiveIntensity: 0.35 }), { cast: false }));
     w.add(mesh(new THREE.BoxGeometry(0.06, 0.85, 0.15), mat(PALETTE.trim), { cast: false }));
@@ -400,12 +402,13 @@ function buildCottage(scene, smokePuffs) {
     w.add(mesh(new THREE.BoxGeometry(1.1, 0.06, 0.12), mat(PALETTE.trim), { y: -0.47, z: -T - 0.05, cast: false }));
     parent.add(w);
   };
-  windowAt(front, -2.15, F + 1.45, fz + 0.02, 0);
-  windowAt(front, 2.15, F + 1.45, fz + 0.02, 0);
-  windowAt(left, -W / 2 - 0.02, F + 1.45, 0, -Math.PI / 2);
-  windowAt(right, W / 2 + 0.02, F + 1.45, 0.6, Math.PI / 2);
-  windowAt(back, -1.6, F + 1.45, -D / 2 - 0.02, Math.PI);
-  windowAt(back, 1.6, F + 1.45, -D / 2 - 0.02, Math.PI);
+  // one (or two) per room, lined up with the windows inside (kitchen.js)
+  windowAt(front, -2.4, F + 1.45, fz + 0.02, 0);                        // living room
+  windowAt(front, 3.2, F + 1.45, fz + 0.02, 0, 0.62);                   // bathroom
+  windowAt(left, -W / 2 - 0.02, F + 1.45, 3.35, -Math.PI / 2, 0.75);   // living room side
+  windowAt(right, W / 2 + 0.02, F + 1.45, -2.6, Math.PI / 2, 0.85);    // bedroom side
+  windowAt(back, -1.75, F + 1.45, -D / 2 - 0.02, Math.PI);             // kitchen, over the counter
+  windowAt(back, 1.2, F + 1.45, -D / 2 - 0.02, Math.PI, 0.72);         // bedroom
 
   // Porch (walkable deck)
   const PD = 2.4, deckH = 0.32;
@@ -463,26 +466,26 @@ function buildCottage(scene, smokePuffs) {
   addCircle(HX - 2.6, HZ + D / 2 + 1.1, 0.5);
 
   // Porch swing, rocking chair and yarn basket (right side). Cats eat in the Cats' House now, so no porch bowls.
-  const swing = buildPorchSwing(house, { HX, HZ, deckH, x: 1.85, z: D / 2 + 0.5 });
+  const swing = buildPorchSwing(house, { HX, HZ, deckH, x: 2.25, z: D / 2 + 0.5 });
   const chair = new THREE.Group();
-  chair.position.set(2.95, deckH, D / 2 + 1.75); chair.rotation.y = -0.5;
+  chair.position.set(3.75, deckH, D / 2 + 1.6); chair.rotation.y = -0.5;
   const cw = mat(PALETTE.woodDark);
   chair.add(mesh(new THREE.BoxGeometry(0.6, 0.08, 0.6), cw, { y: 0.45 }));
   chair.add(mesh(new THREE.BoxGeometry(0.6, 0.75, 0.08), cw, { y: 0.85, z: -0.28, rx: -0.12 }));
   [-1, 1].forEach((s) => chair.add(mesh(new THREE.TorusGeometry(0.5, 0.03, 4, 12, Math.PI * 0.6), cw, { x: s * 0.28, y: 0.5, ry: Math.PI / 2, rz: Math.PI * 1.2 })));
   chair.add(mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), mat('#f6b7c9'), { y: 0.52 }));
   house.add(chair);
-  addCircle(HX + 2.95, HZ + D / 2 + 1.75, 0.42);
+  addCircle(HX + 3.75, HZ + D / 2 + 1.6, 0.42);
   const basket = mesh(new THREE.CylinderGeometry(0.22, 0.17, 0.22, 10), mat(PALETTE.wood), { x: -1.55, y: deckH + 0.11, z: D / 2 + 1.85 });
   house.add(basket);
   ['#f58fa8', '#9fd0ef', '#ffd76e'].forEach((c, i) => house.add(mesh(new THREE.SphereGeometry(0.1, 8, 6), mat(c), { x: -1.63 + i * 0.09, y: deckH + 0.27, z: D / 2 + 1.82 + (i % 2) * 0.06 })));
 
   // Bushes along the front
   const rand = mulberry32(31);
-  [-3.9, 3.9].forEach((x) => { const b = makeBush(rand, 0.9); b.position.set(HX + x, 0, HZ + D / 2 + 0.5); scene.add(b); addCircle(HX + x, HZ + D / 2 + 0.5, 0.5); });
+  [-W / 2 - 0.5, W / 2 + 0.5].forEach((x) => { const b = makeBush(rand, 0.9); b.position.set(HX + x, 0, HZ + D / 2 + 0.5); scene.add(b); addCircle(HX + x, HZ + D / 2 + 0.5, 0.5); });
 
   /* --- Inside: the Cat Food Kitchen and her bedroom corner --- */
-  const interior = buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR });
+  const interior = buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls: { front, back, left, right } });
 
   /* --- Fading --- */
   const isInside = (x, z) => Math.abs(x - HX) < W / 2 && Math.abs(z - HZ) < D / 2;
@@ -495,7 +498,7 @@ function buildCottage(scene, smokePuffs) {
     isInside,
     swing,
     ...interior,
-    update(dt, t, ladyPos, camera) { fader(dt, ladyPos && isInside(ladyPos.x, ladyPos.z), camera); interior.animate(dt, t); },
+    update(dt, t, ladyPos, camera) { const inside = ladyPos && isInside(ladyPos.x, ladyPos.z); fader(dt, inside, camera); interior.fadePartitions(dt, ladyPos, camera, inside); interior.animate(dt, t); },
   };
 }
 
@@ -655,7 +658,7 @@ function scatter(scene, keepOut) {
   const blocked = (x, z, pad) => keepOut.some((k) => Math.abs(x - k.x) < k.w / 2 + pad && Math.abs(z - k.z) < k.d / 2 + pad);
 
   // Hand-placed yard trees
-  [[-6.5, -14, 1, false], [7, -15, 1.1, false], [-20, -13, 1.0, true], [19, 3, 1.1, false], [-18, 11, 1.0, false],
+  [[-6.9, -15.8, 1, false], [7, -15, 1.1, false], [-20, -13, 1.0, true], [19, 3, 1.1, false], [-18, 11, 1.0, false],
    [15, 13, 0.9, true], [-5, 12, 0.85, true], [3.9, -1.2, 0.7, true], [-19, -2, 1.05, false], [20, -13, 1.0, false]].forEach(([x, z, s, b]) => {
     const t = makeTree(rand, { blossom: b, scale: s }); t.position.set(x, 0, z); scene.add(t); addCircle(x, z, 0.45 * s);
   });
@@ -754,10 +757,10 @@ export function buildWorld(scene) {
 
   // areas where scattered things shouldn't spawn (x, z, width, depth)
   const keepOut = [
-    { x: 0, z: -7.5, w: 10, d: 10 }, { x: 12, z: -6, w: 10, d: 10 }, { x: -11, z: 2, w: 9, d: 8 },
+    { x: 0, z: -9.5, w: 11, d: 13 }, { x: 12, z: -6, w: 10, d: 10 }, { x: -11, z: 2, w: 9, d: 8 },
     { x: 9, z: 7.5, w: 9, d: 7 }, { x: 0, z: 6, w: 3.2, d: 26 }, { x: 5, z: 0, w: 8, d: 3 }, { x: -4, z: 4, w: 7, d: 3 },
     { x: 0, z: 17, w: 44, d: 1.5 }, { x: 3, z: 16, w: 2, d: 2 }, { x: 0, z: 2, w: 6, d: 6 }, { x: -6.6, z: 4.3, w: 2, d: 2 },
-    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 }, { x: 5.8, z: -4.6, w: 3.6, d: 3.6 },
+    { x: -12, z: -8.5, w: 12, d: 10.5 }, { x: -6, z: -3, w: 12, d: 2.4 }, { x: 6.6, z: -4.6, w: 3.6, d: 3.6 },
   ];
   scatter(scene, keepOut);
   const butterflies = buildButterflies(scene);
@@ -765,13 +768,16 @@ export function buildWorld(scene) {
   // Named places the cat lady likes to talk about
   const zones = [
     { id: 'clinicInside', test: (x, z) => clinic.isInside(x, z) },
-    { id: 'kitchen', test: (x, z) => cottage.isInside(x, z) },
+    { id: 'kitchen', test: (x, z) => cottage.isInside(x, z) && cottage.roomOf(x, z) === 'kitchen' },
+    { id: 'living', test: (x, z) => cottage.isInside(x, z) && cottage.roomOf(x, z) === 'living' },
+    { id: 'bedroom', test: (x, z) => cottage.isInside(x, z) && cottage.roomOf(x, z) === 'bedroom' },
+    { id: 'bath', test: (x, z) => cottage.isInside(x, z) && cottage.roomOf(x, z) === 'bath' },
     { id: 'clinic', x: -12, z: -4, r: 4 },
-    { id: 'porch', x: 0, z: -5.3, r: 3.5 },
+    { id: 'porch', test: (x, z) => Math.abs(x) < 4.9 && z > -6.5 && z < -4.0 },
     { id: 'garden', x: -11, z: 2, r: 5 },
     { id: 'catsHouse', test: (x, z) => catsHouse.isInside(x, z) },
     { id: 'barn', x: 8.5, z: -6, r: 3 },
-    { id: 'shop', x: 5.8, z: -3.6, r: 2.2 },
+    { id: 'shop', x: 6.6, z: -3.6, r: 2.2 },
     { id: 'pond', x: pond.x, z: pond.z, r: 5 },
     { id: 'gate', x: 0, z: 16, r: 3.5 },
   ];

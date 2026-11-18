@@ -52,7 +52,8 @@ const LINES = {
     'Chamomile from the garden makes every remedy work faster.',
   ],
   porch: [
-    "That's my porch! Cat tree, food bowls, rocking chair. All ready for company.",
+    "That's my porch! Cat tree, rocking chair and my porch swing. Press E by the swing to sit a spell.",
+    'Nothing beats a slow swing on the porch at golden hour. The cats think so too.',
     'The cat flap on the door is for very important guests only.',
   ],
   garden: [
@@ -67,8 +68,22 @@ const LINES = {
     "Welcome to my kitchen! Bring me veggies and I'll cook us a hearty meal at the stove.",
     'One carrot makes one meal, a cabbage makes two, and a pumpkin makes three!',
     "The cans on the pantry shelf are the cats' food. The Supply Shelf sells it by the bag.",
-    'Tired? My bed is right there. My very favorite cats like to pile on with me.',
+    'Tired? My bedroom is just through the living room. My very favorite cats like to pile on with me.',
+    'Mind the cinnamon rolls, dearie, they are still cooling!',
     "The cats' food bowls and litter boxes are over in the Cats' House now. The old barn!",
+  ],
+  living: [
+    'Welcome to my living room! Warm your toes by the woodstove.',
+    'The cats adore that bed by the fire. Me, I prefer the armchair and my knitting.',
+    'Kitchen through that door, bedroom through the other, and the bathroom past the bookshelf.',
+  ],
+  bedroom: [
+    'My little bedroom. Come 10 PM, stand by the bed and press Sleep.',
+    'Grandma made that quilt. Every square has a story, and a few have paw prints.',
+  ],
+  bath: [
+    'A clawfoot tub! Nothing like a bubble bath after a day of cat wrangling.',
+    'That rubber duck is purely decorative. The cats disagree.',
   ],
   barn: [
     "That's the Cats' House! It used to be the old barn. Now it's all theirs.",

@@ -17,10 +17,10 @@ export const PERSONALITY_IDS = Object.keys(PERSONALITIES);
 /** Favorite resting spots around the sanctuary (world positions, y = how high the spot is). */
 export const SPOTS = {
   porch: { label: 'the sunny porch', x: 1.3, y: 0.32, z: -5.6 },
-  stoveBed: { label: 'the cat bed by the stove', x: -0.2, y: 0.36, z: -10.25 },
+  stoveBed: { label: 'the cat bed by the woodstove', x: -3.8, y: 0.37, z: -9.2 },
   hay: { label: 'the hay bales by the barn', x: 9.4, y: 1.1, z: -2.8 },
   garden: { label: 'the garden by the scarecrow', x: -15.0, y: 0, z: 0.9 },
-  rug: { label: 'the pink rug in the cottage', x: 0.6, y: 0.32, z: -8.8 },
+  rug: { label: 'the cozy rug in the living room', x: -1.6, y: 0.32, z: -8.3 },
 };
 
 export const TOYS = { wand: 'feather wand', yarn: 'yarn ball' };

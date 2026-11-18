@@ -20,7 +20,8 @@ export function setOpacity(f, a) {
   f.group.visible = a > 0.03;
   for (const m of f.mats) {
     m.opacity = m.userData.baseOpacity * a;
-    m.transparent = a < 0.999 || m.userData.baseOpacity < 1;
+    const tr = a < 0.999 || m.userData.baseOpacity < 1;
+    if (tr !== m.transparent) { m.transparent = tr; m.needsUpdate = true; } // (three.js bakes "opaque" into the shader)
     m.depthWrite = a > 0.6;
   }
   f.group.traverse((o) => { if (o.isMesh) o.castShadow = a > 0.6 && o.userData.origCast; });

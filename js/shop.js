@@ -7,7 +7,7 @@ import { SHOP, SUPPLY_LABELS, CROPS } from './state.js';
 import { icon } from './ui.js';
 import { sound } from './sound.js';
 
-export const STALL = { x: 5.8, z: -4.7 };
+export const STALL = { x: 6.6, z: -4.7 };
 
 function signTex() {
   return canvasTexture(768, 192, (ctx, w, h) => {
