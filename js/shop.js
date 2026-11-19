@@ -108,7 +108,7 @@ export class Shop {
     this.el.classList.toggle('hidden', !v);
     this.game.shopOpen = v;
     sound.play(v ? 'page' : 'click');
-    if (v) { this.render(); if (!this.game.state.flags.shopHello) { this.game.state.flags.shopHello = true; this.game.host.say("The Farmers Market! Cat food bags, medicine, shots, bandages and seeds. Whatever we buy, the delivery fellow brings it up to the porch.", 8); } }
+    if (v) { this.render(); if (!this.game.state.flags.shopHello) { this.game.state.flags.shopHello = true; this.game.host.say("The Farmers Market! Cat food bags, medicine, shots, bandages, seeds, yarn and worms for fishing. Whatever we buy, the delivery fellow brings it up to the porch.", 8); } }
   }
   buy(id) {
     const g = this.game, s = g.state, item = SHOP.find((i) => i.id === id);
@@ -127,6 +127,6 @@ export class Shop {
     const seeds = Object.entries(s.seeds).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${CROPS[k].name.toLowerCase()}`).join(', ') || 'none';
     const d = this.game.delivery;
     this.el.querySelector('.shop-order').innerHTML = d && d.hasPending() ? `📦 <b>Ordered:</b> ${d.describe(s.market.pending)}. <span>${d.statusText()}</span>` : '';
-    this.el.querySelector('.shop-stock').innerHTML = `<b>You have:</b> ${s.food} cat food · ${Object.entries(SUPPLY_LABELS).map(([k, l]) => `${s.supplies[k] || 0} ${l.toLowerCase()}`).join(' · ')} · seeds: ${seeds}`;
+    this.el.querySelector('.shop-stock').innerHTML = `<b>You have:</b> ${s.food} cat food · ${Object.entries(SUPPLY_LABELS).map(([k, l]) => `${s.supplies[k] || 0} ${l.toLowerCase()}`).join(' · ')} · ${s.yarn || 0} yarn · ${s.bait || 0} worms · seeds: ${seeds}`;
   }
 }

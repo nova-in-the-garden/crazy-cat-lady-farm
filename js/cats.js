@@ -107,11 +107,13 @@ export class CatManager {
   spawn(data) {
     const def = this.defs[data.id];
     const model = createCat(def.look, def.scale);
+    model.group.userData.catId = data.id;
     model.group.position.set(data.pos.x, 0, data.pos.z);
     this.game.scene.add(model.group);
     const c = { data, def, model, pos: model.group.position, heading: Math.random() * 6, task: null, timer: 1 + Math.random() * 2, speed: 0, path: [], stuck: 0, lastD: 0, perch: 0, iconT: 0, iconKind: null };
     this.list.push(c);
     this.refreshTag(c);
+    this.applyCostume(c);
     model.group.traverse((o) => { if (o.isMesh && o.userData.isCat) o.userData.catId = data.id; });
     return c;
   }
@@ -229,6 +231,7 @@ export class CatManager {
       { id: 'yarn', label: `Play: ${TOYS.yarn}`, icon: 'yarn', ok: true },
       { id: 'groom', label: 'Brush & groom', icon: 'brush', ok: true },
       { id: 'catnip', label: nip ? (nipOk ? `Catnip treat (${nip} left)` : 'Catnip treat (had one recently)') : 'Catnip treat (grow catnip!)', icon: 'catnip', ok: nipOk },
+      this.dressItem(c),
       { id: 'stats', label: 'Stats card', icon: 'stats', ok: true },
     ];
     if (cs) {
@@ -309,11 +312,47 @@ export class CatManager {
         sound.play('purr');
         break;
       }
+      case 'dress': this.dress(c); break;
       case 'stats': c.task = null; g.statsCard.open(c); break;
       case 'clinic': this.escort(c); break;
       default: break;
     }
     void p; void s;
+  }
+
+  /* ---------------- knitted costumes ---------------- */
+  costumeColors(c) {
+    const P = [['#e56f95', '#fff6ec'], ['#7fc4b4', '#fff6ec'], ['#f5b04f', '#c95c74'], ['#b9a0dc', '#ffd76e'], ['#9fd0ef', '#ffffff'], ['#d9534f', '#fff6ec'], ['#8fd36f', '#f6c6d6']];
+    let h = 0; for (const ch of (c.data || c).id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return P[h % P.length];
+  }
+  applyCostume(c) { c.model.setCostume?.(c.data.costume || {}, this.costumeColors(c)); }
+  wearing(c) { const k = c.data.costume || {}; return [k.sweater && 'knit sweater', k.hat && 'bobble hat'].filter(Boolean); }
+  dressItem(c) {
+    const w = this.state.wardrobe, k = c.data.costume || {};
+    if (!k.sweater && w.sweater > 0) return { id: 'dress', label: `Dress up: knit sweater (${w.sweater})`, icon: 'yarn', ok: true };
+    if (!k.hat && w.hat > 0) return { id: 'dress', label: `Dress up: bobble hat (${w.hat})`, icon: 'yarn', ok: true };
+    if (k.sweater || k.hat) return { id: 'dress', label: 'Take the costume off', icon: 'yarn', ok: true };
+    return { id: 'dress', label: 'Dress up (knit one first: T, Knitting)', icon: 'yarn', ok: false };
+  }
+  dress(c) {
+    const g = this.game, s = this.state, w = s.wardrobe, d = c.data, k = (d.costume ||= {});
+    let put = null;
+    if (!k.sweater && w.sweater > 0) { k.sweater = true; w.sweater--; put = 'sweater'; }
+    else if (!k.hat && w.hat > 0) { k.hat = true; w.hat--; put = 'hat'; }
+    else { if (k.sweater) w.sweater++; if (k.hat) w.hat++; k.sweater = k.hat = false; }
+    this.applyCostume(c);
+    c.task = { type: 'interact', t: 2.6, anim: put ? 'sit' : 'stretch' };
+    if (put) {
+      const p = this.personality(c), fussy = /independent|shy/i.test(this.def(c).personality);
+      const lines = fussy ? [`${d.name} is NOT amused 😾`, `${d.name} tolerates the ${put}. Barely.`, `${d.name} glares. Fashion is pain.`] : [`${d.name} looks ADORABLE 😻`, `${d.name} struts like a supermodel!`, `So cozy! ${d.name} purrs in the ${put}`];
+      g.floatAt(c.pos, lines[Math.floor(Math.random() * lines.length)], '#c95c74', 'yarn');
+      g.particles.emit(c.pos.clone().setY(c.pos.y + 0.45), { color: '#f58fa8', count: 10, speed: 0.6, up: 1.2, gravity: 0.6, size: 0.035, emissive: true });
+      this.addBond(c, fussy ? 0 : 1); sound.play(fussy ? 'nope' : 'purr');
+      if (!d.firsts.costume) { d.firsts.costume = true; g.journal.log(`Granny dressed ${d.name} in a hand-knitted ${put}. ${fussy ? 'Revenge is being plotted.' : 'Photos were taken. So many photos.'}`, d.id); }
+      void p;
+    } else g.floatAt(c.pos, `${d.name} wriggles free. Naked and proud!`, '#8d7388');
+    g.save();
   }
 
   showBowl(c) {

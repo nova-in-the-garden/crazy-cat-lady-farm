@@ -113,6 +113,20 @@ const POSES = {
   pounce: { hipY: 0.16, pitch: 0.12, head: -0.1, fl: 0.2, bl: -0.4, tail: 1.2, ear: 0, lift: 0, low: 0 },
 };
 
+/** Chunky knit stripes with little V stitches. */
+const knitCache = {};
+function knitTexture(a, b) {
+  const k = a + b; if (knitCache[k]) return knitCache[k];
+  const tex = canvasTexture(128, 128, (ctx, w, h) => {
+    ctx.fillStyle = a; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = b; for (let y = 0; y < h; y += 32) ctx.fillRect(0, y + 20, w, 10);
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 2;
+    for (let y = 0; y < h; y += 8) for (let x = 0; x < w; x += 8) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 4, y + 6); ctx.lineTo(x + 8, y); ctx.stroke(); }
+  });
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(3, 2);
+  return (knitCache[k] = tex);
+}
+
 export function createCat(lookName, scale = 1) {
   const look = LOOKS[lookName] || LOOKS.orangeTabby;
   const group = new THREE.Group();
@@ -283,5 +297,32 @@ export function createCat(lookName, scale = 1) {
   function showTag(v) { tag.visible = v && !!tagText; }
 
   function setBandage(v) { bandage.visible = !!v; }
-  return { group, rig, head, update, setAnim, get anim() { return anim; }, pounce, setTag, setIcon, showTag, setBandage, scale };
+
+  // knitted costumes (Granny's handiwork): a striped sweater with a turtleneck, and a bobble hat
+  const sweater = new THREE.Group(); sweater.visible = false; hip.add(sweater);
+  const hat = new THREE.Group(); hat.visible = false; head.add(hat);
+  let costumeKey = '';
+  function setCostume(c = {}, colors = ['#e56f95', '#fff6ec']) {
+    const key = `${!!c.sweater}${!!c.hat}${colors.join()}`;
+    if (key === costumeKey) return; costumeKey = key;
+    sweater.clear(); hat.clear();
+    front.forEach((leg) => leg.children.filter((o) => o.userData.costume).forEach((o) => leg.remove(o)));
+    const knit = new THREE.MeshStandardMaterial({ map: knitTexture(colors[0], colors[1]), roughness: 1 });
+    const solid = mat(colors[0], { flatShading: false, roughness: 1 }), trim = mat(colors[1], { flatShading: false, roughness: 1 });
+    if (c.sweater) {
+      const g = new THREE.SphereGeometry(1, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62); g.rotateX(Math.PI / 2);
+      sweater.add(tagged(mesh(g, knit, { y: 0.065, z: 0.2, sx: 0.218, sy: 0.198, sz: 0.345, cast: false })));
+      sweater.add(tagged(mesh(new THREE.TorusGeometry(0.105, 0.035, 8, 16), trim, { y: 0.14, z: 0.44, rx: 0.5, cast: false })));       // turtleneck
+      sweater.add(mesh(new THREE.TorusGeometry(0.2, 0.022, 6, 18), trim, { y: 0.06, z: 0.05, sy: 0.92, cast: false }));                    // ribbed hem
+      front.forEach((leg) => { const sl = mesh(new THREE.CylinderGeometry(0.047, 0.045, 0.08, 8), solid, { y: -0.04, cast: false }); sl.userData.costume = true; leg.add(sl); });
+    }
+    if (c.hat) {
+      hat.add(tagged(mesh(new THREE.SphereGeometry(0.115, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), knit, { y: 0.17, z: 0.03, sx: 1.05, sy: 0.9, cast: false })));
+      hat.add(mesh(new THREE.TorusGeometry(0.112, 0.025, 6, 18), trim, { y: 0.175, z: 0.03, rx: Math.PI / 2, sx: 1.05, cast: false }));
+      hat.add(tagged(mesh(new THREE.SphereGeometry(0.05, 10, 8), trim, { y: 0.295, z: 0.03, cast: false })));                            // bobble
+    }
+    sweater.visible = !!c.sweater; hat.visible = !!c.hat;
+    [sweater, hat].forEach((o) => o.traverse((m) => { if (m.isMesh && m.userData.isCat && group.userData.catId) m.userData.catId = group.userData.catId; }));
+  }
+  return { group, rig, head, update, setAnim, get anim() { return anim; }, pounce, setTag, setIcon, showTag, setBandage, setCostume, scale };
 }

@@ -20,6 +20,10 @@ import { Adoption } from './adoption.js';
 import { Delivery } from './delivery.js';
 import { Emotes, scrubPose } from './emotes.js';
 import { Faint } from './faint.js';
+import { Hairballs } from './hairballs.js';
+import { Fishing } from './fishing.js';
+import { Bingo } from './bingo.js';
+import { DUSK, DAWN } from './time.js';
 
 const TILE_COUNT = GRID.cols * GRID.rows;
 
@@ -72,6 +76,9 @@ export class Game {
     this.delivery = new Delivery(this);
     this.emotes = new Emotes(this);
     this.faint = new Faint(this);
+    this.hairballs = new Hairballs(this);
+    this.fishing = new Fishing(this);
+    this.bingo = new Bingo(this);
     this.fainted = false;
     this.shopOpen = false; this.adoptOpen = false;
     this.needNag = 60;
@@ -88,6 +95,12 @@ export class Game {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (!this.vet.naming.classList.contains('hidden')) return;
       if (e.code === 'KeyJ') { this.catMenu.close(); this.statsCard.close(); this.journal.toggle(); return; }
+      if (this.fishing.active) {
+        if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); this.fishing.press(); }
+        else if (e.code === 'Escape') this.fishing.stop();
+        return;
+      }
+      if (this.bingo.active) return;
       if (this.emotes.wheelOpen) {
         if (/^Digit[1-8]$/.test(e.code)) { this.emotes.key(Number(e.code.slice(5))); return; }
         if (e.code === 'Escape' || e.code === 'KeyT') { this.emotes.toggleWheel(false); return; }
@@ -116,7 +129,7 @@ export class Game {
   }
 
   /** True while a full-screen card is open (she stands still). */
-  get blocked() { return this.locked || this.journalOpen || this.shopOpen || this.adoptOpen || this.fainted; }
+  get blocked() { return this.locked || this.journalOpen || this.shopOpen || this.adoptOpen || this.fainted || !!(this.fishing && this.fishing.active) || !!(this.bingo && this.bingo.active); }
 
   start() {
     this.playing = true; this.started = true;
@@ -181,6 +194,10 @@ export class Game {
     // sinks, tub and toilet win over a nearby chair when she's standing right at them
     const plumb = W.cottage.isInside(p.x, p.z) ? this.plumbingAction(p) : null;
     if (plumb) return plumb;
+    const hb = this.hairballs.action(p);
+    if (hb) return hb;
+    const bus = this.bingo.action(p);
+    if (bus) return bus;
     const seat = this.nearestSeat();
     if (seat) return { ok: true, label: seat.label, run: () => this.sitDown(seat) };
     // at the cottage bed, Sleep wins (even with cats piled on the bed)
@@ -220,6 +237,8 @@ export class Game {
     if (s.tool === 2 && near(W.pond, 4.4)) {
       return s.water < s.waterMax ? { ok: true, label: 'Fill the watering can', run: () => this.fillCan() } : { ok: false, label: 'Watering can is full' };
     }
+    const fish = this.fishing.action(p);
+    if (fish) return fish;
     const i = this.targetTile();
     if (i >= 0) return this.tileAction(i);
     return null;
@@ -678,6 +697,8 @@ export class Game {
     this.journal.log(`The donation jar had ${gift} coins in it this morning. Thank you, neighbors!`);
     this.vet.dawn();
     this.adoption.dawn();
+    this.bingo.dawn();
+    if (this.state.hairballs.length >= 3) setTimeout(() => this.host.say(`There are ${this.state.hairballs.length} hairballs lying around. Someone (me) should scoop those up...`, 6), 15000);
     setTimeout(() => this.host.say(line, 7), 300);
     this.save();
   }
@@ -743,7 +764,6 @@ export class Game {
       tub: ['Ahh, a bubble bath! Don\'t mind me, kitties.', 'Rubber ducky, you\'re the one...', 'Lavender bubbles. Pure bliss, dearie.'],
       toilet: ['Don\'t look at me, cats. A lady needs her privacy!', 'Ahem. Nobody come in!', 'Why do the cats ALWAYS follow me in here?'],
     };
-    if (seat.kind === 'tub' || seat.kind === 'toilet') { this.stowedTool = this.lady.tool; this.lady.setTool(null); } // no hoe in the bath, dearie
     if (seat.kind === 'tub') this.startBath();
     if (seat.kind === 'toilet') { this.flushedThis = false; this.sitting.catT = 2.5; }
     const lines = LINES[seat.kind] || LINES.chair;
@@ -757,7 +777,6 @@ export class Game {
     if (this.sitting.cat) this.cats.leaveSwing(this.sitting.cat);
     this.sitting = null;
     this.lady.setSitting(false);
-    if (this.stowedTool !== undefined) { this.lady.setTool(this.stowedTool); this.stowedTool = undefined; }
     this.lady.group.rotation.set(0, seat.heading, 0);
     if (seat.obj && seat.rock) seat.obj.rotation.x = 0;
     this.lady.group.position.set(seat.front.x, seat.front.y, seat.front.z);
@@ -800,7 +819,7 @@ export class Game {
   update(dt, t) {
     // clock runs all the time (also on the title screen), crops grow while watered
     // (it stops at 10 PM until she sleeps, so hours is 0 at bedtime)
-    const hours = this.day.update(dt);
+    const hours = this.bingo.active ? 0 : this.day.update(dt);   // the clock waits while she's at bingo
     const ripe = hours > 0 ? this.garden.grow(hours) : [];
     if (ripe.length && this.playing) this.notifyRipe(ripe);
     this.chatCooldown -= dt;
@@ -824,6 +843,11 @@ export class Game {
     if (this.emotes.busy && this.emotes.active.t > 0.35 && window.ccl && window.ccl.state.speed > 0.4) this.emotes.stop(true);
     this.faint.update(dt);
     this.updateBath(dt);
+    this.hairballs.update(dt, t);
+    this.fishing.update(dt, t);
+    this.bingo.update(dt);
+    this.updateOutfit();
+    this.lady.hideTool(!!this.sitting || this.emotes.busy);
     const joined = this.cats.joined();
     const waiting = this.cats.list.find((c) => !c.data.joined);
     if (joined.length) {
@@ -850,6 +874,20 @@ export class Game {
       this.garden.showHighlight(-1);
     }
     this.ui.update(this.state, this.day);
+  }
+
+  /** Sundown: robe, slippers and curlers. 6 AM: back to her cardigan and apron. */
+  updateOutfit() {
+    const h = this.state.hour, want = h >= DUSK || h < DAWN ? 'night' : 'day';
+    if (this.lady.outfit === want) return;
+    this.lady.setOutfit(want);
+    if (!this.playing || !this.outfitSeen) { this.outfitSeen = this.playing; return; }
+    const p = this.lady.group.position;
+    this.particles.emit(new THREE.Vector3(p.x, p.y + 1.1, p.z), { color: want === 'night' ? '#f2b8c6' : '#ffd76e', count: 18, speed: 1, up: 1.2, gravity: 0.4, size: 0.05, emissive: true, life: 1.2, spread: 0.5 });
+    sound.play('pop');
+    const lines = want === 'night' ? ['Sun\'s down! Into my robe and curlers. Nobody look!', 'Ahh, robe o\'clock. These curlers won\'t set themselves.', 'Fuzzy slippers on. Granny is OFF DUTY. (Mostly.)'] : ['Rise and shine! Curlers out, cardigan on.', 'Good morning! Back into my day clothes. The cats prefer the robe, I think.'];
+    this.host.say(lines[Math.floor(Math.random() * lines.length)], 5);
+    if (want === 'night' && !this.state.flags.robe) { this.state.flags.robe = true; this.journal.log('At sundown Granny changed into her fuzzy pink robe, slippers and hair curlers. The cats were deeply confused.'); }
   }
 
   /** Her own soft needs: hunger and energy. Low values only slow her down a little (never a fail state). */

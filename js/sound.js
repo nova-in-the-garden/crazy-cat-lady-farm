@@ -60,6 +60,8 @@ const SOUNDS = {
   snore: () => { noise(0.8, { freq: 160, q: 4, vol: 0.25, type: 'lowpass' }); tone(110, 0.7, { type: 'sawtooth', vol: 0.03, slide: 30 }); },
   dish: () => { [1800, 2200, 1600].forEach((f, i) => tone(f, 0.06, { vol: 0.06, delay: i * 0.09 })); noise(0.3, { freq: 2600, vol: 0.06 }); },
   page: () => { noise(0.18, { freq: 3500, q: 0.5, vol: 0.1 }); },
+  chime: () => { [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.25, { vol: 0.13, delay: i * 0.1, type: 'triangle' })); },
+  honk: () => { tone(330, 0.25, { type: 'square', vol: 0.08 }); tone(415, 0.25, { type: 'square', vol: 0.06, delay: 0.3 }); },
 };
 
 export const sound = {

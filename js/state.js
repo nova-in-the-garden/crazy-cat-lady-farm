@@ -29,9 +29,14 @@ export const SHOP = [
   { id: 'bandage', name: 'Bandage roll', desc: 'Soft wrap for sprains and sore paws', price: 4, icon: 'bandage', give: { supplies: { bandage: 1 } } },
   { id: 'catnipSeeds', name: 'Catnip seeds', desc: '2 packets: grow cat treats', price: 4, icon: 'catnip', give: { seeds: { catnip: 2 } } },
   { id: 'veggieSeeds', name: 'Veggie seeds', desc: '2 carrot, 1 cabbage, 1 pumpkin (your meals)', price: 4, icon: 'carrot', give: { seeds: { carrot: 2, cabbage: 1, pumpkin: 1 } } },
+  { id: 'yarn', name: 'Yarn', desc: '2 balls: knit cat sweaters and hats (Knitting emote, T)', price: 5, icon: 'yarn', give: { yarn: 2 } },
+  { id: 'bait', name: 'Worm bait', desc: '5 juicy worms for fishing at the pond', price: 3, icon: 'worm', give: { bait: 5 } },
   { id: 'chamomileSeeds', name: 'Chamomile seeds', desc: '2 packets: speeds up remedies', price: 3, icon: 'chamomile', give: { seeds: { chamomile: 2 } } },
 ];
 export const DISHES_MAX = 8;
+/** Knitted cat costumes (made with the Knitting emote, 1 yarn each). */
+export const COSTUMES = { sweater: { name: 'Knit sweater', icon: '🧶' }, hat: { name: 'Bobble hat', icon: '🧢' } };
+export const HAIRBALL_MAX = 6;
 export const SUPPLY_LABELS = { medicine: 'Medicine', shot: 'Shots', bandage: 'Bandages' };
 
 export function defaultState(tileCount) {
@@ -44,6 +49,10 @@ export function defaultState(tileCount) {
     coins: 60,                                        // sanctuary coins: adoption fees + the donation jar
     supplies: { medicine: 3, shot: 1, bandage: 2 },   // clinic supplies (order more at the Farmers Market)
     meals: 2,                                         // home-cooked meals for Granny herself
+    yarn: 2, bait: 0,                                 // knitting yarn and fishing worms (Farmers Market)
+    wardrobe: { sweater: 0, hat: 0 },                 // knitted costumes not being worn yet
+    hairballs: [],                                    // {x, z} gross little surprises to scoop up
+    bingo: { last: 0, wins: 0, games: 0 },            // bingo night (every 7th day): last day she went
     dishes: 0,                                        // dirty dishes stacked by the kitchen sink (cooking and eating make more)
     lady: { hunger: 85, energy: 100, coffee: 0, perk: 0 }, // her own soft needs; coffee = seconds of zoom left, perk = seconds until a fresh pot
     adopted: [], visitor: null, nextCat: 4,
@@ -133,12 +142,17 @@ export function restoreState(saved, tileCount) {
     const r = {}; const f = Math.floor(num(gv.food, 0)); if (f > 0) r.food = Math.min(999, f);
     const sp = cleanCounts(gv.supplies, Object.keys(SUPPLY_LABELS)); if (Object.keys(sp).length) r.supplies = sp;
     const sd = cleanCounts(gv.seeds, CROP_IDS); if (Object.keys(sd).length) r.seeds = sd;
+    for (const k of ['yarn', 'bait']) { const n = Math.floor(num(gv[k], 0)); if (n > 0) r[k] = Math.min(999, n); }
     return Object.keys(r).length ? r : null;
   };
   out.mail = { seeds: cleanCounts(out.mail && out.mail.seeds, CROP_IDS), day: Math.max(0, Math.floor(num(out.mail && out.mail.day, 0))) };
   const mk = isObj(out.market) ? out.market : {};
   out.market = { pending: cleanGive(mk.pending), parcels: (Array.isArray(mk.parcels) ? mk.parcels : []).map(cleanGive).filter(Boolean).slice(0, 12) };
   delete out.seedBoxDay;
+  out.yarn = Math.min(999, Math.max(0, Math.floor(out.yarn))); out.bait = Math.min(999, Math.max(0, Math.floor(out.bait)));
+  out.wardrobe = { sweater: Math.max(0, Math.floor(num(out.wardrobe.sweater, 0))), hat: Math.max(0, Math.floor(num(out.wardrobe.hat, 0))) };
+  out.hairballs = out.hairballs.filter((h) => isObj(h) && Number.isFinite(h.x) && Number.isFinite(h.z)).slice(0, HAIRBALL_MAX);
+  out.bingo = { last: Math.max(0, Math.floor(num(out.bingo.last, 0))), wins: Math.max(0, Math.floor(num(out.bingo.wins, 0))), games: Math.max(0, Math.floor(num(out.bingo.games, 0))) };
   out.dishes = Math.min(DISHES_MAX, Math.max(0, Math.floor(out.dishes)));
   out.lady.hunger = Math.min(100, Math.max(0, out.lady.hunger));
   out.lady.energy = Math.min(100, Math.max(0, out.lady.energy));

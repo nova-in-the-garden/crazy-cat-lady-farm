@@ -46,6 +46,9 @@ export const ICONS = {
   kennel: '<rect x="3" y="5" width="18" height="15" rx="2" fill="#fff" stroke="#9fb0c4" stroke-width="1.4"/><path d="M7 8 v10 M10 8 v10 M13 8 v10 M16 8 v10" stroke="#b9c4cc" stroke-width="1.2"/><path d="M12 3 v3 M10.3 4.5 h3.4" stroke="#ef7f95" stroke-width="1.8" stroke-linecap="round"/>',
   save: '<path d="M4 5 a1.5 1.5 0 0 1 1.5 -1.5 H16 L20 7.5 V19 a1.5 1.5 0 0 1 -1.5 1.5 H5.5 A1.5 1.5 0 0 1 4 19 Z" fill="#9fd8c4"/><rect x="7.5" y="3.5" width="8" height="5" rx="1" fill="#fff"/><ellipse cx="12" cy="15.6" rx="2.6" ry="2.1" fill="#fff"/><circle cx="9.2" cy="12.4" r="1" fill="#fff"/><circle cx="11" cy="11.3" r="1" fill="#fff"/><circle cx="13" cy="11.3" r="1" fill="#fff"/><circle cx="14.8" cy="12.4" r="1" fill="#fff"/>',
   door: '<rect x="6" y="3" width="12" height="18" rx="2" fill="#e2b98d"/><circle cx="15" cy="12.5" r="1.2" fill="#8d7388"/><path d="M3 21 h18" stroke="#8d7388" stroke-width="1.6"/>',
+  worm: '<path d="M4 16 q3 -6 6 0 t6 0 t4 -4" fill="none" stroke="#e98fa0" stroke-width="3.4" stroke-linecap="round"/><circle cx="19.6" cy="11.6" r="0.9" fill="#3d2b3a"/>',
+  fish: '<path d="M3 12 q6 -7 13 0 q-7 7 -13 0 Z" fill="#9fd0ef" stroke="#5b8fb5" stroke-width="1.2"/><path d="M16 12 l5 -4 v8 Z" fill="#9fd0ef" stroke="#5b8fb5" stroke-width="1.2"/><circle cx="7.5" cy="11" r="1" fill="#3d2b3a"/>',
+  bingo: '<circle cx="12" cy="12" r="9" fill="#ef7f95"/><circle cx="12" cy="12" r="5.5" fill="#fff6ec"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="700" fill="#c95c74">B</text>',
 };
 export const icon = (name, size = 24) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -84,9 +87,11 @@ export class GameUI {
     this.sideBtns.append(this.journalBtn, this.saveBtn, this.buffEl);
     document.body.appendChild(this.sideBtns);
     this.journalBtn.classList.remove('hidden');
-    this.saveToastEl = el('div', 'hidden'); this.saveToastEl.id = 'save-toast'; this.saveToastEl.setAttribute('role', 'status'); document.body.appendChild(this.saveToastEl);
-    this.toastEl = el('div', 'hidden'); this.toastEl.id = 'toast'; document.body.appendChild(this.toastEl);
-    this.bannerEl = el('div', 'hidden'); this.bannerEl.id = 'banner'; this.bannerEl.setAttribute('role', 'status'); document.body.appendChild(this.bannerEl);
+    // toast, banner and the "saved" note stack in one column so they never overlap
+    const notices = el('div', ''); notices.id = 'notices'; document.body.appendChild(notices);
+    this.toastEl = el('div', 'hidden'); this.toastEl.id = 'toast'; notices.appendChild(this.toastEl);
+    this.bannerEl = el('div', 'hidden'); this.bannerEl.id = 'banner'; this.bannerEl.setAttribute('role', 'status'); notices.appendChild(this.bannerEl);
+    this.saveToastEl = el('div', 'hidden'); this.saveToastEl.id = 'save-toast'; this.saveToastEl.setAttribute('role', 'status'); notices.appendChild(this.saveToastEl);
     // hotbar (bottom-center)
     this.hotbar = el('div', 'hidden'); this.hotbar.id = 'hotbar';
     TOOLS.forEach((t, i) => {

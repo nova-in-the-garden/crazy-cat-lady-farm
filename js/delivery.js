@@ -105,6 +105,8 @@ export class Delivery {
     if (gv.food) parts.push(`${gv.food} cat food`);
     if (gv.supplies) Object.entries(gv.supplies).forEach(([k, v]) => parts.push(`${v} ${v > 1 || k === 'medicine' ? SUPPLY_LABELS[k].toLowerCase() : k}`));
     if (gv.seeds) Object.entries(gv.seeds).forEach(([k, v]) => parts.push(`${v} ${CROPS[k].name.toLowerCase()} seed${v > 1 ? 's' : ''}`));
+    if (gv.yarn) parts.push(`${gv.yarn} ball${gv.yarn > 1 ? 's' : ''} of yarn`);
+    if (gv.bait) parts.push(`${gv.bait} worm${gv.bait > 1 ? 's' : ''}`);
     return parts.join(', ');
   }
   refreshPile() {
@@ -129,6 +131,8 @@ export class Delivery {
     if (all.food) g.api_food.add(all.food);
     if (all.supplies) Object.entries(all.supplies).forEach(([k, v]) => (s.supplies[k] = (s.supplies[k] || 0) + v));
     if (all.seeds) Object.entries(all.seeds).forEach(([k, v]) => (s.seeds[k] = (s.seeds[k] || 0) + v));
+    if (all.yarn) s.yarn = (s.yarn || 0) + all.yarn;
+    if (all.bait) s.bait = (s.bait || 0) + all.bait;
     sound.play('pickup'); g.lady.act();
     g.particles.emit(PARCEL_SPOT.clone().setY(0.5), { color: '#ffd76e', count: 12, speed: 0.8, up: 1.6, gravity: 1, size: 0.045, emissive: true });
     g.floatAtLady(`+ ${this.describe(all)}`, '#5b4256', 'shop');
@@ -232,7 +236,7 @@ export class Delivery {
 function merge(a, b) {
   if (!b) return a ? JSON.parse(JSON.stringify(a)) : null;
   const r = a ? JSON.parse(JSON.stringify(a)) : {};
-  if (b.food) r.food = (r.food || 0) + b.food;
+  for (const k of ['food', 'yarn', 'bait']) if (b[k]) r[k] = (r[k] || 0) + b[k];
   for (const k of ['supplies', 'seeds']) if (b[k]) { r[k] ||= {}; for (const [n, v] of Object.entries(b[k])) r[k][n] = (r[k][n] || 0) + v; }
   return r;
 }

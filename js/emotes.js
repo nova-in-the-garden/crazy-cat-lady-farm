@@ -15,6 +15,7 @@ export const EMOTES = [
   { id: 'fist', icon: '✊', label: 'Shake fist at sky' },
   { id: 'nap', icon: '💤', label: 'Nap right here' },
 ];
+export const KNIT_SECONDS = 12;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const lerp = (a, b, k) => a + (b - a) * k;
 
@@ -238,7 +239,20 @@ export class Emotes {
         P.yarn.position.copy(a.ball); P.yarn.rotation.x += a.vel.z * dt * 8; P.yarn.rotation.z -= a.vel.x * dt * 8;
         const hv = new THREE.Vector3(); this.g.lady.parts.hand.getWorldPosition(hv);
         const pos = P.strand.geometry.attributes.position; pos.setXYZ(0, a.ball.x, a.ball.y + 0.15, a.ball.z); pos.setXYZ(1, hv.x, hv.y, hv.z); pos.needsUpdate = true;
-        if (a.t > 12 && !a.done1) { a.done1 = true; this.g.floatAtLady('Another row done! 🧶', '#c95c74'); }
+        // with yarn she actually finishes something: a sweater, then a hat, then a sweater...
+        const st = this.g.state;
+        if ((st.yarn || 0) > 0) {
+          a.prog = (a.prog || 0) + dt;
+          if (a.prog >= KNIT_SECONDS) {
+            a.prog = 0; st.yarn--;
+            const item = st.flags.knitNext === 'hat' ? 'hat' : 'sweater'; st.flags.knitNext = item === 'hat' ? 'sweater' : 'hat';
+            st.wardrobe[item] = (st.wardrobe[item] || 0) + 1; st.stats.knitted = (st.stats.knitted || 0) + 1;
+            this.g.floatAtLady(item === 'hat' ? 'Knitted a bobble hat! 🧶' : 'Knitted a cat sweater! 🧶', '#c95c74', 'yarn'); sound.play('pickup');
+            this.g.host.say(`${item === 'hat' ? 'A teeny bobble hat' : 'A teeny striped sweater'}! Press E by a cat and pick Dress up.${st.yarn ? ` ${st.yarn} yarn left.` : ' That was my last yarn. More at the Farmers Market.'}`, 5);
+            if (!st.flags.firstKnit) { st.flags.firstKnit = true; this.g.journal.log(`Granny finished her first cat ${item}. It is lumpy. It is perfect.`); }
+            this.g.save();
+          }
+        } else if (a.t > 12 && !a.done1) { a.done1 = true; this.g.floatAtLady('Out of yarn! Buy more at the Farmers Market 🧶', '#c95c74'); }
       },
       end: (a) => { if (a.cat && a.cat.task && a.cat.task.type === 'emote') a.cat.task = { type: 'idle', anim: 'groom', t: 3 }; },
     };

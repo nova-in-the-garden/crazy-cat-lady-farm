@@ -518,3 +518,77 @@ body.exam-open #sleep-btn { display: none !important; }
   #emote-btn { padding: 5px 9px; font-size: 0.8rem; } #emote-btn kbd { display: none; }
   #emote-wheel button { width: 74px; height: 74px; margin: -37px 0 0 -37px; font-size: 0.62rem; } #emote-wheel button .e { font-size: 1.5rem; }
 }
+.sc-wear { color: #c95c74; font-weight: 600; }
+
+/* ---------- notices stack: toast, save note and banner never overlap ---------- */
+#notices { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 17; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; width: max-content; max-width: 92vw; }
+#notices > #toast, #notices > #save-toast, #notices > #banner { position: static; left: auto; top: auto; bottom: auto; transform: none; animation-name: noticeIn; }
+#notices > .hidden { display: none; }
+@keyframes noticeIn { from { opacity: 0; transform: translateY(-12px) scale(0.92); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px), (pointer: coarse) { #notices { top: auto; bottom: 170px; flex-direction: column-reverse; } }
+
+/* ---------- fishing ---------- */
+#fish-ui { position: fixed; left: 50%; bottom: 112px; transform: translateX(-50%); z-index: 14; width: min(440px, 92vw); padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 9px; align-items: stretch; text-align: center; }
+#fish-ui.hidden { display: none; }
+#fish-ui.bite { animation: fishBite 0.25s ease-in-out infinite; border-color: #ef4f5f; }
+@keyframes fishBite { 0%, 100% { transform: translateX(-50%); } 50% { transform: translateX(calc(-50% + 4px)) rotate(0.6deg); } }
+.fi-title { font-weight: 700; font-size: 1.05rem; color: #2f6f8f; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.fi-meter { position: relative; height: 30px; border-radius: 15px; background: linear-gradient(90deg, #cfeefa, #9fd0ef); overflow: hidden; border: 2px solid #9fd0ef; }
+.fi-power { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #ffd76e, #ef7f95); border-radius: 15px; }
+.fi-zone { position: absolute; top: 2px; bottom: 2px; width: 32%; border-radius: 12px; background: rgba(143, 211, 111, 0.6); border: 2px solid #5fae5c; }
+.fi-fish { position: absolute; top: 2px; font-size: 1.2rem; transform: translateX(-50%); }
+.fi-prog { height: 10px; border-radius: 5px; background: #f2e6ee; overflow: hidden; }
+.fi-prog i { display: block; height: 100%; background: linear-gradient(90deg, #8fd36f, #3f9a8b); }
+.fi-choice { display: flex; gap: 10px; justify-content: center; }
+.fi-choice:empty { display: none; }
+.fi-choice button, .fi-btn { font: inherit; font-weight: 700; border: 3px solid #9fd0ef; background: #fff; color: #2f6f8f; border-radius: 16px; padding: 9px 16px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.fi-btn { font-size: 1.15rem; padding: 12px; justify-content: center; background: #eaf7fd; }
+.fi-btn.bite { background: #ef4f5f; color: #fff; border-color: #c93a4a; animation: fishBite 0.2s infinite; }
+.fi-btn.reel:active { background: #cfeefa; }
+#fish-ui .cm-x { position: absolute; right: 8px; top: 6px; }
+
+/* ---------- bingo night ---------- */
+#bingo { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 12px;
+  background: radial-gradient(circle at 50% 0%, #fff3d6 0%, #e9c79a 55%, #b98a5e 100%); }
+#bingo.hidden { display: none; }
+#bingo::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background: repeating-linear-gradient(90deg, transparent 0 70px, rgba(140, 90, 60, 0.12) 70px 74px), radial-gradient(circle at 20% 10%, rgba(255, 240, 180, 0.8) 0 4%, transparent 5%), radial-gradient(circle at 80% 10%, rgba(255, 240, 180, 0.8) 0 4%, transparent 5%); }
+.bg-hall { position: relative; width: min(980px, 100%); max-height: 100%; overflow-y: auto; background: rgba(255, 250, 242, 0.96); border: 4px solid #c8aaf2; border-radius: 26px; padding: 14px 18px; box-shadow: 0 16px 40px rgba(91, 66, 86, 0.35); }
+.bg-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.bg-head h2 { margin: 0; color: #7a5aa8; font-size: 1.6rem; } .bg-head span { color: #8d7388; font-size: 0.86rem; }
+.bg-ball { width: 74px; height: 74px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #ffd76e 40%, #f5a35c); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(0,0,0,0.18); margin-left: auto; animation: pop 0.4s; }
+.bg-ball b { font-size: 0.9rem; color: #c95c74; line-height: 1; } .bg-ball em { font-style: normal; font-weight: 800; font-size: 1.7rem; color: #3d2b3a; line-height: 1; }
+.bg-recent { display: flex; gap: 5px; flex-wrap: wrap; } .bg-recent span { background: #f3ecfb; border-radius: 10px; padding: 3px 7px; font-size: 0.8rem; color: #7a5aa8; font-weight: 600; }
+.bg-body { display: flex; gap: 18px; margin-top: 12px; flex-wrap: wrap; }
+.bg-left { flex: 1 1 340px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.bg-right { flex: 1 1 300px; display: flex; flex-direction: column; gap: 10px; }
+.bg-card { background: #ef7f95; border-radius: 18px; padding: 8px; width: min(380px, 100%); }
+.bg-letters, .bg-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.bg-letters b { text-align: center; color: #fff; font-size: 1.5rem; }
+.bg-grid button { aspect-ratio: 1; border: none; border-radius: 12px; background: #fff6ec; font: inherit; font-weight: 700; font-size: 1.25rem; color: #3d2b3a; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.bg-grid button.called { box-shadow: inset 0 0 0 3px #ffd76e; }
+.bg-grid button.daub::after { content: ''; position: absolute; inset: 12%; border-radius: 50%; background: rgba(155, 111, 208, 0.65); }
+.bg-grid button.free { background: #ffe1ea; font-size: 1rem; } .bg-grid button.free small { font-size: 0.6rem; color: #c95c74; }
+.bg-foot { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.bg-shout, .bg-callout, .bg-home { font: inherit; font-weight: 800; border-radius: 18px; padding: 10px 22px; cursor: pointer; border: 3px solid #c95c74; background: #fff; color: #c95c74; font-size: 1.3rem; }
+.bg-shout.ready { background: #ef7f95; color: #fff; animation: buffPulse 0.7s infinite; }
+.bg-callout { font-size: 1rem; border-color: #9b6fd0; color: #7a5aa8; } .bg-callout.hot { background: #f3ecfb; animation: fishBite 0.3s infinite; }
+.bg-home { border-color: #9b7fc9; color: #7a5aa8; font-size: 1.1rem; }
+.bg-rivals { display: flex; gap: 10px; }
+.bg-rival { flex: 1; background: #fff; border-radius: 16px; padding: 8px; text-align: center; border: 2px solid #f2e6ee; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.bg-rival.mildred { border-color: #c8aaf2; background: #fbf6ff; }
+.bg-rival span { font-size: 0.72rem; color: #8d7388; }
+.bg-face { position: relative; font-size: 2.3rem; width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, var(--hair) 0 45%, transparent 46%); display: flex; align-items: center; justify-content: center; }
+.bg-face i { position: absolute; font-style: normal; font-size: 1rem; right: -6px; top: -2px; }
+.bg-rival.mildred .bg-face i { right: 10px; top: 16px; font-size: 1.15rem; }
+.bg-log { background: #fff; border-radius: 16px; padding: 8px 12px; min-height: 150px; font-size: 0.88rem; }
+.bg-log p { margin: 4px 0; color: #5b4256; } .bg-log p:first-child { font-weight: 700; }
+.bg-log p.cheat { color: #7a5aa8; } .bg-log p.good { color: #3f8a62; } .bg-log p.bad { color: #c95c74; }
+.bg-result { font-weight: 800; font-size: 1.15rem; padding: 8px 14px; border-radius: 14px; text-align: center; }
+.bg-result.won { background: #e3f6ea; color: #3f8a62; } .bg-result.lost { background: #fde8ee; color: #c95c74; }
+.bg-ride { display: flex; align-items: center; gap: 10px; font-weight: 700; color: #7a5aa8; font-size: 1.05rem; flex-wrap: wrap; justify-content: center; }
+.bg-ride .bus { font-size: 2.6rem; animation: busRide 0.6s ease-in-out infinite; } .bg-ride .granny { font-size: 2rem; }
+.bg-ride .fist { display: inline-block; font-style: normal; animation: fistShake 0.25s ease-in-out infinite; }
+@keyframes busRide { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes fistShake { 0%, 100% { transform: rotate(-20deg) translateY(0); } 50% { transform: rotate(15deg) translateY(-6px); } }
+@media (max-width: 640px) { .bg-grid button { font-size: 1rem; } .bg-head h2 { font-size: 1.2rem; } .bg-ball { width: 58px; height: 58px; } .bg-rivals { gap: 5px; } .bg-face { font-size: 1.7rem; width: 44px; height: 44px; } }

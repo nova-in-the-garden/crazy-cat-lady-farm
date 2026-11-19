@@ -86,6 +86,7 @@ export class StatsCard {
         <div class="sc-id"><h3>${d.joined ? d.name : cats.displayName(c)}</h3>
           <div class="sc-sub">${def.sex === 'girl' ? '♀ Girl' : '♂ Boy'} · ${def.age}</div>
           <div class="sc-sub">${def.breed} · ${def.coat}</div>
+          ${cats.wearing(c).length ? `<div class="sc-sub sc-wear">🧶 Wearing: ${cats.wearing(c).join(' & ')}</div>` : ''}
           <div class="sc-bond">${hearts(lvl, 17)}<span>${BOND_LEVELS[lvl].label}</span></div></div></div>
       <div class="sc-pers"><b>${p.label}</b> ${p.blurb}</div>
       <div class="sc-favs"><span>${icon(def.favToy, 16)}${fav(d.discovered.toy, TOYS[def.favToy], '(try toys)')}</span><span>${icon('bed', 16)}${fav(d.discovered.spot, SPOTS[def.favSpot].label.replace(/^the /, ''), '(watch naps)')}</span><span>${icon('food', 16)}${fav(d.discovered.treat, def.favTreat, '(feed)')}</span></div>
@@ -106,7 +107,7 @@ export class StatsCard {
     const c = this.cat; if (!c) return;
     if (!this.game.cats.list.includes(c)) { this.close(); return; }
     const d = c.data, cs = this.game.vet.activeCase(d.id);
-    const sig = [Math.round(d.health), ...Object.values(d.needs).map((v) => Math.round(v / 3)), d.bondXP, cs && cs.stage, cs && Math.round(cs.heal || 0), cs && JSON.stringify(cs.today), this.near(), c.model.anim === 'sleep', JSON.stringify(this.game.state.supplies)].join('|');
+    const sig = [Math.round(d.health), ...Object.values(d.needs).map((v) => Math.round(v / 3)), d.bondXP, cs && cs.stage, cs && Math.round(cs.heal || 0), cs && JSON.stringify(cs.today), this.near(), c.model.anim === 'sleep', JSON.stringify(this.game.state.supplies), JSON.stringify(d.costume || {})].join('|');
     if (sig !== this.sig) { this.sig = sig; this.render(); }
   }
 }

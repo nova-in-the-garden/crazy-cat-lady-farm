@@ -123,12 +123,13 @@ export function createCatLady() {
     bun.add(mesh(new THREE.SphereGeometry(0.025, 6, 5), mat(s > 0 ? '#f58fa8' : '#9fd0ef'), { x: -s * 0.17, y: 0.12, z: 0.06 }));
   });
   // Cat-ear headband
-  head.add(mesh(new THREE.TorusGeometry(0.3, 0.022, 6, 24, Math.PI), mat(C.ear), { y: 0.02, z: 0.04, rx: -0.15 }));
+  const dayOnly = [bun], nightParts = [];
+  const band = mesh(new THREE.TorusGeometry(0.3, 0.022, 6, 24, Math.PI), mat(C.ear), { y: 0.02, z: 0.04, rx: -0.15 }); head.add(band); dayOnly.push(band);
   [-1, 1].forEach((s) => {
     const ear = new THREE.Group(); ear.position.set(s * 0.165, 0.3, 0.04); ear.rotation.z = -s * 0.38;
     ear.add(mesh(new THREE.ConeGeometry(0.11, 0.22, 4), mat(C.ear), { ry: Math.PI / 4, sz: 0.45 }));
     ear.add(mesh(new THREE.ConeGeometry(0.065, 0.14, 4), mat(C.earInner), { y: -0.02, z: 0.03, ry: Math.PI / 4, sz: 0.3, cast: false }));
-    head.add(ear);
+    head.add(ear); dayOnly.push(ear);
   });
 
   // Point above her head where the nameplate and speech bubble attach
@@ -137,6 +138,39 @@ export function createCatLady() {
   // soft round shadow blob under her feet (reads nicely even when real shadows are faint)
   const blob = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshBasicMaterial({ color: '#4a3a3a', transparent: true, opacity: 0.18, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6 }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = 0.025; group.add(blob);
+
+  /* --- Night outfit: fuzzy robe, slippers and hair curlers (sundown to 6 AM) --- */
+  const night = new THREE.Group(); night.visible = false; body.add(night);
+  const robeM = mat('#f2b8c6', { flatShading: false, roughness: 1 }), robeTrim = mat('#fde6ec', { flatShading: false, roughness: 1 });
+  night.add(mesh(new THREE.CylinderGeometry(0.215, 0.43, 1.0, 18), robeM, { y: 0.74 }));
+  night.add(mesh(new THREE.SphereGeometry(0.225, 16, 10), robeM, { y: 1.2, sy: 0.55 }));
+  night.add(mesh(new THREE.TorusGeometry(0.205, 0.05, 8, 20), robeTrim, { y: 1.2, rx: Math.PI / 2 + 0.15, sx: 1, sy: 1.05 }));    // shawl collar
+  night.add(mesh(new THREE.BoxGeometry(0.05, 0.75, 0.03), robeTrim, { y: 0.78, z: 0.355, rx: -0.2, cast: false }));                // front edge
+  night.add(mesh(new THREE.TorusGeometry(0.315, 0.028, 6, 22), mat('#e58fa6'), { y: 0.84, rx: Math.PI / 2 }));                       // belt
+  night.add(mesh(new THREE.SphereGeometry(0.045, 8, 6), mat('#e58fa6'), { y: 0.84, z: 0.32, sx: 1.6, sz: 0.6 }));
+  [-1, 1].forEach((s) => night.add(mesh(new THREE.CapsuleGeometry(0.022, 0.16, 3, 6), mat('#e58fa6'), { x: s * 0.04, y: 0.74, z: 0.33, rz: s * 0.25 })));
+  for (let i = 0; i < 9; i++) night.add(mesh(new THREE.SphereGeometry(0.025, 6, 5), mat('#fff6ec'), { x: Math.sin(i * 1.7) * 0.25, y: 0.42 + (i % 3) * 0.2, z: Math.cos(i * 1.7) * 0.3, cast: false })); // little hearts-ish dots
+  arms.forEach((sh) => { const inner = sh.children[0]; const sl = new THREE.Group(); sl.add(mesh(new THREE.CapsuleGeometry(0.078, 0.26, 4, 10), robeM, { y: -0.19 })); sl.add(mesh(new THREE.TorusGeometry(0.075, 0.03, 6, 12), robeTrim, { y: -0.36, rx: Math.PI / 2 })); inner.add(sl); nightParts.push(sl); });
+  legs.forEach((hip) => { const slip = hip.children[1]; const f = new THREE.Group(); slip.add(f);
+    f.add(mesh(new THREE.SphereGeometry(0.112, 10, 8), mat('#fff3f6', { flatShading: false, roughness: 1 }), { sx: 1, sy: 0.65, sz: 1.5 }));
+    f.add(mesh(new THREE.SphereGeometry(0.06, 8, 6), mat('#f6a6ba', { flatShading: false, roughness: 1 }), { y: 0.05, z: 0.1 }));
+    nightParts.push(f); });
+  const curlers = new THREE.Group(); head.add(curlers); nightParts.push(curlers);
+  const curlCols = ['#f58fa8', '#9fd0ef', '#ffd76e', '#b9a0dc'];
+  [[0, 0.27, 0.05, 0], [-0.12, 0.25, -0.02, 0.3], [0.12, 0.25, -0.02, -0.3], [0, 0.24, -0.15, 0], [-0.2, 0.17, -0.1, 0.8], [0.2, 0.17, -0.1, -0.8], [-0.1, 0.18, -0.22, 0.4], [0.1, 0.18, -0.22, -0.4], [0, 0.12, -0.27, 0], [-0.24, 0.05, -0.05, 1.3], [0.24, 0.05, -0.05, -1.3]].forEach(([x, y, z, rz], i) => {
+    const c = new THREE.Group(); c.position.set(x, y, z); c.rotation.z = rz; curlers.add(c);
+    c.add(mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.13, 10), mat(curlCols[i % 4], { flatShading: false }), { rz: Math.PI / 2 }));
+    c.add(mesh(new THREE.TorusGeometry(0.044, 0.009, 4, 10), mat('#fff6ec'), { ry: Math.PI / 2, x: 0.045, cast: false }));
+  });
+  head.add(mesh(new THREE.SphereGeometry(0.3, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), new THREE.MeshStandardMaterial({ color: '#f6a6ba', transparent: true, opacity: 0.22, roughness: 1, depthWrite: false }), { y: 0.02, rx: -0.3, cast: false })); // hair net
+  const net = head.children[head.children.length - 1]; nightParts.push(net);
+  nightParts.forEach((o) => (o.visible = false));
+  let outfit = 'day';
+  function setOutfit(name) {
+    outfit = name === 'night' ? 'night' : 'day';
+    const n = outfit === 'night';
+    night.visible = n; nightParts.forEach((o) => (o.visible = n)); dayOnly.forEach((o) => (o.visible = !n));
+  }
 
   /* --- Garden tools she can hold (shown in her right hand) --- */
   const tools = {};
@@ -161,9 +195,18 @@ export function createCatLady() {
   tools.mug.add(mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.01, 12), mat('#6b4226'), { y: -0.065, z: 0.06, cast: false }));
   tools.mug.add(mesh(new THREE.TorusGeometry(0.035, 0.012, 4, 10), mat('#f4ead2'), { x: 0.065, y: -0.12, z: 0.06, ry: Math.PI / 2 }));
   tools.mug.add(mesh(new THREE.SphereGeometry(0.018, 6, 5), mat('#e59a8f'), { y: -0.12, z: 0.118, sz: 0.4, cast: false }));
+  // a bamboo fishing rod with a little reel (the line itself is drawn by fishing.js from rodTip)
+  tools.rod = new THREE.Group();
+  tools.rod.add(mesh(new THREE.CylinderGeometry(0.008, 0.018, 1.5, 6), mat('#d9b07a'), { y: -0.62 }));
+  tools.rod.add(mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.04, 10), mat('#ef7f95'), { y: -0.02, z: 0.04, rz: Math.PI / 2 }));
+  for (let i = 0; i < 4; i++) tools.rod.add(mesh(new THREE.TorusGeometry(0.012, 0.003, 4, 8), mat('#c9a35c'), { y: -0.35 - i * 0.3, z: 0.02, cast: false }));
+  const rodTip = new THREE.Object3D(); rodTip.position.y = -1.37; tools.rod.add(rodTip);
+  tools.rod.rotation.x = -0.55;
   Object.values(tools).forEach((t) => { t.visible = false; t.traverse((o) => { if (o.isMesh) o.userData.isLady = true; }); handAnchor.add(t); });
-  let toolName = null;
-  function setTool(name) { toolName = name; for (const k in tools) tools[k].visible = k === (drinkTime > 0 ? 'mug' : name); }
+  let toolName = null, toolHidden = false;
+  function setTool(name) { toolName = name; for (const k in tools) tools[k].visible = k === (drinkTime > 0 ? 'mug' : toolHidden ? null : name); }
+  /** Tuck the tool away while she sits, emotes or does a chore (the rod still shows while fishing). */
+  function hideTool(v) { v = !!v; if (v !== toolHidden) { toolHidden = v; setTool(toolName); } }
 
   /* --- Animation --- */
   let phase = 0, t = 0, blinkTimer = 2, waveTime = 0, actTime = 0, sitting = false, drinkTime = 0;
@@ -229,5 +272,5 @@ export function createCatLady() {
   function drink() { drinkTime = 2.4; setTool(toolName); }
 
   group.traverse((o) => { if (o.isMesh) o.userData.isLady = true; });
-  return { group, headAnchor, update, wave, act, drink, setTool, setSitting, setPose, parts, get tool() { return toolName; }, get hasPose() { return !!pose; }, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
+  return { group, headAnchor, update, wave, act, drink, setTool, hideTool, setOutfit, rodTip, get outfit() { return outfit; }, setSitting, setPose, parts, get tool() { return toolName; }, get hasPose() { return !!pose; }, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
 }
