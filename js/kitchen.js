@@ -546,7 +546,7 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   rug(TUB.x - 0.72, TUB.z - 0.05, 0.32, 0.55, ['#f2c4bb', '#fbe9e2', '#f2c4bb']); // fluffy bath mat
   const tubSeat = {
     id: 'tub', label: 'Take a bubble bath 🛁', kind: 'tub', noun: 'bathtub', lap: false, noCat: false,
-    sitPos: toWorld(TUB.x, TUB.z - 0.28).setY(FLOOR + 0.3 - 0.5), heading: 0,
+    sitPos: toWorld(TUB.x, TUB.z - 0.28).setY(FLOOR - 0.44), heading: 0,
     front: toWorld(TUB.x - 0.72, TUB.z - 0.1), catPos: toWorld(TUB.x - 0.36, TUB.z + 0.35).setY(FLOOR + 0.74), catHeading: Math.PI / 2, catFront: toWorld(TUB.x - 0.72, TUB.z + 0.35),
   };
 

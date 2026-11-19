@@ -146,7 +146,9 @@ food you have), her bed with a paw-print quilt, a nightstand, a little tea table
 | Cat Journal | J, or the Journal button | Journal button |
 | Close a menu | Esc | the × button |
 | Mute sounds | M, or the Sound button | Sound button |
-| Chat with her | T, or click her | tap her |
+| Chat with her | C, or click her | tap her |
+| Emote wheel | T, or the Emotes button (1-8 to pick) | Emotes button |
+| Dishes, wash hands, bath, toilet | E at the sinks, tub, toilet (E again to flush / hop out) | Use button |
 
 ## Run it locally
 It's a plain static site with no build step. Serve the folder with any web server, for example:
@@ -243,3 +245,12 @@ tools/bump_version.py  cache-busting version stamp (run before deploying)
   then cabbage, pumpkin, chamomile and catnip). The paw flag goes up, an envelope bobs over the mailbox and a big
   **You Got Mail! 📬** banner pops up. **Check the mail** at the mailbox to collect. The box holds up to 9 packets
   (3 days' worth), so missing a day or two is fine. The old free seed box is gone.
+
+## Bathroom, running water, emotes and the hunger gag
+
+- **Granny-chic bathroom:** pink/cream checker tiles, rosebud wallpaper over a sage wainscot, a pink clawfoot tub on brass claw feet (gooseneck faucet, lace shower ring, rubber duck, bath tray), a pull-chain high-tank toilet with an oak seat, a fluted pedestal sink, a gilt oval mirror, a crocheted toilet-roll doll, lace curtains, perfume bottles and a fern.
+- **Running water:** `E` at the kitchen sink does the dishes (cooking leaves 2 dirty dishes, eating 1; at 8 the stove says wash up first) or washes her hands when the sink is clear. The bathroom sink washes hands. The tub fills for a bubble bath (energy comes back fast; `E` to hop out). The toilet: sit, then `E` to flush (pull chain + swirl). Sometimes a cat drinks from the toilet.
+- **Longer days:** 6 AM to 6 PM runs at half speed (about 6 real minutes of daylight); evening to the 10 PM bedtime is unchanged.
+- **Weeds:** a plowed plot left unused (not planted, watered or harvested) grows weeds on day 2 and goes back to grass at dawn on day 3. Planted crops are never affected.
+- **Emote wheel:** `T` (or the Emotes button on mobile): smoke a ciggy (cough!), sip coffee, knitting (a cat bats the yarn), MY BABIES!, dance party (cats join), meow (cats meow back), shake fist at sky, nap (+energy). Walking cancels an emote.
+- **Hunger gag:** at 15% hunger Granny complains and the hunger bar flashes. At 0 she keels over, every cat piles on ("nom nom" 😱), the screen fades and she wakes up in bed a few hours later (or next morning) a little poorer, with a journal entry. Cats never die. Chat with Granny moved to `C`.

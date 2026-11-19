@@ -743,6 +743,7 @@ export class Game {
       tub: ['Ahh, a bubble bath! Don\'t mind me, kitties.', 'Rubber ducky, you\'re the one...', 'Lavender bubbles. Pure bliss, dearie.'],
       toilet: ['Don\'t look at me, cats. A lady needs her privacy!', 'Ahem. Nobody come in!', 'Why do the cats ALWAYS follow me in here?'],
     };
+    if (seat.kind === 'tub' || seat.kind === 'toilet') { this.stowedTool = this.lady.tool; this.lady.setTool(null); } // no hoe in the bath, dearie
     if (seat.kind === 'tub') this.startBath();
     if (seat.kind === 'toilet') { this.flushedThis = false; this.sitting.catT = 2.5; }
     const lines = LINES[seat.kind] || LINES.chair;
@@ -756,6 +757,7 @@ export class Game {
     if (this.sitting.cat) this.cats.leaveSwing(this.sitting.cat);
     this.sitting = null;
     this.lady.setSitting(false);
+    if (this.stowedTool !== undefined) { this.lady.setTool(this.stowedTool); this.stowedTool = undefined; }
     this.lady.group.rotation.set(0, seat.heading, 0);
     if (seat.obj && seat.rock) seat.obj.rotation.x = 0;
     this.lady.group.position.set(seat.front.x, seat.front.y, seat.front.z);

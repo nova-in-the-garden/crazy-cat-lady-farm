@@ -41,7 +41,7 @@ export class Emotes {
     const L = this.g.lady.parts, P = {};
     const hide = (o) => { o.visible = false; o.traverse((m) => { if (m.isMesh) m.userData.isLady = true; }); return o; };
     // a cartoony cigarette with a glowing ember
-    P.cig = hide(new THREE.Group()); L.hand.add(P.cig);
+    P.cig = hide(new THREE.Group()); L.hand.add(P.cig); P.cig.scale.setScalar(1.8);
     P.cig.add(mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.1, 6), mat('#ffffff'), { y: -0.04, z: 0.07, rx: Math.PI / 2, cast: false }));
     P.cig.add(mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.03, 6), mat('#e0a35c'), { y: -0.04, z: 0.025, rx: Math.PI / 2, cast: false }));
     P.ember = mesh(new THREE.SphereGeometry(0.011, 6, 5), new THREE.MeshStandardMaterial({ color: '#ff7a3a', emissive: '#ff5a1a', emissiveIntensity: 1.2 }), { y: -0.04, z: 0.122, cast: false });
@@ -64,7 +64,7 @@ export class Emotes {
     P.strand.frustumCulled = false; P.strand.visible = false; this.g.scene.add(P.strand);
     // smoke rings
     P.rings = [];
-    for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 6, 16), new THREE.MeshStandardMaterial({ color: '#eeeaf2', transparent: true, opacity: 0, depthWrite: false })); r.visible = false; this.g.scene.add(r); P.rings.push({ m: r, life: 0, v: new THREE.Vector3() }); }
+    for (let i = 0; i < 6; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.026, 6, 16), new THREE.MeshStandardMaterial({ color: '#eeeaf2', emissive: '#bdb6c6', emissiveIntensity: 0.3, transparent: true, opacity: 0, depthWrite: false })); r.visible = false; this.g.scene.add(r); P.rings.push({ m: r, life: 0, v: new THREE.Vector3() }); }
     this.P = P;
   }
   showProps(names = []) { ['cig', 'mug', 'needleR', 'needleL', 'scarf'].forEach((n) => (this.P[n].visible = names.includes(n))); }
