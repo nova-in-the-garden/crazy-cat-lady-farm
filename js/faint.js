@@ -37,7 +37,7 @@ export class Faint {
     const p = g.lady.group.position, h = g.lady.group.rotation.y;
     // she falls backwards: her body ends up lying behind where she stood
     const center = new THREE.Vector3(p.x - Math.sin(h) * 0.85, p.y, p.z - Math.cos(h) * 0.85);
-    this.on = { t: 0, center, h, cats: [], nomT: 1, gaspT: 2.5, twitchT: 0, twitch: 0 };
+    this.on = { t: 0, center, feet: p.clone(), h, cats: [], nomT: 1, gaspT: 2.5, twitchT: 0, twitch: 0 };
     g.fainted = true;
     g.state.stats.faints = (g.state.stats.faints || 0) + 1;
     g.host.say(pick(['Oh my... everything is... spinning...', 'Is it... dinner time... already...?', 'So... hungry... tell the cats... I love them...']), 3);
@@ -87,19 +87,51 @@ export class Faint {
   }
 
   /** Every cat on the farm sprints over and piles on. */
+  /** Where the cats go. Her fallen body is worked out from her pose: she lies on her back along the line from
+   *  where her feet were (s = 0) to the top of her hair (s = 1.85), body lifted 0.3 so her skirt is ~0.4 thick,
+   *  arms flung out sideways to about 0.7 m at s = 1.1. Ring cats sit just outside that outline, noses at her
+   *  edge, facing in (so the nibbling head-bob reaches her without poking inside); up to two sit ON her at the
+   *  right height (one across her skirt, one on her chest facing her face). Nothing overlaps her or each other. */
+  slots() {
+    const g = this.g, f = this.on;
+    const foot = f.feet, fwd = new THREE.Vector3(Math.sin(f.h), 0, Math.cos(f.h)), side = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    const at = (s, lat, y = null) => { const v = foot.clone().addScaledVector(fwd, -s).addScaledVector(side, lat); v.y = y ?? g.world.groundHeight(v.x, v.z); return v; };
+    const top = [
+      { s: 1.05, lat: 0, y: 0.56, look: at(1.9, 0) }, // on her chest, staring into her face
+      { s: 0.32, lat: 0, y: 0.62, look: at(0.32, 2) }, // sprawled across her skirt
+    ];
+    // [along her body, sideways edge] — sides of the skirt, beside her chest, her hands, her head, then feet and hair
+    // [along her body, sideways, outward angle (0 = straight out the side, 1 = straight off her feet)], spaced so even big cats don't overlap
+    const edge = [[0.42, 0.4, 0], [0.42, -0.4, 0], [-0.06, 0, 1], [1.12, 0.74, 0], [1.12, -0.74, 0], [0.0, 0.26, 0.6], [0.0, -0.26, 0.6], [1.7, 0.33, 0], [1.7, -0.33, 0], [1.92, 0, -1]];
+    const ring = edge.map(([s, lat, a]) => {
+      const surf = at(s, lat);
+      const out = a === 1 ? fwd.clone() : a === -1 ? fwd.clone().negate() : side.clone().multiplyScalar(Math.sign(lat) * (1 - a)).addScaledVector(fwd, a).normalize();
+      return { surf, out };
+    });
+    return { top, ring, at };
+  }
   swarm() {
     const g = this.g, f = this.on, c0 = f.center;
     const cats = g.cats.freeCats(400);
-    f.cats = cats;
-    const fwd = new THREE.Vector3(Math.sin(f.h), 0, Math.cos(f.h)), side = new THREE.Vector3(fwd.z, 0, -fwd.x);
-    cats.forEach((c, i) => {
+    const { top, ring } = this.slots();
+    const nTop = cats.length >= 4 ? 2 : cats.length >= 3 ? 1 : 0;
+    f.cats = cats.slice(0, nTop + ring.length);
+    f.cats.forEach((c, i) => {
       // far-away cats come running from just out of view so they arrive in time
       const d = Math.hypot(c.pos.x - c0.x, c.pos.z - c0.z);
       if (d > 16) { const k = 12 / d; c.pos.set(c0.x + (c.pos.x - c0.x) * k, c.pos.y, c0.z + (c.pos.z - c0.z) * k); }
-      let spot, snap = false;
-      if (i < 2 && cats.length > 2) { spot = c0.clone().addScaledVector(fwd, i ? 0.35 : -0.25); spot.y = c0.y + 0.36; snap = true; } // two on top of her
-      else { const a = (i / cats.length) * Math.PI * 2, rr = 0.75 + (i % 2) * 0.25; spot = c0.clone().addScaledVector(fwd, Math.cos(a) * rr * 1.25).addScaledVector(side, Math.sin(a) * rr * 0.85); spot.y = 0; }
-      g.cats.react(c, { spot, snap, anim: 'eat', t: 30, speed: 3.8, near: 0.25, look: c0, swarm: true, onArrive: (cc) => { if (Math.random() < 0.6) sound.play('meow'); g.cats.flashIcon(cc, 'heart', 1); } });
+      const sc = g.cats.def(c)?.scale || 1;
+      let spot, look;
+      if (i < nTop) { const t = top[i]; spot = this.slots().at(t.s, t.lat, t.y); look = t.look; }
+      else { const r = ring[i - nTop]; spot = r.surf.clone().addScaledVector(r.out, 0.52 * sc); look = r.surf; }
+      g.cats.react(c, { spot, snap: true, anim: 'eat', t: 30, speed: 3.4, near: 0.3, look, swarm: true, onArrive: (cc) => { if (Math.random() < 0.6) sound.play('meow'); g.cats.flashIcon(cc, 'heart', 1); } });
+    });
+    // any extra cats sit in a looser outer circle, watching (and waiting their turn)
+    cats.slice(f.cats.length).forEach((c, i, arr) => {
+      const a = (i / arr.length) * Math.PI * 2, spot = c0.clone().add(new THREE.Vector3(Math.sin(a) * 2.2, 0, Math.cos(a) * 2.2));
+      spot.y = g.world.groundHeight(spot.x, spot.z);
+      g.cats.react(c, { spot, snap: true, anim: 'sit', t: 30, speed: 3, near: 0.3, look: c0, swarm: true });
+      f.cats.push(c);
     });
     if (cats.length) sound.play('meow');
   }

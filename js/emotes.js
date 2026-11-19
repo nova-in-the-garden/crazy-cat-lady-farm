@@ -18,6 +18,34 @@ export const EMOTES = [
 export const KNIT_SECONDS = 12;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const lerp = (a, b, k) => a + (b - a) * k;
+const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+const BLEND_IN = 0.4, BLEND_OUT = 0.35;
+
+/** Aim arm i (0 = her left, 1 = her right / tool hand) so the hand reaches toward a point in her body space
+ *  (x = her left(-)/right(+), y = up from her feet, z = forward). k blends from whatever the base pose had. */
+export function reach(p, i, x, y, z, k = 1) {
+  const s = i ? 1 : -1;
+  let dx = x - s * 0.24, dy = y - 1.2, dz = z;
+  const len = Math.hypot(dx, dy, dz) || 1; dx /= len; dy /= len; dz /= len;
+  const tz = Math.asin(Math.max(-1, Math.min(1, dx)));
+  let tx = Math.atan2(-dz, -dy);
+  if (tx > 1.2) tx -= Math.PI * 2; // always swing up through the front, never back through her body
+  const r = p.arms[i].rotation;
+  r.x = lerp(r.x, tx, k); r.z = lerp(r.z, tz - s * 0.14, k); r.y = lerp(r.y, 0, k);
+}
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _eu = new THREE.Euler();
+/** Hold a prop at a fixed angle relative to her BODY (not her wrist), so a mug stays upright and a cigarette level
+ *  however her arm is swung. (ox, oy, oz) nudges it in body space from the hand. Call after the arms are posed. */
+export function hold(obj, p, rx = 0, ry = 0, rz = 0, ox = 0, oy = 0, oz = 0) {
+  if (!obj || !obj.parent) return;
+  p.group.updateMatrixWorld(true);
+  obj.parent.getWorldQuaternion(_qa).invert();
+  p.body.getWorldQuaternion(_qb);
+  _qa.multiply(_qb);
+  obj.position.set(ox, oy, oz).applyQuaternion(_qa);
+  obj.quaternion.copy(_qa).multiply(_qc.setFromEuler(_eu.set(rx, ry, rz)));
+}
+const HIP_L = [-0.4, 0.8, 0.1]; // a hand planted on her hip
 
 /** Scrubbing / washing pose: both hands forward over a basin, rubbing. */
 export function scrubPose(p, t, k) {
@@ -53,10 +81,10 @@ export class Emotes {
     P.mug.add(mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.01, 12), mat('#6b4226'), { y: -0.065, z: 0.06, cast: false }));
     P.mug.add(mesh(new THREE.TorusGeometry(0.035, 0.012, 4, 10), mat('#f3a5b8'), { x: 0.065, y: -0.12, z: 0.06, ry: Math.PI / 2 }));
     // knitting: a needle in each hand and a lumpy pink scarf in progress
-    const needle = (parent, s) => { const n = hide(new THREE.Group()); parent.add(n); n.add(mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.32, 5), mat('#d9b07a'), { y: -0.02, z: 0.1, rx: 1.1, rz: s * 0.5, cast: false })); n.add(mesh(new THREE.SphereGeometry(0.016, 6, 5), mat(s > 0 ? '#f58fa8' : '#9fd0ef'), { y: -0.1, z: -0.03, cast: false })); return n; };
+    const needle = (parent, s) => { const n = hide(new THREE.Group()); parent.add(n); n.add(mesh(new THREE.CylinderGeometry(0.007, 0.004, 0.32, 5), mat('#d9b07a'), { y: 0.11, cast: false })); n.add(mesh(new THREE.SphereGeometry(0.018, 6, 5), mat(s > 0 ? '#f58fa8' : '#9fd0ef'), { y: -0.05, cast: false })); return n; };
     P.needleR = needle(L.hand, 1); P.needleL = needle(L.leftHand, -1);
     P.scarf = hide(new THREE.Group()); L.hand.add(P.scarf);
-    for (let i = 0; i < 5; i++) P.scarf.add(mesh(new THREE.BoxGeometry(0.16, 0.035, 0.02), mat(i % 2 ? '#f6c6d6' : '#e56f95'), { x: -0.1, y: -0.08 - i * 0.034, z: 0.12, cast: false }));
+    for (let i = 0; i < 6; i++) P.scarf.add(mesh(new THREE.BoxGeometry(0.15, 0.034, 0.022), mat(i % 2 ? '#f6c6d6' : '#e56f95'), { x: 0, y: 0.06 - i * 0.033, z: 0, cast: false }));
     // the yarn ball (lives in the world, at her feet) with a strand up to her hands
     P.yarn = new THREE.Group(); P.yarn.visible = false; this.g.scene.add(P.yarn);
     P.yarn.add(mesh(new THREE.SphereGeometry(0.1, 12, 10), mat('#e56f95', { flatShading: false }), { y: 0.1 }));
@@ -107,24 +135,32 @@ export class Emotes {
   /** a = { id, dur (0 = until she moves), pose(parts, t, k, a), tick(dt, a), end(a, cancelled), props: [], stand } */
   start(a) {
     const g = this.g;
-    if (this.active) this.stop(true);
+    if (this.active) this.stop(true, true);
+    this.fading = null;
     if (a.stand && g.sitting) g.standUp();
-    a.t = 0; a.k = 0;
+    a.t = 0; a.k = 0; a.fin = -1;
     this.active = a;
     this.prevTool = g.lady.tool; g.lady.setTool(null);
     this.showProps(a.props || []);
-    g.lady.setPose((p, t, dt) => { a.k = Math.min(1, a.t * 4); if (a.pose) a.pose(p, a.t, a.k, a, dt); });
+    // ease in over BLEND_IN, and (after stop) ease back out over BLEND_OUT, so she never snaps
+    a.poseFn = (p, t, dt) => { a.k = ease(a.t / BLEND_IN) * (a.fin >= 0 ? 1 - ease(a.fin / BLEND_OUT) : 1); if (a.pose) a.pose(p, a.t, a.k, a, dt); };
+    g.lady.setPose(a.poseFn);
     a.start?.(a);
     return a;
   }
-  stop(cancelled = false) {
+  stop(cancelled = false, instant = false) {
     const a = this.active; if (!a) return;
     this.active = null;
-    this.g.lady.setPose(null);
-    this.showProps([]);
     this.P.yarn.visible = false; this.P.strand.visible = false;
     if (this.prevTool !== undefined) this.g.lady.setTool(this.prevTool);
     a.end?.(a, cancelled);
+    if (instant || !a.poseFn) this.finishFade(a);
+    else { a.fin = 0; this.fading = a; } // keep posing while the blend runs out
+  }
+  finishFade(a) {
+    if (this.fading === a) this.fading = null;
+    if (this.g.lady.getPose() === a.poseFn) this.g.lady.setPose(null);
+    if (!this.active) this.showProps([]);
   }
   get busy() { return !!this.active; }
   update(dt) {
@@ -134,6 +170,12 @@ export class Emotes {
       r.life -= dt; r.m.position.addScaledVector(r.v, dt); r.v.multiplyScalar(1 - dt * 0.6);
       r.m.scale.setScalar(0.6 + (2.6 - r.life) * 0.7); r.m.material.opacity = Math.min(0.8, r.life * 0.5);
       if (r.life <= 0) r.m.visible = false;
+    }
+    const f = this.fading;
+    if (f) {
+      f.t += dt; f.fin += dt;
+      // something else (fishing, fainting, bingo) took over her pose: drop the props right away
+      if (f.fin >= BLEND_OUT || this.g.lady.getPose() !== f.poseFn) this.finishFade(f);
     }
     if (!a) return;
     a.t += dt;
@@ -176,16 +218,24 @@ export class Emotes {
         this.cats(6).forEach((c, i) => { const p = this.ladyPos(), a = Math.atan2(c.pos.x - p.x, c.pos.z - p.z); this.g.cats.react(c, { spot: new THREE.Vector3(p.x + Math.sin(a) * 3, 0, p.z + Math.cos(a) * 3), anim: 'sit', t: 9, speed: 1.6 }); setTimeout(() => this.g.floatAt(c.pos, pick(['😾 *sniff*', 'ew, Granny', '😾']), '#8d7388'), 600 + i * 400); });
       },
       pose: (p, t, k) => {
-        const u = (t % 3) / 3, up = t < 7.6 ? Math.sin(Math.min(1, u / 0.35) * Math.PI) : 0;
-        p.arms[1].rotation.x = lerp(p.arms[1].rotation.x, -2.25 * up - 0.4 * (1 - up), k); p.arms[1].rotation.z = 0.4 * k;
-        p.arms[0].rotation.x = lerp(p.arms[0].rotation.x, -0.35, k); p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, -0.75, k); // hand on hip
-        p.head.rotation.x = -0.12 * up * k;
-        if (t > 7.8) { const c = Math.sin((t - 7.8) * 22) * Math.max(0, 1 - (t - 7.8) / 2.2); p.body.rotation.x = 0.25 * Math.abs(c); p.head.rotation.x = 0.3 * Math.abs(c); }
+        // a 3.2 s drag cycle: lift to the lips, hold, lower, rest by her chest; left hand stays planted on her hip
+        const u = (t % 3.2) / 3.2, live = t < 7.6;
+        const up = !live ? 0 : u < 0.22 ? ease(u / 0.22) : u < 0.5 ? 1 : u < 0.72 ? 1 - ease((u - 0.5) / 0.22) : 0;
+        const ct = t - 7.8, cough = ct > 0 ? Math.abs(Math.sin(ct * 13)) * Math.max(0, 1 - ct / 2.2) : 0;
+        const cover = ct > 0 ? ease(ct / 0.3) * (1 - ease((ct - 1.9) / 0.4)) : 0; // other hand to her mouth while she hacks
+        reach(p, 1, lerp(0.3, 0.07, up), lerp(0.98, 1.43, up), lerp(0.3, 0.31, up), k);
+        reach(p, 0, lerp(HIP_L[0], -0.04, cover), lerp(HIP_L[1], 1.42, cover), lerp(HIP_L[2], 0.32, cover), k);
+        const exhale = live && u > 0.6 && u < 0.85 ? Math.sin(((u - 0.6) / 0.25) * Math.PI) : 0;
+        p.head.rotation.x = k * (-0.08 * up - 0.22 * exhale + 0.28 * cough);
+        p.head.rotation.z = lerp(p.head.rotation.z, 0.08 * up, k);
+        p.body.rotation.x = lerp(p.body.rotation.x, 0.22 * cough, k);
+        p.body.rotation.z = lerp(p.body.rotation.z, Math.sin(t * 1.3) * 0.025, k);
+        hold(g.P.cig, p, 0.12 - 0.1 * up, 0.35 - 0.2 * up, 0, 0.0, 0.075, 0.01);
         g.P.ember.material.emissiveIntensity = 1 + up * 2.5;
       },
       tick: (dt, a) => {
-        const u = (a.t % 3) / 3, cyc = Math.floor(a.t / 3);
-        if (u > 0.42 && a.last !== cyc && a.t < 7.6) { a.last = cyc; this.puffRing(); setTimeout(() => this.puffRing(), 250); }
+        const u = (a.t % 3.2) / 3.2, cyc = Math.floor(a.t / 3.2);
+        if (u > 0.62 && a.last !== cyc && a.t < 7.6) { a.last = cyc; this.puffRing(); setTimeout(() => this.puffRing(), 250); }
         if (a.t > 7.8 && !a.coughed) { a.coughed = true; sound.play('cough'); this.g.host.say(pick(['*COUGH* *HACK* ...smooth.', '*cough cough* These things\'ll kill ya, dearie.', '*wheeze* ...nope, still got it.']), 3); }
       },
     };
@@ -198,10 +248,13 @@ export class Emotes {
         const c = this.cats(8)[0]; if (c) { this.g.cats.react(c, { spot: this.ring(0, 1, 0.75), anim: 'sit', t: 7, speed: 1.6, onArrive: (cc) => this.g.floatAt(cc.pos, '☕?', '#8d7388') }); }
       },
       pose: (p, t, k) => {
-        const u = (t % 2.6) / 2.6, up = u < 0.45 ? Math.sin((u / 0.45) * Math.PI) : 0;
-        p.arms[1].rotation.x = lerp(p.arms[1].rotation.x, -1.0 - 1.3 * up, k); p.arms[1].rotation.z = 0.35 * k;
-        p.arms[0].rotation.x = lerp(p.arms[0].rotation.x, -0.9, k); p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, 0.35, k);
-        p.head.rotation.x = -0.22 * up * k;
+        // left hand cups underneath like a saucer; the mug comes up level, tips toward her for a sip, goes back down
+        const u = (t % 2.8) / 2.8, sip = u < 0.25 ? ease(u / 0.25) : u < 0.55 ? 1 : u < 0.8 ? 1 - ease((u - 0.55) / 0.25) : 0;
+        reach(p, 1, lerp(0.13, 0.08, sip), lerp(1.06, 1.34, sip), lerp(0.36, 0.33, sip), k);
+        reach(p, 0, -0.06, lerp(0.98, 1.02, sip), 0.36, k);
+        p.head.rotation.x = k * (0.12 * (1 - sip) - 0.3 * sip);
+        p.body.rotation.z = lerp(p.body.rotation.z, Math.sin(t * 1.1) * 0.02, k);
+        hold(this.P.mug, p, -0.75 * sip, -0.5, 0, 0, 0.11, 0.0);
       },
       tick: (dt, a) => { a.st = (a.st || 0) - dt; if (a.st <= 0) { a.st = 0.35; const v = new THREE.Vector3(); this.g.lady.parts.hand.getWorldPosition(v); this.g.particles.emit(v.setY(v.y + 0.02), { color: '#fff6e8', count: 1, speed: 0.05, up: 0.5, gravity: -0.3, size: 0.03, emissive: true, life: 1 }); } },
       end: (a, c) => { if (!c) this.g.host.say('Mmm. Perfect.', 2); },
@@ -228,9 +281,15 @@ export class Emotes {
         }
       },
       pose: (p, t, k) => {
-        p.arms[1].rotation.x = lerp(p.arms[1].rotation.x, -1.0 + Math.sin(t * 7) * 0.1, k); p.arms[0].rotation.x = lerp(p.arms[0].rotation.x, -1.0 - Math.sin(t * 7) * 0.1, k);
-        p.arms[1].rotation.z = lerp(p.arms[1].rotation.z, -0.42, k); p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, 0.42, k);
-        p.head.rotation.x = 0.3 * k;
+        // hands together over her lap, needles crossed and clicking in turn, scarf hanging down, eyes on her stitches
+        const c1 = Math.sin(t * 6), c2 = Math.sin(t * 6 + Math.PI);
+        reach(p, 1, 0.11, 0.98 + 0.025 * c1, 0.34 + 0.03 * c1, k);
+        reach(p, 0, -0.11, 0.98 + 0.025 * c2, 0.34 + 0.03 * c2, k);
+        p.head.rotation.x = 0.36 * k; p.head.rotation.z = lerp(p.head.rotation.z, Math.sin(t * 0.7) * 0.06, k);
+        p.body.rotation.x = lerp(p.body.rotation.x, 0.05, k);
+        hold(P.needleR, p, 0.55, 0, 0.6 + 0.12 * c1, 0, 0, 0);
+        hold(P.needleL, p, 0.55, 0, -0.6 - 0.12 * c2, 0, 0, 0);
+        hold(P.scarf, p, 0.15, 0, 0, -0.1, -0.03, -0.01);
       },
       tick: (dt, a) => {
         // the ball rolls when the cat bats it, then drifts back toward her feet
@@ -269,10 +328,12 @@ export class Emotes {
         if (!cats.length) setTimeout(() => this.g.host.say('...where IS everybody?', 3), 2500);
       },
       pose: (p, t, k) => {
-        const shake = Math.sin(t * 30) * 0.12;
-        p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, -2.75 + shake, k); p.arms[1].rotation.z = lerp(p.arms[1].rotation.z, 2.75 - shake, k);
-        p.arms[0].rotation.x = p.arms[1].rotation.x = 0;
-        p.head.rotation.x = -0.35 * k; p.body.position.y = Math.abs(Math.sin(t * 10)) * 0.06 * k;
+        // both arms flung up in a big V, hands waggling, head back, running on the spot
+        const sh = Math.sin(t * 26) * 0.05;
+        reach(p, 0, -0.52 + sh, 1.78, 0.14, k); reach(p, 1, 0.52 - sh, 1.78, 0.14, k);
+        p.head.rotation.x = -0.35 * k; p.head.rotation.z = lerp(p.head.rotation.z, Math.sin(t * 9) * 0.1, k);
+        p.body.position.y = lerp(p.body.position.y, Math.abs(Math.sin(t * 9)) * 0.07, k);
+        p.legs[0].rotation.x = lerp(p.legs[0].rotation.x, Math.sin(t * 18) * 0.35, k); p.legs[1].rotation.x = lerp(p.legs[1].rotation.x, -Math.sin(t * 18) * 0.35, k);
       },
     };
   }
@@ -286,12 +347,23 @@ export class Emotes {
         cats.forEach((c, i) => this.g.cats.react(c, { spot: this.ring(i, cats.length, 1.5), anim: 'stand', hop: 0.8, spin: 4 * (i % 2 ? 1 : -1), t: 11, speed: 2.4, near: 0.3 }));
       },
       pose: (p, t, k) => {
-        p.body.rotation.y = Math.sin(t * 4) * 0.5 * k;
-        p.body.position.y = Math.abs(Math.sin(t * 8)) * 0.09 * k;
-        p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, -(1.6 + Math.sin(t * 8) * 0.9), k);
-        p.arms[1].rotation.z = lerp(p.arms[1].rotation.z, 1.6 - Math.sin(t * 8) * 0.9, k);
-        p.legs[0].rotation.x = Math.max(0, Math.sin(t * 8)) * -0.6 * k; p.legs[1].rotation.x = Math.max(0, -Math.sin(t * 8)) * -0.6 * k;
-        p.head.rotation.z = Math.sin(t * 8) * 0.2 * k;
+        // a beat every 0.5 s; she cycles three moves (disco point, the twist, raise the roof), cross-fading between them
+        const ph = t * 2 * Math.PI, s = Math.sin(ph), pulse = Math.abs(s);
+        const move = (m) => {
+          if (m === 0) { const w = 0.5 + 0.5 * s; return { L: HIP_L, R: [lerp(-0.12, 0.56, w), lerp(0.76, 1.9, w), lerp(0.36, 0.18, w)], tw: 0, sway: s * 0.08 }; }
+          if (m === 1) return { L: [-0.32, 1.0, 0.3 + 0.08 * s], R: [0.32, 1.0, 0.3 - 0.08 * s], tw: s * 0.45, sway: 0 };
+          return { L: [-0.38, 1.72 + 0.12 * pulse, 0.14], R: [0.38, 1.72 + 0.12 * pulse, 0.14], tw: 0, sway: s * 0.04 };
+        };
+        const seg = Math.floor(t / 2.5), w = seg === 0 ? 1 : ease((t % 2.5) / 0.4);
+        const A = move((seg + 2) % 3), B = move(seg % 3), mix = (a, b) => [0, 1, 2].map((i) => lerp(a[i], b[i], w));
+        const L = mix(A.L, B.L), R = mix(A.R, B.R);
+        reach(p, 0, L[0], L[1], L[2], k); reach(p, 1, R[0], R[1], R[2], k);
+        p.body.rotation.y = lerp(A.tw, B.tw, w) * k;
+        p.body.rotation.z = lerp(p.body.rotation.z, lerp(A.sway, B.sway, w), k);
+        p.body.position.y = lerp(p.body.position.y, pulse * 0.06, k);
+        p.head.rotation.z = lerp(p.head.rotation.z, s * 0.15, k); p.head.rotation.x = (0.12 * pulse - 0.05) * k;
+        p.legs[0].rotation.x = lerp(p.legs[0].rotation.x, -0.45 * Math.max(0, s), k); p.legs[1].rotation.x = lerp(p.legs[1].rotation.x, -0.45 * Math.max(0, -s), k);
+        p.legs[0].rotation.z = -0.22 * Math.max(0, s) * k; p.legs[1].rotation.z = 0.22 * Math.max(0, -s) * k;
       },
       tick: (dt, a) => {
         a.ft = (a.ft || 0) - dt;
@@ -313,10 +385,12 @@ export class Emotes {
         });
       },
       pose: (p, t, k) => {
-        p.arms[0].rotation.x = lerp(p.arms[0].rotation.x, -2.25, k); p.arms[1].rotation.x = lerp(p.arms[1].rotation.x, -2.25, k);
-        p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, 0.55, k); p.arms[1].rotation.z = lerp(p.arms[1].rotation.z, -0.55, k);
-        p.head.rotation.z = Math.sin(t * 3) * 0.25 * k;
-        p.body.position.y = Math.abs(Math.sin(t * 5)) * 0.03;
+        // little paws up by her cheeks, kneading the air, head tilted like a curious kitty
+        const kn = Math.sin(t * 7);
+        reach(p, 0, -0.15, 1.42 + 0.04 * kn, 0.3, k); reach(p, 1, 0.15, 1.42 - 0.04 * kn, 0.3, k);
+        p.head.rotation.z = lerp(p.head.rotation.z, Math.sin(t * 2.5) * 0.25, k); p.head.rotation.x = -0.06 * k;
+        p.body.position.y = lerp(p.body.position.y, Math.abs(Math.sin(t * 5)) * 0.03, k);
+        p.body.rotation.z = lerp(p.body.rotation.z, Math.sin(t * 2.5) * 0.04, k);
       },
     };
   }
@@ -328,9 +402,12 @@ export class Emotes {
         this.cats(8).forEach((c, i) => { this.g.cats.react(c, { anim: 'sit', t: 5, near: 99 }); setTimeout(() => this.g.floatAt(c.pos, '❓', '#8d7388'), 700 + i * 300); });
       },
       pose: (p, t, k) => {
-        p.arms[1].rotation.z = lerp(p.arms[1].rotation.z, 2.3, k); p.arms[1].rotation.x = Math.sin(t * 24) * 0.25 * k;
-        p.arms[0].rotation.x = lerp(p.arms[0].rotation.x, -0.35, k); p.arms[0].rotation.z = lerp(p.arms[0].rotation.z, -0.75, k);
-        p.head.rotation.x = -0.45 * k; p.body.rotation.z = Math.sin(t * 24) * 0.03 * k;
+        // fist high at the sky, a quick angry shake, other hand on her hip, leaning back and stomping
+        const sh = Math.sin(t * 15), st = Math.max(0, Math.sin(t * 5));
+        reach(p, 1, 0.58 + 0.03 * sh, 1.86 + 0.05 * sh, 0.34, k); reach(p, 0, HIP_L[0], HIP_L[1], HIP_L[2], k);
+        p.head.rotation.x = -0.42 * k; p.head.rotation.z = lerp(p.head.rotation.z, sh * 0.05, k);
+        p.body.rotation.x = lerp(p.body.rotation.x, -0.08, k); p.body.rotation.z = lerp(p.body.rotation.z, 0.05 + sh * 0.02, k);
+        p.legs[0].rotation.x = lerp(p.legs[0].rotation.x, -0.35 * st * st, k); p.legs[1].rotation.x = lerp(p.legs[1].rotation.x, 0, k);
       },
     };
   }
@@ -340,22 +417,29 @@ export class Emotes {
       id: 'nap', dur: 0,
       start: (a) => {
         a.floor = !g.sitting;
-        if (a.floor) g.lady.setSitting(true);
         g.host.say(pick(['Just resting my eyes...', 'Five minutes, dearie. Zzz...']), 3);
         const c = this.cats(10)[0];
         if (c) setTimeout(() => { if (this.active === a) g.cats.react(c, { spot: this.ring(0, 1, 0.55).setX(this.ladyPos().x + 0.45), anim: 'sleep', t: 9999, speed: 1.4, near: 0.2, onArrive: (cc) => g.floatAt(cc.pos, `${cc.data.name} curls up beside you`, '#c95c74') }); a.cat = c; }, 2500);
       },
       pose: (p, t, k, a) => {
-        if (a.floor) { p.body.position.y = -0.44 * k; }
-        p.head.rotation.x = lerp(0, 0.5 + Math.sin(t * 1.4) * 0.05, k); p.head.rotation.z = 0.2 * k;
-        p.eyes.forEach((e) => (e.scale.y = 0.12));
+        // on the ground she eases down onto her bottom, legs out; hands fold in her lap; head droops; slow breathing
+        if (a.floor) {
+          const d = ease(t / 1.1) * k;
+          p.body.position.y = lerp(p.body.position.y, -0.44, d);
+          p.legs.forEach((l) => (l.rotation.x = lerp(l.rotation.x, -1.45, d)));
+        }
+        reach(p, 0, -0.1, 0.62, 0.34, k); reach(p, 1, 0.1, 0.62, 0.34, k);
+        const br = Math.sin(t * 1.4);
+        p.body.rotation.x = lerp(p.body.rotation.x, 0.1 + br * 0.02, k);
+        p.head.rotation.x = lerp(0, 0.5 + br * 0.05, k); p.head.rotation.z = 0.2 * k;
+        p.eyes.forEach((e) => (e.scale.y = lerp(e.scale.y, 0.12, k)));
       },
       tick: (dt, a) => {
         g.state.lady.energy = Math.min(100, g.state.lady.energy + dt * 0.5);
         a.zt = (a.zt || 1) - dt;
         if (a.zt <= 0) { a.zt = 2.2; g.floatAtLady('Z z z', '#7a8fd0'); if (Math.random() < 0.4) sound.play('snore'); }
       },
-      end: (a) => { if (a.floor && !g.sitting) g.lady.setSitting(false); if (a.cat && a.cat.task && a.cat.task.type === 'emote') a.cat.task = { type: 'idle', anim: 'stretch', t: 2.5 }; },
+      end: (a) => { if (a.cat && a.cat.task && a.cat.task.type === 'emote') a.cat.task = { type: 'idle', anim: 'stretch', t: 2.5 }; },
     };
   }
 }

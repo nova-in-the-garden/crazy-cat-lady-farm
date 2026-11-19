@@ -13,7 +13,9 @@ import { ROAD_Z } from './world.js';
 import { MAX_CATS } from './catData.js';
 import { sound } from './sound.js';
 
-export const BINGO_EVERY = 7, BUS_ARRIVE = 18.8, BUS_LEAVE = 21, HOME_HOUR = 21.5, CALL_SECONDS = 1.8;
+export const BINGO_EVERY = 7, BUS_ARRIVE = 18.8, BUS_LEAVE = 21, HOME_HOUR = 21.5, CALL_SECONDS = 3.5;
+// Father Tom's little sayings for some numbers (the rest he just reads out twice, slowly)
+const NICK = { 1: 'Kelly\'s eye', 7: 'Lucky seven', 9: 'Nine lives!', 11: 'Legs eleven', 13: 'Unlucky for some', 21: 'Key of the door', 22: 'Two little ducks', 33: 'All the threes', 44: 'Droopy drawers', 55: 'Snakes alive', 66: 'Clickety click', 69: 'Either way up', 75: 'The last one, dearies' };
 const BUS_STOP = new THREE.Vector3(-1.6, 0, ROAD_Z + 0.8);
 export const BOARD_SPOT = new THREE.Vector3(-0.9, 0, ROAD_Z - 1.3);
 const LETTERS = 'BINGO';
@@ -115,6 +117,16 @@ export class Bingo {
     const a = this.active; if (!a || a.phase !== 'play') return;
     a.t += dt; a.callT -= dt;
     if (a.callT <= 0) { a.callT = CALL_SECONDS; this.callNext(); }
+    // rivals daub at a human pace after each call (Edna is slow), and only then can they shout BINGO
+    let changed = false;
+    for (const r of a.rivals) {
+      while (r.pending && r.pending.length && r.pending[0].at <= a.t) { r.card.daub[r.pending.shift().i] = true; changed = true; }
+    }
+    if (changed) {
+      this.render();
+      const winner = a.rivals.find((r) => hasBingo(r.card));
+      if (winner && a.calls.length > 4 && !a.winning) { a.winning = true; setTimeout(() => this.rivalWins(winner), 600); }
+    }
   }
 
   /* ---------------- the game ---------------- */
@@ -128,7 +140,7 @@ export class Bingo {
   begin() {
     const g = this.g, s = this.s;
     s.bingo.games = (s.bingo.games || 0) + 1;
-    this.active = { phase: 'play', t: 0, callT: 2.2, calls: [], pool: Array.from({ length: 75 }, (_, i) => i + 1), card: makeCard(), log: [], cheatFresh: 0, falseCalls: 0,
+    this.active = { phase: 'play', t: 0, callT: 3, calls: [], pool: Array.from({ length: 75 }, (_, i) => i + 1), card: makeCard(), log: [], cheatFresh: 0, falseCalls: 0,
       rivals: RIVALS.map((r) => ({ ...r, card: makeCard(), cheats: [], shout: '' })) };
     this.el.classList.remove('hidden');
     this.render();
@@ -142,16 +154,20 @@ export class Bingo {
     a.calls.push(n); sound.play('tap');
     // rivals daub (Edna dozes off sometimes), Mildred sneaks in an extra one...
     for (const r of a.rivals) {
-      const i = r.card.cells.indexOf(n); if (i >= 0 && Math.random() < r.daub) r.card.daub[i] = true;
+      const i = r.card.cells.indexOf(n);
+      if (i >= 0 && Math.random() < r.daub) { (r.pending ||= []).push({ i, at: a.t + (r.id === 'edna' ? 1.4 : 0.6) + Math.random() * 1.2 }); r.pending.sort((x, y) => x.at - y.at); }
       if (r.cheat && Math.random() < r.cheat) {
         const free = r.card.cells.map((v, k) => k).filter((k) => !r.card.daub[k] && !a.calls.includes(r.card.cells[k]));
         if (free.length) { const k = pick(free); r.card.daub[k] = true; r.cheats.push(k); a.cheatFresh = 2; this.log(`👀 Mildred just daubed ${label(r.card.cells[k])}... nobody called that!`, 'cheat'); }
       } else if (Math.random() < 0.12) this.log(`${r.name}: "${pick(r.lines)}"`);
     }
     if (a.cheatFresh > 0) a.cheatFresh--;
+    a.annAt = performance.now();
+    const nick = NICK[n];
+    if (nick && Math.random() < 0.7) this.log(`Father Tom: "${nick}... ${label(n)}!"`);
     const winner = a.rivals.find((r) => hasBingo(r.card));
     this.render();
-    if (winner && a.calls.length > 4) setTimeout(() => this.rivalWins(winner), 450);
+    if (winner && a.calls.length > 4 && !a.winning) { a.winning = true; setTimeout(() => this.rivalWins(winner), 600); }
     if (!a.pool.length) this.end(false, null);
     return n;
   }
@@ -249,6 +265,11 @@ export class Bingo {
     this.el.innerHTML = `<div class="bg-hall"><div class="bg-head"><div><h2>🎱 Bingo Night</h2><span>St. Purrpetua's Church Hall · Father Tom is calling</span></div>
       <div class="bg-ball">${last ? `<b>${LETTERS[Math.floor((last - 1) / 15)]}</b><em>${last}</em>` : '<em>...</em>'}</div><div class="bg-recent">${recent}</div></div>
       <div class="bg-body"><div class="bg-left">${cardHtml}<div class="bg-foot">${foot}</div></div>
-      <div class="bg-right"><div class="bg-rivals">${rivals}</div><div class="bg-log">${a.log.map((l) => `<p class="${l.cls}">${l.text}</p>`).join('')}</div></div></div></div>`;
+      <div class="bg-right"><div class="bg-rivals">${rivals}</div><div class="bg-log">${a.log.map((l) => `<p class="${l.cls}">${l.text}</p>`).join('')}</div></div></div>${this.announceHtml(a, last)}</div>`;
+  }
+  announceHtml(a, n) {
+    const age = a.phase === 'play' && n && a.annAt ? performance.now() - a.annAt : 1e9;
+    if (age > 2200) return '';
+    return `<div class="bg-announce" style="animation-delay:-${Math.round(age)}ms"><div class="ball" style="animation-delay:-${Math.round(age)}ms"><b>${LETTERS[Math.floor((n - 1) / 15)]}</b><em>${n}</em></div><span>${NICK[n] ? `${NICK[n]}!` : `${label(n)}... ${label(n)}!`}</span></div>`;
   }
 }

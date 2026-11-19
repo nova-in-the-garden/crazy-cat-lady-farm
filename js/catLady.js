@@ -259,7 +259,7 @@ export function createCatLady() {
     if (blinkTimer < 0) blinkTimer = 2 + Math.random() * 3;
     // emotes, chores, baths and fainting take over the pose last
     if (pose) pose(parts, t, dt);
-    else if (posed) { posed = false; body.rotation.y = 0; head.rotation.x = 0; head.position.y = 1.55; }
+    else if (posed) { posed = false; body.rotation.y = 0; head.rotation.x = 0; head.position.y = 1.55; legs.forEach((l) => (l.rotation.z = 0)); arms.forEach((a) => (a.rotation.y = 0)); }
     if (pose) posed = true;
   }
   let pose = null, posed = false;
@@ -272,5 +272,5 @@ export function createCatLady() {
   function drink() { drinkTime = 2.4; setTool(toolName); }
 
   group.traverse((o) => { if (o.isMesh) o.userData.isLady = true; });
-  return { group, headAnchor, update, wave, act, drink, setTool, hideTool, setOutfit, rodTip, get outfit() { return outfit; }, setSitting, setPose, parts, get tool() { return toolName; }, get hasPose() { return !!pose; }, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
+  return { group, headAnchor, update, wave, act, drink, setTool, hideTool, setOutfit, rodTip, get outfit() { return outfit; }, setSitting, setPose, getPose: () => pose, parts, get tool() { return toolName; }, get hasPose() { return !!pose; }, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
 }

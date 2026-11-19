@@ -905,11 +905,11 @@ export class CatManager {
   separate() {
     const lp = this.game.lady.group.position;
     for (const c of this.list) {
-      if (this.game.vet.examCat === c || c.model.anim === 'sleep' || c.caged) continue;
+      if (this.game.vet.examCat === c || c.model.anim === 'sleep' || c.caged || (c.task && c.task.swarm)) continue; // swarm cats hold their computed spots
       const dx = c.pos.x - lp.x, dz = c.pos.z - lp.z, d = Math.hypot(dx, dz);
       if (d < 0.55 && d > 0.001) { c.pos.x += (dx / d) * (0.55 - d); c.pos.z += (dz / d) * (0.55 - d); }
       for (const o of this.list) {
-        if (o === c || o.model.anim === 'sleep' || o.caged || (c.model.anim === 'eat' && o.model.anim === 'eat')) continue;
+        if (o === c || o.model.anim === 'sleep' || o.caged || (o.task && o.task.swarm) || (c.model.anim === 'eat' && o.model.anim === 'eat')) continue;
         const ex = c.pos.x - o.pos.x, ez = c.pos.z - o.pos.z, e = Math.hypot(ex, ez);
         if (e < 0.45 && e > 0.001) { c.pos.x += (ex / e) * (0.45 - e) * 0.5; c.pos.z += (ez / e) * (0.45 - e) * 0.5; }
       }
