@@ -28,7 +28,7 @@ export class Hairballs {
     const stink = new THREE.Group(); stink.position.y = 0.12; g.add(stink);
     for (let i = 0; i < 3; i++) stink.add(mesh(new THREE.TorusGeometry(0.035, 0.007, 4, 10, Math.PI * 1.2), new THREE.MeshBasicMaterial({ color: '#9fcf6a', transparent: true, opacity: 0.7 }), { x: -0.06 + i * 0.06, y: i * 0.03, rz: i * 0.7, cast: false }));
     g.userData.stink = stink;
-    g.position.set(h.x, this.g.world.groundHeight(h.x, h.z), h.z); g.rotation.y = h.r || 0;
+    g.position.set(h.x, this.g.world.groundHeight(h.x, h.z), h.z); g.rotation.y = h.r || 0; g.scale.setScalar(1.5);
     return g;
   }
   refresh() {

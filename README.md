@@ -148,6 +148,10 @@ food you have), her bed with a paw-print quilt, a nightstand, a little tea table
 | Mute sounds | M, or the Sound button | Sound button |
 | Chat with her | C, or click her | tap her |
 | Emote wheel | T, or the Emotes button (1-8 to pick) | Emotes button |
+| Dress up a cat | E next to the cat, then "Dress up" | Use next to the cat |
+| Scoop a hairball | E next to it | Use button |
+| Fish (needs worm bait) | E on the pond shore; E/Space or the big button to cast, hook and hold to reel; Esc stops | the big button |
+| Bingo night | E by the Bingo Bus at the end of the drive (every 7th day, ~7 PM); tap called numbers, then BINGO! | tap |
 | Dishes, wash hands, bath, toilet | E at the sinks, tub, toilet (E again to flush / hop out) | Use button |
 
 ## Run it locally
@@ -254,3 +258,12 @@ tools/bump_version.py  cache-busting version stamp (run before deploying)
 - **Weeds:** a plowed plot left unused (not planted, watered or harvested) grows weeds on day 2 and goes back to grass at dawn on day 3. Planted crops are never affected.
 - **Emote wheel:** `T` (or the Emotes button on mobile): smoke a ciggy (cough!), sip coffee, knitting (a cat bats the yarn), MY BABIES!, dance party (cats join), meow (cats meow back), shake fist at sky, nap (+energy). Walking cancels an emote.
 - **Hunger gag:** at 15% hunger Granny complains and the hunger bar flashes. At 0 she keels over, every cat piles on ("nom nom" 😱), the screen fades and she wakes up in bed a few hours later (or next morning) a little poorer, with a journal entry. Cats never die. Chat with Granny moved to `C`.
+
+## Costumes, hairballs, fishing, bedtime robe and bingo night
+
+- **Knitted cat costumes:** the Knitting emote (T) uses 1 yarn about every 12 seconds and makes a striped cat sweater, then a bobble hat, then a sweater... Press E by a cat and pick **Dress up** to put one on (again to add the hat, again to take everything off, back into the wardrobe). Costumes show on the cat and on its stats card, and they're saved. Yarn: 2 to start, 2 balls for 5 coins at the Farmers Market, or a bingo prize.
+- **Hairballs:** every few in-game hours a cat goes *HACK HACK* and leaves a hairball where it stands (house or yard, at most 6 lying around). Press E next to one to scoop it up. Sometimes there's a coin inside. Gross, but nobody gets hurt.
+- **Fishing:** buy **worm bait** (5 for 3 coins) at the Farmers Market; it's delivered with your other orders. Walk to the pond shore and press E. Cast with the swinging power meter, wait for the bobber to dip (ignore the nibbles), hook it fast, then hold to lift the green net zone and keep the fish inside until the catch bar fills. Catches: minnow, sunfish, bass, catfish, an old boot, and a rare golden koi. Each one can become **cat food** for the pantry or be **sold for coins**. One worm per cast.
+- **Sundown outfit:** at 6 PM Granny changes into a fuzzy pink robe, fluffy slippers, hair curlers and a hair net; at 6 AM she's back in her cardigan and apron.
+- **Bingo night:** every 7th day (day 7, 14, ...) the lavender Bingo Bus stops at the end of the drive from about 6:50 PM to 9 PM. Board it for bingo at St. Purrpetua's church hall: numbers are called every couple of seconds; tap called numbers to daub, then hit BINGO! with a full row, column or diagonal. The rivals are sleepy Edna, loud Bertha and Mildred, who daubs numbers nobody called (hit "Call out Mildred!" to wipe her cheats). Prizes: coins, a blue-ribbon seed pack, fancy yarn, or rarely a mystery cat in a box (only when you have room under the 10-cat cap). Lose and Granny shakes her fist the whole ride home. The bus drops her back at 9:30 PM; the clock waits while she plays. The day she went, wins and games are saved.
+- **Also:** Granny tucks her tool away while she sits, emotes or does chores, and the toast, "saved" note and banner now stack instead of overlapping.

@@ -572,7 +572,8 @@ body.exam-open #sleep-btn { display: none !important; }
 .bg-foot { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .bg-shout, .bg-callout, .bg-home { font: inherit; font-weight: 800; border-radius: 18px; padding: 10px 22px; cursor: pointer; border: 3px solid #c95c74; background: #fff; color: #c95c74; font-size: 1.3rem; }
 .bg-shout.ready { background: #ef7f95; color: #fff; animation: buffPulse 0.7s infinite; }
-.bg-callout { font-size: 1rem; border-color: #9b6fd0; color: #7a5aa8; } .bg-callout.hot { background: #f3ecfb; animation: fishBite 0.3s infinite; }
+.bg-callout { font-size: 1rem; border-color: #9b6fd0; color: #7a5aa8; } .bg-callout.hot { background: #f3ecfb; animation: wiggle 0.3s infinite; }
+@keyframes wiggle { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg) scale(1.04); } }
 .bg-home { border-color: #9b7fc9; color: #7a5aa8; font-size: 1.1rem; }
 .bg-rivals { display: flex; gap: 10px; }
 .bg-rival { flex: 1; background: #fff; border-radius: 16px; padding: 8px; text-align: center; border: 2px solid #f2e6ee; display: flex; flex-direction: column; align-items: center; gap: 2px; }
