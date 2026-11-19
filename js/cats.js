@@ -564,7 +564,7 @@ export class CatManager {
       // the porch swing ride ends as soon as she stands up (or something more important comes along)
       if (c.onSwing && (!c.task || c.task.type !== 'swing')) this.leaveSwing(c, true);
       // regular free-roaming cat: a full bowl in the Cats' House beats everything else
-      if (this.state.bowls[d.id] && (!c.task || (c.task.type !== 'eat' && c.task.type !== 'interact'))) c.task = { type: 'eat', t: 90 };
+      if (this.state.bowls[d.id] && (!c.task || (c.task.type !== 'eat' && c.task.type !== 'interact' && c.task.type !== 'emote'))) c.task = { type: 'eat', t: 90 };
       if (!c.task || (c.task.t !== undefined && (c.task.t -= dt) <= 0)) c.task = this.decide(c, dist, cs);
       const task = c.task;
       switch (task.type) {
@@ -594,6 +594,26 @@ export class CatManager {
         }
         case 'gift': {
           if (dist > 1.2) { moveTo = this.routeTarget(c, lp); speed = 1.6; } else { this.giveGift(c); c.task = { type: 'idle', anim: 'sit', t: 4 }; }
+          break;
+        }
+        case 'emote': { // reacting to Granny: run over, sit in a ring, dance, bat at yarn, swarm her...
+          const tgt = task.spot || lp;
+          const dd = Math.hypot(tgt.x - c.pos.x, tgt.z - c.pos.z);
+          if (!task.arrived && dd > (task.near ?? 0.25)) {
+            moveTo = task.spot ? this.goTo(c, task.spot, task.near ?? 0.2) : this.routeTarget(c, lp);
+            speed = task.speed || 2.4;
+            if (!moveTo || c.stuck > 1.5) task.arrived = true;
+          } else task.arrived = true;
+          if (task.arrived) {
+            moveTo = null;
+            if (task.spot && task.snap) c.pos.lerp(task.spot, Math.min(1, dt * 6));
+            anim = task.anim || 'sit';
+            const look = task.look || lp;
+            c.heading = task.spin ? c.heading + dt * task.spin : Math.atan2(look.x - c.pos.x, look.z - c.pos.z);
+            if (task.hop) { task.hopT = (task.hopT ?? Math.random() * task.hop) - dt; if (task.hopT <= 0) { task.hopT = task.hop * (0.7 + Math.random() * 0.6); c.model.pounce(); task.onHop?.(c); } }
+            if (!task.greeted) { task.greeted = true; task.onArrive?.(c); }
+            task.tick?.(c, dt);
+          }
           break;
         }
         case 'symptom': anim = ISSUES[cs?.issue]?.anim || 'sit'; break;
@@ -714,6 +734,14 @@ export class CatManager {
   }
 
   /** She sat down (swing, sofa, chair...): the friendliest free cat nearby may come and hop up beside her or into her lap. */
+  /** Free-roaming family cats within r metres of Granny (not in the clinic, an exam, a seat or leaving). */
+  freeCats(r = 10) {
+    const g = this.game, lp = g.lady.group.position;
+    return this.joined().filter((c) => !c.escort && !c.leaving && !c.caged && !c.onSwing && !this.inKennel(c) && g.vet.examCat !== c
+      && Math.hypot(c.pos.x - lp.x, c.pos.z - lp.z) < r).sort((a, b) => Math.hypot(a.pos.x - lp.x, a.pos.z - lp.z) - Math.hypot(b.pos.x - lp.x, b.pos.z - lp.z));
+  }
+  /** Have a cat react to Granny (see the 'emote' task in brain()). */
+  react(c, task) { c.task = { type: 'emote', t: 8, ...task }; c.path = []; c.stuck = 0; return c; }
   inviteToSwing() {
     const g = this.game, lp = g.lady.group.position;
     const ok = this.joined().filter((c) => !c.escort && !c.leaving && !c.caged && !this.inKennel(c) && g.vet.examCat !== c && !g.vet.activeCase(c.data.id)

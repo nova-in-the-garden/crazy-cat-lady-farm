@@ -151,6 +151,9 @@ export class GameUI {
     clearTimeout(this._bannerT); this._bannerT = setTimeout(() => b.classList.add('hidden'), 4200);
   }
 
+  /** Make the hunger bar flash (she's about to faint). */
+  flashHunger() { const r = this.status.querySelector('.lady-row'); r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 3200); }
+
   /** A gentle little notification for journal moments. */
   toast(text) {
     this.toastEl.innerHTML = `${icon('book', 18)}<span>${text}</span>`;
@@ -193,6 +196,7 @@ export class GameUI {
     const hb = q('.lady-row .hunger'), eb = q('.lady-row .energy');
     hb.style.width = `${Math.round(L.hunger)}%`; eb.style.width = `${Math.round(L.energy)}%`;
     hb.classList.toggle('low', L.hunger < 30); eb.classList.toggle('low', L.energy < 25);
+    hb.classList.toggle('starving', L.hunger <= 15); this.status.querySelector('.lady-row').classList.toggle('starving', L.hunger <= 15);
     q('.meals-count').textContent = `${state.meals || 0} meal${state.meals === 1 ? '' : 's'}`;
     CROP_IDS.forEach((c) => (q(`[data-crop="${c}"]`).textContent = state.crops[c]));
     this.slots.forEach((s, i) => {

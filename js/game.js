@@ -2,10 +2,10 @@
 // buy cat food and clinic supplies with coins from adoptions, and care for up to 10 cats.
 // Ties together the garden, clock, kitchen, UI, sounds and Granny's comments.
 import * as THREE from 'three';
-import { CROPS, CROP_IDS, FOOD_CROPS, MAIL_SEEDS, MAIL_MAX, MAIL_WEIGHTS, SUPPLY_LABELS, COFFEE_SECONDS, COFFEE_PERK, COFFEE_SPEED, defaultState, restoreState } from './state.js';
+import { CROPS, CROP_IDS, FOOD_CROPS, MAIL_SEEDS, MAIL_MAX, MAIL_WEIGHTS, SUPPLY_LABELS, COFFEE_SECONDS, COFFEE_PERK, COFFEE_SPEED, DISHES_MAX, defaultState, restoreState } from './state.js';
 import { writeSlot } from './saves.js';
 import { Garden, GRID, tileAt, stageOf, tileCenter } from './garden.js';
-import { DayCycle, DAY_SECONDS } from './time.js';
+import { DayCycle } from './time.js';
 import { GameUI, TOOLS } from './ui.js';
 import { Particles } from './particles.js';
 import { sound } from './sound.js';
@@ -18,6 +18,8 @@ import { Shop } from './shop.js';
 import { StatsCard } from './statsCard.js';
 import { Adoption } from './adoption.js';
 import { Delivery } from './delivery.js';
+import { Emotes, scrubPose } from './emotes.js';
+import { Faint } from './faint.js';
 
 const TILE_COUNT = GRID.cols * GRID.rows;
 
@@ -68,12 +70,16 @@ export class Game {
     this.shop = new Shop(this);
     this.adoption = new Adoption(this);
     this.delivery = new Delivery(this);
+    this.emotes = new Emotes(this);
+    this.faint = new Faint(this);
+    this.fainted = false;
     this.shopOpen = false; this.adoptOpen = false;
     this.needNag = 60;
 
     this.day.onDawn = () => this.dawn();
     this.day.onBedtime = () => this.bedtime();
     world.cottage.setFood(this.state.food);
+    world.cottage.setDishes(this.state.dishes);
     this.updateMailbox();
     lady.setTool(TOOLS[this.state.tool].id === 'hands' ? 'basket' : TOOLS[this.state.tool].id);
 
@@ -82,6 +88,11 @@ export class Game {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (!this.vet.naming.classList.contains('hidden')) return;
       if (e.code === 'KeyJ') { this.catMenu.close(); this.statsCard.close(); this.journal.toggle(); return; }
+      if (this.emotes.wheelOpen) {
+        if (/^Digit[1-8]$/.test(e.code)) { this.emotes.key(Number(e.code.slice(5))); return; }
+        if (e.code === 'Escape' || e.code === 'KeyT') { this.emotes.toggleWheel(false); return; }
+      }
+      if (e.code === 'KeyT' && !this.blocked) { this.emotes.toggleWheel(); return; }
       if (e.code === 'Escape') {
         if (this.journalOpen) this.journal.toggle(false); else if (this.shopOpen) this.shop.toggle(false); else if (this.adoptOpen) this.adoption.close();
         else if (this.statsCard.isOpen) this.statsCard.close(); else if (this.catMenu.isOpen) this.catMenu.close(); else if (this.vet.exam && this.vet.exam.step === 'checks') this.vet.close(false);
@@ -105,7 +116,7 @@ export class Game {
   }
 
   /** True while a full-screen card is open (she stands still). */
-  get blocked() { return this.locked || this.journalOpen || this.shopOpen || this.adoptOpen; }
+  get blocked() { return this.locked || this.journalOpen || this.shopOpen || this.adoptOpen || this.fainted; }
 
   start() {
     this.playing = true; this.started = true;
@@ -127,6 +138,7 @@ export class Game {
     this.save();
     sound.unlock();
     this.ui.show(this.touch);
+    this.emotes.show();
   }
 
   /* ---------------- tools ---------------- */
@@ -155,11 +167,20 @@ export class Game {
     const s = this.state, p = this.lady.group.position, W = this.world;
     const near = (q, r) => Math.hypot(p.x - q.x, p.z - q.z) < r;
     const crops = FOOD_CROPS.reduce((n, c) => n + s.crops[c], 0);
-    if (this.sitting) return { ok: true, label: 'Stand up', run: () => this.standUp() };
+    if (this.sitting) {
+      const k = this.sitting.seat.kind;
+      if (k === 'toilet') return { ok: true, label: 'Flush the toilet 🚽', run: () => this.flushToilet() };
+      if (k === 'tub') return { ok: true, label: 'Hop out of the bath', run: () => this.standUp() };
+      return { ok: true, label: 'Stand up', run: () => this.standUp() };
+    }
+    if (this.emotes.busy && this.emotes.active.chore) return { ok: false, label: this.emotes.active.label || 'Busy...' };
     const table = this.vet.tableAction();
     if (table && table.ok) return table;
     const parcel = this.delivery.action(p);
     if (parcel) return parcel;
+    // sinks, tub and toilet win over a nearby chair when she's standing right at them
+    const plumb = W.cottage.isInside(p.x, p.z) ? this.plumbingAction(p) : null;
+    if (plumb) return plumb;
     const seat = this.nearestSeat();
     if (seat) return { ok: true, label: seat.label, run: () => this.sitDown(seat) };
     // at the cottage bed, Sleep wins (even with cats piled on the bed)
@@ -179,6 +200,7 @@ export class Game {
       const dCof = Math.hypot(p.x - W.cottage.coffeePos.x, p.z - W.cottage.coffeePos.z), dStove = Math.hypot(p.x - W.cottage.stovePos.x, p.z - W.cottage.stovePos.z);
       if (dCof < 0.8 && dCof <= dStove) return this.coffeeAction();
       if (near(W.cottage.stovePos, 1.3)) {
+        if (crops > 0 && s.dishes >= DISHES_MAX) return { ok: false, label: `No clean pots! Do the dishes at the sink first (${s.dishes} dirty)` };
         if (crops > 0) return { ok: true, label: `Cook ${crops} veggie${crops > 1 ? 's' : ''} into home-cooked meals`, run: () => this.cook() };
         if (s.meals > 0) return this.eatAction();
         return { ok: false, label: 'Kitchen stove: harvest veggies from the garden, then cook your meals here' };
@@ -217,7 +239,9 @@ export class Game {
           : { ...base, ok: false, label: `No ${name} seeds. Press Q to switch, or check the mailbox` };
       }
       if (tool === 'can') return this.waterAction(i, 'soil');
-      return { ...base, ok: false, label: `Plowed soil${t.wet ? ' (watered)' : ''}. Plant seeds [2]` };
+      const idle = this.garden.idleDays(i);
+      if (idle >= 2 && !t.wet) return { ...base, ok: false, label: 'Weeds are creeping in! Plant or water it today, or it goes back to grass at dawn' };
+      return { ...base, ok: false, label: `Plowed soil${t.wet ? ' (watered)' : ''}. Plant seeds [2]${idle === 1 ? '. Unused plots grow weeds' : ''}` };
     }
     // planted
     if (t.growth >= 1) {
@@ -250,6 +274,110 @@ export class Game {
     const todo = this.vet.dailyTasks(cs).filter((t) => !cs.today?.[t]).length;
     return { ok: true, label: todo ? `Care for ${cat.data.name} in ${label.toLowerCase()} (${todo} to do today)` : `${cat.data.name}: all of today's care done (healing ${Math.round(cs.heal)}%)`, run: () => this.statsCard.open(cat) };
   }
+  /* ---------------- running water: sinks, the clawfoot tub and the pull-chain toilet ---------------- */
+  plumbingAction(p) {
+    const C = this.world.cottage, s = this.state;
+    const d = (q) => Math.hypot(p.x - q.x, p.z - q.z);
+    const opts = [
+      { at: C.sinks.kitchen.stand, r: 0.8, a: () => s.dishes > 0 ? { ok: true, label: `Do the dishes (${s.dishes} dirty) 🧽`, run: () => this.doDishes() } : { ok: true, label: 'Wash your hands at the kitchen sink 🧼', run: () => this.washHands('kitchen') } },
+      { at: C.sinks.bath.stand, r: 0.75, a: () => ({ ok: true, label: 'Wash your hands 🧼', run: () => this.washHands('bath') }) },
+      { at: C.tubSeat.front, r: 0.7, a: () => this.day.bedtime ? { ok: false, label: 'Too late for a bath, dearie. Off to bed!' } : { ok: true, label: 'Take a bubble bath 🛁 (+energy)', run: () => this.sitDown(C.tubSeat) } },
+      { at: C.toiletSeat.front, r: 0.7, a: () => C.flushing() ? { ok: false, label: 'Whoosh! Flushing...' } : { ok: true, label: 'Use the toilet 🚽', run: () => this.sitDown(C.toiletSeat) } },
+    ].filter((o) => d(o.at) < o.r).sort((a, b) => d(a.at) - d(b.at));
+    return opts.length ? opts[0].a() : null;
+  }
+  addDishes(n) { this.state.dishes = Math.min(DISHES_MAX, (this.state.dishes || 0) + n); this.world.cottage.setDishes(this.state.dishes); }
+  /** Face a sink and stand right at it. */
+  stepUpTo(sink) {
+    if (window.ccl) window.ccl.teleport(sink.stand.x, sink.stand.z, sink.heading);
+  }
+  doDishes() {
+    const C = this.world.cottage, sink = C.sinks.kitchen, s = this.state;
+    const n = s.dishes; if (!n) return;
+    this.stepUpTo(sink);
+    C.setWater('kitchen', true); sound.play('tap');
+    this.host.say(['Scrub-a-dub-dub, three cats in a tub... no wait, that\'s plates.', 'Who used ALL these plates? Oh. Me.', 'Dishes, dishes, dishes...'][Math.floor(Math.random() * 3)], 4);
+    this.emotes.start({
+      id: 'dishes', chore: true, label: 'Doing the dishes...', dur: 1.2 + n * 0.7,
+      pose: scrubPose,
+      tick: (dt, a) => {
+        a.bt = (a.bt || 0) - dt;
+        if (a.bt <= 0) { a.bt = 0.25; this.particles.emit(sink.basin, { color: '#ffffff', count: 2, speed: 0.3, up: 0.9, gravity: -0.2, size: 0.035, emissive: true, life: 1.2, spread: 0.4 }); }
+        const left = Math.max(0, n - Math.floor((a.t - 0.6) / 0.7));
+        if (a.t > 0.6 && left < s.dishes) { s.dishes = left; C.setDishes(left); sound.play('dish'); }
+      },
+      end: (a, cancelled) => {
+        C.setWater('kitchen', false);
+        if (cancelled) return;
+        s.dishes = 0; C.setDishes(0);
+        s.stats.dishes = (s.stats.dishes || 0) + n;
+        this.floatAtLady('Sparkling clean dishes! ✨', '#3f8fb5', 'sparkle');
+        if (!s.flags.dishes) { s.flags.dishes = true; this.journal.log('Granny did a whole sink of dishes, humming the whole time. A cat "helped" by sitting on the drying towel.'); }
+        this.save();
+      },
+    });
+  }
+  washHands(which) {
+    const C = this.world.cottage, sink = C.sinks[which], s = this.state;
+    this.stepUpTo(sink);
+    C.setWater(which, true); sound.play('tap');
+    this.emotes.start({
+      id: 'wash', chore: true, label: 'Washing hands...', dur: 3.2,
+      pose: scrubPose,
+      tick: (dt, a) => { a.bt = (a.bt || 0) - dt; if (a.bt <= 0) { a.bt = 0.2; this.particles.emit(sink.basin.clone().setY(sink.basin.y + 0.08), { color: '#ffffff', count: 2, speed: 0.25, up: 1.1, gravity: -0.3, size: 0.03, emissive: true, life: 1.2, spread: 0.3 }); } },
+      end: (a, cancelled) => {
+        C.setWater(which, false);
+        if (cancelled) return;
+        this.floatAtLady('Squeaky clean hands! 🧼', '#3f8fb5', 'sparkle');
+        if (this.needsWash) { this.needsWash = false; this.host.say('Good girl, Granny. Always wash your hands!', 4); }
+        if (!s.flags.washed) { s.flags.washed = true; this.journal.log('Granny washed her hands with the rose soap. The whole cottage smells like a garden now.'); }
+      },
+    });
+  }
+  flushToilet() {
+    const C = this.world.cottage;
+    this.flushedThis = true;
+    C.flush(); sound.play('flush');
+    this.standUp();
+    this.particles.emit(C.toiletPos, { color: '#8fd3ee', count: 10, speed: 0.6, up: 0.8, gravity: 2, size: 0.03, emissive: true, life: 0.8, spread: 0.2 });
+    this.needsWash = true;
+    this.host.say('Whoosh! Now wash those hands, dearie.', 4);
+    this.state.stats.flushes = (this.state.stats.flushes || 0) + 1;
+    if (!this.state.flags.flushed) { this.state.flags.flushed = true; this.journal.log('The new pull-chain toilet works! Granny flushed it three times just to hear the whoosh.'); }
+    // the classic: a cat comes to drink out of the toilet
+    const cat = Math.random() < 0.5 ? this.cats.freeCats(12)[0] : null;
+    if (cat) {
+      const tp = C.toiletPos, front = C.toiletSeat.front;
+      this.cats.react(cat, { spot: new THREE.Vector3((tp.x + front.x) / 2, 0, tp.z - 0.4), near: 0.25, anim: 'eat', t: 6, speed: 2.4, look: tp,
+        onArrive: (c) => { this.floatAt(c.pos, '*slurp slurp* 🚽', '#3f8fb5'); this.host.say(`${c.data.name}! Not from the TOILET! Ew!`, 4); } });
+    }
+  }
+  startBath() {
+    const C = this.world.cottage;
+    C.setTub(1); sound.play('tap');
+    this.lady.setPose((P, t) => { // arms resting on the rim, a happy little wiggle
+      P.arms[0].rotation.set(-0.2, 0, -1.25); P.arms[1].rotation.set(-0.2, 0, 1.25);
+      P.head.rotation.z = Math.sin(t * 1.3) * 0.1;
+    });
+    this.bathT = 0;
+  }
+  endBath() {
+    const C = this.world.cottage, s = this.state;
+    C.setTub(0); this.lady.setPose(null); sound.play('splash');
+    this.particles.emit(C.tubPos, { color: '#9fd8ef', count: 14, speed: 1.2, up: 2, gravity: 6, size: 0.04, life: 0.8, spread: 0.6 });
+    if ((this.bathT || 0) > 3) {
+      this.floatAtLady('Fresh as a daisy! 🛁', '#3f8fb5', 'sparkle');
+      if (!s.flags.bath) { s.flags.bath = true; this.journal.log('Granny had a lavender bubble bath in the new clawfoot tub. The rubber duck was there. The cats watched from a safe, dry distance.'); }
+    }
+    this.bathT = 0;
+  }
+  updateBath(dt) {
+    if (!(this.sitting && this.sitting.seat.kind === 'tub')) return;
+    this.bathT = (this.bathT || 0) + dt;
+    this.bubbleT = (this.bubbleT || 0) - dt;
+    if (this.bubbleT <= 0) { this.bubbleT = 0.4; const p = this.world.cottage.tubPos; this.particles.emit(new THREE.Vector3(p.x, p.y + 0.1, p.z), { color: '#ffffff', count: 2, speed: 0.35, up: 0.8, gravity: -0.15, size: 0.04, emissive: true, life: 1.8, spread: 0.6 }); }
+  }
+
   /* ---------------- coffee: a cup from the percolator = a burst of speed ---------------- */
   coffeeAction() {
     const L = this.state.lady;
@@ -318,6 +446,7 @@ export class Game {
     const s = this.state;
     if (s.meals <= 0) return;
     s.meals--; s.lady.hunger = Math.min(100, s.lady.hunger + 45); s.lady.energy = Math.min(100, s.lady.energy + 15);
+    this.addDishes(1);
     this.lady.act(); sound.play('eat');
     this.floatAtLady('Mmm, a warm home-cooked meal! (+hunger, +energy)', '#c95c74', 'meal');
     if (!s.flags.ateMeal) { s.flags.ateMeal = true; this.host.say('Ahh, much better. A cat lady needs her veggies too! The garden feeds me now, and cat food comes in bags from the Farmers Market.', 7); }
@@ -406,7 +535,7 @@ export class Game {
     const t = this.state.tiles[i];
     if (t.state !== 'grass') return;
     t.state = 'plowed'; this.state.stats.plowed++;
-    this.garden.refresh(i); this.lady.act(); sound.play('plow');
+    this.garden.touch(i); this.lady.act(); sound.play('plow');
     this.particles.emit(tileCenter(i).setY(0.1), { color: '#9c6b4b', count: 12, speed: 1.4, up: 2.2, size: 0.05 });
     this.firstTime('plow', "That's it, dearie! Now pick the seeds [2] and plant something.");
   }
@@ -415,7 +544,7 @@ export class Game {
     if (t.state !== 'plowed' || s.seeds[s.seedType] <= 0) return;
     t.state = 'planted'; t.crop = s.seedType; t.growth = 0;
     s.seeds[s.seedType]--; s.stats.planted++;
-    this.garden.refresh(i); this.lady.act(); sound.play('seed');
+    this.garden.touch(i); this.lady.act(); sound.play('seed');
     this.particles.emit(tileCenter(i).setY(0.2), { color: '#f3e2b3', count: 6, speed: 0.6, up: 1.2, size: 0.03 });
     this.firstTime('plant', 'A seed! Give it some water [3] so it can grow. Seeds only grow on days you water them.');
   }
@@ -423,7 +552,7 @@ export class Game {
     const s = this.state, t = s.tiles[i];
     if (t.wet || s.water <= 0 || t.state === 'grass') return;
     t.wet = true; s.water--; s.stats.watered++;
-    this.garden.refresh(i); this.lady.act(); sound.play('water');
+    this.garden.touch(i); this.lady.act(); sound.play('water');
     this.particles.emit(tileCenter(i).setY(0.7), { color: '#6cc4ef', count: 14, speed: 0.5, up: 0.3, gravity: 6, size: 0.04, spread: 0.6, life: 0.7 });
     if (s.water === 0) this.host.say('Out of water! Fill the can at the pond, dearie.', 4.5);
     else this.firstTime('water', "Lovely. Watered crops grow until the soil dries at dawn. They never wilt, so don't fret.");
@@ -433,7 +562,7 @@ export class Game {
     if (t.state !== 'planted' || t.growth < 1) return;
     s.crops[c]++; s.stats.harvested++;
     t.state = 'plowed'; t.crop = null; t.growth = 0;
-    this.garden.refresh(i); this.lady.act(); sound.play('harvest');
+    this.garden.touch(i); this.lady.act(); sound.play('harvest');
     this.particles.emit(tileCenter(i).setY(0.4), { color: CROPS[c].color, count: 10, speed: 1, up: 2.5, size: 0.06 });
     this.particles.emit(tileCenter(i).setY(0.6), { color: '#ffe27a', count: 8, speed: 0.8, up: 1.5, gravity: 1, size: 0.04, emissive: true });
     this.floatAtLady(`+1 ${CROPS[c].name}`, '#5b4256', c);
@@ -448,6 +577,7 @@ export class Game {
     FOOD_CROPS.forEach((c) => { made += s.crops[c] * CROPS[c].food; s.crops[c] = 0; });
     s.meals = (s.meals || 0) + made; s.stats.cooked += made;
     this.world.cottage.cook(3);
+    this.addDishes(2);
     this.lady.act(); sound.play('cook');
     this.floatAtLady(`+${made} home-cooked meal${made > 1 ? 's' : ''}`, '#c95c74', 'meal');
     this.host.say(`Mmm, veggie stew! ${made} meal${made > 1 ? 's' : ''} for me. Press E at the stove or pantry when I'm peckish.`, 6);
@@ -471,17 +601,21 @@ export class Game {
     this.playing = false; sound.play('sleep');
     this.host.say('Nighty night...', 2);
     this.ui.sleepFade(() => {
-      const hours = this.day.hoursUntilDawn();
-      const ripe = this.garden.grow(hours);
-      this.cats.simulate(hours * 0.6); // cats sleep through the night too
-      this.cats.pileForNight();
-      this.state.lady.energy = 100; this.state.lady.hunger = Math.max(15, this.state.lady.hunger - 12);
-      this.day.sleep(); // triggers dawn()
-      this.cats.prevHour = this.state.hour;
-      if (ripe.length) this.notifyRipe(ripe);
+      this.overnight();
       this.playing = true;
       this.save({ toast: `Game saved 🐾 Good morning, Day ${this.state.day}!` });
     });
+  }
+  /** Skip the night: crops grow, cats sleep, a new day dawns. */
+  overnight() {
+    const hours = this.day.hoursUntilDawn();
+    const ripe = this.garden.grow(hours);
+    this.cats.simulate(hours * 0.6); // cats sleep through the night too
+    this.cats.pileForNight();
+    this.state.lady.energy = 100; this.state.lady.hunger = Math.max(8, this.state.lady.hunger - 12);
+    this.day.sleep(); // triggers dawn()
+    this.cats.prevHour = this.state.hour;
+    if (ripe.length) this.notifyRipe(ripe);
   }
   /* ---------------- the mailbox: the seed club sends 3 random packets every morning ---------------- */
   mailCount() { return Object.values(this.state.mail.seeds).reduce((a, b) => a + b, 0); }
@@ -529,6 +663,8 @@ export class Game {
   /* ---------------- daily rhythm ---------------- */
   dawn() {
     this.garden.dryAll();
+    const wild = this.garden.ageAll();
+    if (wild.length) setTimeout(() => this.host.say(`The weeds won! ${wild.length} empty plot${wild.length > 1 ? 's' : ''} went back to grass. Plow ${wild.length > 1 ? 'them' : 'it'} again with the Hoe.`, 6), 9000);
     this.deliverMail(false);
     setTimeout(() => this.announceMail(), 1800);
     const ripe = this.garden.ripeCount, planted = this.garden.count((t) => t.state === 'planted' && t.growth < 1);
@@ -604,13 +740,19 @@ export class Game {
       armchair: ['My knitting chair! Warm toes by the woodstove.', 'Ahh, my favorite armchair. Any lap cats about?'],
       rocker: ['Rock-a-bye, Granny... this old rocker never gets old.', 'Rocking on the porch, watching the garden grow.'],
       bench: ['A little bench break outside the clinic.', 'Just catching my breath before the next patient.'],
+      tub: ['Ahh, a bubble bath! Don\'t mind me, kitties.', 'Rubber ducky, you\'re the one...', 'Lavender bubbles. Pure bliss, dearie.'],
+      toilet: ['Don\'t look at me, cats. A lady needs her privacy!', 'Ahem. Nobody come in!', 'Why do the cats ALWAYS follow me in here?'],
     };
+    if (seat.kind === 'tub') this.startBath();
+    if (seat.kind === 'toilet') { this.flushedThis = false; this.sitting.catT = 2.5; }
     const lines = LINES[seat.kind] || LINES.chair;
     this.host.say(lines[Math.floor(Math.random() * lines.length)], 5);
   }
   standUp() {
     if (!this.sitting) return;
     const seat = this.sitting.seat;
+    if (seat.kind === 'tub') this.endBath();
+    if (seat.kind === 'toilet' && !this.flushedThis) setTimeout(() => this.host.say('Granny! You forgot to flush! 😱', 4), 300);
     if (this.sitting.cat) this.cats.leaveSwing(this.sitting.cat);
     this.sitting = null;
     this.lady.setSitting(false);
@@ -644,7 +786,7 @@ export class Game {
     }
     // a little rest: her energy comes back slowly (very slowly at bedtime, the bed is for sleeping)
     const L = this.state.lady;
-    L.energy = Math.min(100, L.energy + dt * (this.day.bedtime ? 0.05 : 0.35));
+    L.energy = Math.min(100, L.energy + dt * (this.day.bedtime ? 0.05 : S.seat.kind === 'tub' ? 1.4 : 0.35));
     // after a few seconds a friendly cat may hop up beside her (or into her lap)
     if (!S.cat) {
       S.catT -= dt;
@@ -675,6 +817,11 @@ export class Game {
     this.updateSwing(dt, t);
     this.updateCoffee(dt);
     this.delivery.update(dt, t);
+    this.emotes.update(dt);
+    // walking off ends an emote or chore (after a short grace so the key press itself doesn't cancel it)
+    if (this.emotes.busy && this.emotes.active.t > 0.35 && window.ccl && window.ccl.state.speed > 0.4) this.emotes.stop(true);
+    this.faint.update(dt);
+    this.updateBath(dt);
     const joined = this.cats.joined();
     const waiting = this.cats.list.find((c) => !c.data.joined);
     if (joined.length) {
@@ -707,7 +854,7 @@ export class Game {
   updateLady(dt, hours) {
     const L = this.state.lady;
     if (hours > 0) {
-      L.hunger = Math.max(5, L.hunger - hours * 4.5);
+      L.hunger = Math.max(0, L.hunger - hours * 4.5);
       L.energy = Math.max(5, L.energy - hours * 3.4);
     }
     this.ladySpeed = ((L.hunger < 20 || L.energy < 15) ? 0.8 : 1) * (L.coffee > 0 ? COFFEE_SPEED : 1);
@@ -732,7 +879,7 @@ export class Game {
       vet: { get knowledge() { return g.vet.knowledge; }, cases: () => s.cases, get exam() { return g.vet.exam && { step: g.vet.exam.step, kind: g.vet.exam.kind, settled: g.vet.exam.settled }; } },
       journal: { moments: () => s.journal.moments, open: (v) => g.journal.toggle(v) },
       debug: {
-        skipHours(h) { const r = g.garden.grow(h); g.cats.simulate(h); let left = h; while (left > 0) { const step = Math.min(left, 1); g.day.update((step * DAY_SECONDS) / 24); left -= step; } return r; },
+        skipHours(h) { const r = g.garden.grow(h); g.cats.simulate(h); g.day.advance(h); return r; },
         setTile(i, crop, growth = 0, wet = false) { const t = s.tiles[i]; if (crop) Object.assign(t, { state: 'planted', crop, growth, wet }); else Object.assign(t, { state: growth ? 'plowed' : 'grass', crop: null, growth: 0, wet }); g.garden.refresh(i); },
         setHour(h) { s.hour = h; g.day.apply(); },
         give(obj) { Object.entries(obj).forEach(([k, v]) => { if (k in s.crops) s.crops[k] += v; else if (k === 'food') s.food += v; }); g.world.cottage.setFood(s.food); },

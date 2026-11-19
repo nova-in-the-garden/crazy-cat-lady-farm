@@ -1,10 +1,15 @@
 // Day/night cycle: moves the sun, tints the sky and lights, twinkles stars at night.
-// One in-game day lasts DAY_SECONDS real seconds.
+// A "normal" in-game hour lasts DAY_SECONDS/24 real seconds; daytime hours (6 AM - 6 PM) run
+// DAYLIGHT_STRETCH times slower, so it stays light twice as long before dusk.
 import * as THREE from 'three';
 
-export const DAY_SECONDS = 360;   // 6 real minutes per in-game day
+export const DAY_SECONDS = 360;   // base pace: 15 real seconds per evening hour (a full day now takes about 7 real minutes)
 export const DAWN = 6;            // soil dries and the seed club's mail arrives at 6:00
 export const BEDTIME = 22;        // at 10 PM the clock stops until she goes to bed and sleeps
+export const DUSK = 18;           // daylight ends around here
+export const DAYLIGHT_STRETCH = 2; // daytime lasts twice as long (6 real minutes from 6 AM to 6 PM)
+/** In-game hours per real second at a given hour. */
+export function hourRate(h) { return (24 / DAY_SECONDS) / (h >= DAWN && h < DUSK ? DAYLIGHT_STRETCH : 1); }
 
 const C = (h) => new THREE.Color(h);
 const SKY = {
@@ -43,8 +48,21 @@ export class DayCycle {
     const s = this.state;
     if (s.hour >= BEDTIME) { s.hour = BEDTIME; this.apply(); return 0; }
     const before = s.hour;
-    s.hour = Math.min(BEDTIME, s.hour + (24 / DAY_SECONDS) * dt);
+    let h = s.hour + hourRate(before) * dt;
+    // crossing dusk: the rest of this frame runs at the (faster) evening rate
+    if (before < DUSK && h > DUSK) h = DUSK + (dt - (DUSK - before) / hourRate(before)) * hourRate(DUSK);
+    s.hour = Math.min(BEDTIME, h);
     if (s.hour >= BEDTIME && before < BEDTIME) this.onBedtime?.();
+    this.apply();
+    return s.hour - before;
+  }
+
+  /** Jump the clock forward by some in-game hours (stops at bedtime). Returns the hours actually passed. */
+  advance(hours) {
+    const s = this.state, before = s.hour;
+    if (before >= BEDTIME) return 0;
+    s.hour = Math.min(BEDTIME, before + hours);
+    if (s.hour >= BEDTIME) this.onBedtime?.();
     this.apply();
     return s.hour - before;
   }

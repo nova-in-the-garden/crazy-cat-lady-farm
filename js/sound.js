@@ -49,6 +49,16 @@ const SOUNDS = {
   scoop: () => { noise(0.25, { freq: 1800, q: 0.8, vol: 0.18 }); noise(0.2, { freq: 900, vol: 0.12, delay: 0.25 }); },
   mail: () => { [784, 988, 1319].forEach((f, i) => tone(f, 0.22, { vol: 0.14, delay: i * 0.12, type: 'triangle' })); },
   pop: () => { noise(0.12, { freq: 400, type: 'lowpass', vol: 0.4 }); tone(180, 0.1, { type: 'triangle', vol: 0.2, slide: -60 }); },
+  scream: () => { tone(700, 0.55, { type: 'sawtooth', vol: 0.1, slide: 500 }); tone(1100, 0.6, { type: 'triangle', vol: 0.08, delay: 0.1, slide: -300 }); },
+  cough: () => { for (let i = 0; i < 3; i++) noise(0.12, { freq: 500 + i * 90, q: 1.5, vol: 0.3, delay: i * 0.22 }); },
+  dance: () => { [523, 659, 784, 659, 523, 784, 880, 784].forEach((f, i) => tone(f, 0.16, { type: 'square', vol: 0.05, delay: i * 0.2 })); },
+  flush: () => { noise(1.4, { freq: 700, q: 0.5, vol: 0.35, type: 'lowpass' }); noise(1.0, { freq: 2400, q: 0.8, vol: 0.12, delay: 0.3 }); tone(300, 0.9, { vol: 0.05, slide: -200, delay: 0.4 }); },
+  tap: () => { noise(0.9, { freq: 3000, q: 0.6, vol: 0.12 }); },
+  splash: () => { noise(0.35, { freq: 1200, q: 0.6, vol: 0.3 }); noise(0.25, { freq: 3000, vol: 0.12, delay: 0.1 }); },
+  thud: () => { tone(90, 0.3, { type: 'triangle', vol: 0.4, slide: -40 }); noise(0.2, { freq: 300, type: 'lowpass', vol: 0.4 }); },
+  nom: () => { for (let i = 0; i < 4; i++) tone(300 + Math.random() * 200, 0.06, { type: 'square', vol: 0.05, delay: i * 0.11 }); },
+  snore: () => { noise(0.8, { freq: 160, q: 4, vol: 0.25, type: 'lowpass' }); tone(110, 0.7, { type: 'sawtooth', vol: 0.03, slide: 30 }); },
+  dish: () => { [1800, 2200, 1600].forEach((f, i) => tone(f, 0.06, { vol: 0.06, delay: i * 0.09 })); noise(0.3, { freq: 2600, vol: 0.06 }); },
   page: () => { noise(0.18, { freq: 3500, q: 0.5, vol: 0.1 }); },
 };
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="build" content="202611181302" />
+  <meta name="build" content="202611181907" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Granny's Cat Sanctuary · Crazy Cat Lady Simulator</title>
   <meta name="description" content="Visit Granny's cozy 3D cat sanctuary, right in your browser. The first piece of the Crazy Cat Lady Simulator." />
@@ -10,44 +10,46 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=202611181302" />
+  <link rel="stylesheet" href="css/style.css?v=202611181907" />
   <!-- Three.js is vendored locally (r187) so the site works anywhere, including GitHub Pages. -->
   <script type="importmap">
     {
       "imports": {
-        "three": "./vendor/three/three.module.js?v=202611181302",
-        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611181302",
-        "./js/adoption.js": "./js/adoption.js?v=202611181302",
-        "./js/building.js": "./js/building.js?v=202611181302",
-        "./js/catData.js": "./js/catData.js?v=202611181302",
-        "./js/catLady.js": "./js/catLady.js?v=202611181302",
-        "./js/catMenu.js": "./js/catMenu.js?v=202611181302",
-        "./js/catModel.js": "./js/catModel.js?v=202611181302",
-        "./js/cats.js": "./js/cats.js?v=202611181302",
-        "./js/catsHouse.js": "./js/catsHouse.js?v=202611181302",
-        "./js/clinic.js": "./js/clinic.js?v=202611181302",
-        "./js/collision.js": "./js/collision.js?v=202611181302",
-        "./js/controls.js": "./js/controls.js?v=202611181302",
-        "./js/delivery.js": "./js/delivery.js?v=202611181302",
-        "./js/game.js": "./js/game.js?v=202611181302",
-        "./js/garden.js": "./js/garden.js?v=202611181302",
-        "./js/host.js": "./js/host.js?v=202611181302",
-        "./js/journal.js": "./js/journal.js?v=202611181302",
-        "./js/kitchen.js": "./js/kitchen.js?v=202611181302",
-        "./js/main.js": "./js/main.js?v=202611181302",
-        "./js/particles.js": "./js/particles.js?v=202611181302",
-        "./js/saves.js": "./js/saves.js?v=202611181302",
-        "./js/seats.js": "./js/seats.js?v=202611181302",
-        "./js/shop.js": "./js/shop.js?v=202611181302",
-        "./js/sound.js": "./js/sound.js?v=202611181302",
-        "./js/startScreen.js": "./js/startScreen.js?v=202611181302",
-        "./js/state.js": "./js/state.js?v=202611181302",
-        "./js/statsCard.js": "./js/statsCard.js?v=202611181302",
-        "./js/time.js": "./js/time.js?v=202611181302",
-        "./js/ui.js": "./js/ui.js?v=202611181302",
-        "./js/util.js": "./js/util.js?v=202611181302",
-        "./js/vet.js": "./js/vet.js?v=202611181302",
-        "./js/world.js": "./js/world.js?v=202611181302"
+        "three": "./vendor/three/three.module.js?v=202611181907",
+        "./vendor/three/three.core.js": "./vendor/three/three.core.js?v=202611181907",
+        "./js/adoption.js": "./js/adoption.js?v=202611181907",
+        "./js/building.js": "./js/building.js?v=202611181907",
+        "./js/catData.js": "./js/catData.js?v=202611181907",
+        "./js/catLady.js": "./js/catLady.js?v=202611181907",
+        "./js/catMenu.js": "./js/catMenu.js?v=202611181907",
+        "./js/catModel.js": "./js/catModel.js?v=202611181907",
+        "./js/cats.js": "./js/cats.js?v=202611181907",
+        "./js/catsHouse.js": "./js/catsHouse.js?v=202611181907",
+        "./js/clinic.js": "./js/clinic.js?v=202611181907",
+        "./js/collision.js": "./js/collision.js?v=202611181907",
+        "./js/controls.js": "./js/controls.js?v=202611181907",
+        "./js/delivery.js": "./js/delivery.js?v=202611181907",
+        "./js/emotes.js": "./js/emotes.js?v=202611181907",
+        "./js/faint.js": "./js/faint.js?v=202611181907",
+        "./js/game.js": "./js/game.js?v=202611181907",
+        "./js/garden.js": "./js/garden.js?v=202611181907",
+        "./js/host.js": "./js/host.js?v=202611181907",
+        "./js/journal.js": "./js/journal.js?v=202611181907",
+        "./js/kitchen.js": "./js/kitchen.js?v=202611181907",
+        "./js/main.js": "./js/main.js?v=202611181907",
+        "./js/particles.js": "./js/particles.js?v=202611181907",
+        "./js/saves.js": "./js/saves.js?v=202611181907",
+        "./js/seats.js": "./js/seats.js?v=202611181907",
+        "./js/shop.js": "./js/shop.js?v=202611181907",
+        "./js/sound.js": "./js/sound.js?v=202611181907",
+        "./js/startScreen.js": "./js/startScreen.js?v=202611181907",
+        "./js/state.js": "./js/state.js?v=202611181907",
+        "./js/statsCard.js": "./js/statsCard.js?v=202611181907",
+        "./js/time.js": "./js/time.js?v=202611181907",
+        "./js/ui.js": "./js/ui.js?v=202611181907",
+        "./js/util.js": "./js/util.js?v=202611181907",
+        "./js/vet.js": "./js/vet.js?v=202611181907",
+        "./js/world.js": "./js/world.js?v=202611181907"
       }
     }
   </script>
@@ -118,6 +120,6 @@
 
   <div id="loading">Tidying up the farm...</div>
 
-  <script type="module" src="js/main.js?v=202611181302"></script>
+  <script type="module" src="js/main.js?v=202611181907"></script>
 </body>
 </html>

@@ -55,6 +55,34 @@ function tiles(color, grout, n = 8) {
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
+function checker(a, b, grout, n = 8) {
+  const t = canvasTexture(128, 128, (ctx, w, h) => {
+    ctx.fillStyle = grout; ctx.fillRect(0, 0, w, h);
+    const s = w / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { ctx.fillStyle = (x + y) % 2 ? a : b; ctx.fillRect(x * s + 1, y * s + 1, s - 2, s - 2); }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+/** White lace: scalloped holes and little flowers (transparent where the holes are). */
+function laceTex() {
+  const t = canvasTexture(128, 128, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h); ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let y = 8; y < h; y += 16) for (let x = 8; x < w; x += 16) { ctx.beginPath(); ctx.arc(x + ((y / 16) % 2) * 8, y, 4.2, 0, 7); ctx.fill(); }
+    ctx.globalCompositeOperation = 'source-over';
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
+  return t;
+}
+/** Blue water with a spiral, for the toilet bowl (it spins when you flush). */
+function swirlTex() {
+  return canvasTexture(128, 128, (ctx, w, h) => {
+    ctx.fillStyle = '#cdeefa'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#6cc4ef'; ctx.lineWidth = 5;
+    for (let k = 0; k < 3; k++) { ctx.beginPath(); for (let i = 0; i < 60; i++) { const a = i * 0.18 + k * 2.1, r = i * 1.0; ctx.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); } ctx.stroke(); }
+  });
+}
 const texMat = (tex, rx, ry, opts = {}) => { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, ...opts }); };
 
 export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }) {
@@ -91,16 +119,16 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   const floorMat = (rx, ry) => { const t = plank.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.75, polygonOffset: true, polygonOffsetFactor: -2 }); };
   box(W - 2 * T, 0.01, D - 2 * T, floorMat(W / 2, D / 2), { y: 0.005, cast: false });
   const R = ROOMS.bath;
-  add(mesh(new THREE.PlaneGeometry(R.x1 - R.x0 - 0.07, R.z1 - R.z0 - 0.07), texMat(tiles('#f4f1ea', '#cfc6b8', 6), 3, 3, { polygonOffset: true, polygonOffsetFactor: -3 }), { x: (R.x0 + R.x1) / 2 + 0.035, y: 0.012, z: (R.z0 + R.z1) / 2 + 0.035, rx: -Math.PI / 2, cast: false }));
+  add(mesh(new THREE.PlaneGeometry(R.x1 - R.x0 - 0.07, R.z1 - R.z0 - 0.07), texMat(checker('#f6c9cf', '#fbf6ec', '#d9c3bd', 6), 3, 3, { polygonOffset: true, polygonOffsetFactor: -3 }), { x: (R.x0 + R.x1) / 2 + 0.035, y: 0.012, z: (R.z0 + R.z1) / 2 + 0.035, rx: -Math.PI / 2, cast: false }));
 
   /* ---------- wallpaper per room ---------- */
   const PAPER = {
     kitchen: floralPaper('#f3e6c6', '#e6a895', '#a9b98e', 2),
     living: floralPaper('#e9e4cc', '#d99a8c', '#93a87e', 5),
     bedroom: stripePaper('#f7ddd6', '#fbe9e2', '#e8a7a0'),
-    bath: stripePaper('#dcebe6', '#eaf4f0', '#9ccbbf'),
+    bath: floralPaper('#fbe3e4', '#e7909f', '#9fbf9a', 7),
   };
-  const wainsMat = { kitchen: mat(P.creamWarm), living: mat('#b7c49b'), bedroom: mat('#f3d2cb'), bath: mat('#ffffff') };
+  const wainsMat = { kitchen: mat(P.creamWarm), living: mat('#b7c49b'), bedroom: mat('#f3d2cb'), bath: mat('#a9c4a6') };
   // a wallpaper panel on a wall face: along x (nz = facing direction ±1) or along z (nx)
   const paperX = (parent, room, x1, x2, z, nz, yOff = 0) => {
     const len = x2 - x1, cx = (x1 + x2) / 2;
@@ -460,42 +488,171 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
   portrait('back', bedX - 0.35, 2.05, -IZ + 0.03, 0, '#e59a8f');
   portrait('back', bedX + 0.35, 2.1, -IZ + 0.03, 0, '#a9b98e');
 
-  /* ================= BATHROOM ================= */
-  const tub = new THREE.Group(); tub.position.set(IX - 0.42, 0, 2.55); g.add(tub);
-  const tubOuter = mat('#fbf6ec', { flatShading: false, roughness: 0.3 });
-  tub.add(mesh(new THREE.CapsuleGeometry(0.34, 0.95, 6, 14), tubOuter, { y: 0.5, rx: Math.PI / 2, sx: 1, sy: 1, sz: 0.8 }));
-  tub.add(mesh(new THREE.CapsuleGeometry(0.29, 0.9, 6, 14), mat('#cfe6ee', { flatShading: false, roughness: 0.15 }), { y: 0.62, rx: Math.PI / 2, sz: 0.55 }));
-  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => tub.add(mesh(new THREE.SphereGeometry(0.06, 8, 6), brass, { x: sx * 0.22, y: 0.1, z: sz * 0.55 })));
-  tub.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 6), brass, { y: 0.95, z: 0.78 }));
-  tub.add(mesh(new THREE.TorusGeometry(0.08, 0.018, 5, 10, Math.PI), brass, { y: 1.15, z: 0.7, ry: Math.PI / 2 }));
-  // rubber duck!
-  tub.add(mesh(new THREE.SphereGeometry(0.06, 8, 6), mat('#ffd35c'), { x: 0.05, y: 0.82, z: -0.2 }));
-  tub.add(mesh(new THREE.SphereGeometry(0.04, 8, 6), mat('#ffd35c'), { x: 0.05, y: 0.88, z: -0.15 }));
-  tub.add(mesh(new THREE.ConeGeometry(0.015, 0.04, 5), mat('#f59a4f'), { x: 0.05, y: 0.88, z: -0.11, rx: Math.PI / 2 }));
-  addBox(HX + IX - 0.42, HZ + 2.55, 0.74, 1.75);
-  // pedestal sink + oval mirror (mirror lives on the partition's group so it fades with it)
+  /* ================= BATHROOM (granny chic) =================
+     pink rose wallpaper over sage beadboard, pink + cream checker tiles, a blush-pink clawfoot tub with
+     brass claw feet, gooseneck faucet and a lace curtain ring, a pull-chain high-tank toilet, a crocheted
+     toilet-roll doll, gilded oval mirror with tulip sconces, perfume bottles on a doily, lace cafe curtains */
+  const gold = mat('#d4af55', { metalness: 0.7, roughness: 0.3, flatShading: false });
+  const oak = mat('#b07a48', { flatShading: false, roughness: 0.6 });
+  const lace = new THREE.MeshStandardMaterial({ map: laceTex(), color: '#ffffff', transparent: true, opacity: 0.85, side: THREE.DoubleSide, roughness: 1, alphaTest: 0.05 });
+  const waterMat = () => new THREE.MeshStandardMaterial({ color: '#9fd8ef', emissive: '#6cc4ef', emissiveIntensity: 0.25, transparent: true, opacity: 0.8, roughness: 0.1, flatShading: false });
+  // --- the clawfoot tub (runs along the right wall) ---
+  const TUB = { x: IX - 0.45, z: 2.5 };
+  const tub = new THREE.Group(); tub.position.set(TUB.x, 0, TUB.z); g.add(tub);
+  const shell = new THREE.Group(); shell.scale.set(0.46, 1, 1); tub.add(shell);
+  const prof = [[0, 0.2], [0.5, 0.2], [0.66, 0.24], [0.75, 0.34], [0.8, 0.5], [0.83, 0.66], [0.84, 0.72]];
+  const rAt = (y) => { for (let i = 1; i < prof.length; i++) if (y <= prof[i][1]) { const [r0, y0] = prof[i - 1], [r1, y1] = prof[i]; return r0 + (r1 - r0) * ((y - y0) / (y1 - y0)); } return 0.84; };
+  shell.add(mesh(new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 40), mat('#f0b3be', { flatShading: false, roughness: 0.35 }), {}));
+  shell.add(mesh(new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r * 0.93, y + 0.05)), 40), mat('#fffaf3', { flatShading: false, roughness: 0.2, side: THREE.BackSide }), { cast: false }));
+  shell.add(mesh(new THREE.TorusGeometry(0.84, 0.045, 8, 48), mat('#fffaf3', { flatShading: false, roughness: 0.2 }), { y: 0.72, rx: Math.PI / 2 })); // rolled rim
+  shell.add(mesh(new THREE.TorusGeometry(0.8, 0.012, 4, 48), gold, { y: 0.6, rx: Math.PI / 2, cast: false }));            // gilded band
+  const water = mesh(new THREE.CircleGeometry(1, 40), waterMat(), { y: 0.3, rx: -Math.PI / 2, cast: false }); shell.add(water);
+  const foam = new THREE.Group(); shell.add(foam);
+  for (let i = 0; i < 26; i++) { const a = i * 2.4, r = 0.15 + (i % 5) * 0.11; foam.add(mesh(new THREE.SphereGeometry(0.07 + (i % 3) * 0.03, 8, 6), mat('#ffffff', { flatShading: false, roughness: 0.4 }), { x: Math.cos(a) * r * 1.0, y: 0.02 + (i % 2) * 0.03, z: Math.sin(a) * r * 1.05, sx: 2.2, cast: false })); }
+  // four brass claw feet: a leg, a ball, three claws gripping it
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+    const f = new THREE.Group(); f.position.set(sx * 0.22, 0, sz * 0.5); tub.add(f);
+    f.add(mesh(new THREE.SphereGeometry(0.055, 10, 8), gold, { y: 0.24, sy: 0.8 }));
+    f.add(mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.17, 8), gold, { x: sx * 0.02, y: 0.16, z: sz * 0.02, rz: -sx * 0.25, rx: sz * 0.25 }));
+    f.add(mesh(new THREE.SphereGeometry(0.05, 10, 8), gold, { x: sx * 0.04, y: 0.05, z: sz * 0.04 }));
+    for (let k = -1; k <= 1; k++) {
+      const a = Math.atan2(sx, sz) + k * 0.7;
+      f.add(mesh(new THREE.ConeGeometry(0.018, 0.08, 5), gold, { x: sx * 0.04 + Math.sin(a) * 0.045, y: 0.05, z: sz * 0.04 + Math.cos(a) * 0.045, rx: Math.cos(a) * 1.9, rz: -Math.sin(a) * 1.9, cast: false }));
+    }
+  });
+  // freestanding brass supply pipes + gooseneck faucet at the foot end, and the curtain ring riser
+  [-1, 1].forEach((s) => { cyl(0.018, 0.018, 0.85, gold, { x: s * 0.07, y: 0.425, z: 0.95 }, 8, tub); cyl(0.04, 0.04, 0.02, gold, { x: s * 0.07, y: 0.01, z: 0.95 }, 10, tub); });
+  box(0.22, 0.04, 0.04, gold, { y: 0.85, z: 0.95 }, tub);
+  [-1, 1].forEach((s) => { const h = new THREE.Group(); h.position.set(s * 0.1, 0.9, 0.95); tub.add(h); h.add(mesh(new THREE.BoxGeometry(0.1, 0.015, 0.015), gold)); h.add(mesh(new THREE.BoxGeometry(0.015, 0.015, 0.1), gold)); h.add(mesh(new THREE.SphereGeometry(0.016, 6, 5), mat(s < 0 ? '#e05f6f' : '#5f9ee0'), { y: 0.015 })); });
+  cyl(0.02, 0.02, 0.22, gold, { y: 0.96, z: 0.95 }, 8, tub);
+  add(mesh(new THREE.TorusGeometry(0.12, 0.02, 6, 14, Math.PI), gold, { y: 1.07, z: 0.83, ry: Math.PI / 2 }), tub);
+  cyl(0.024, 0.016, 0.06, gold, { y: 1.04, z: 0.71 }, 8, tub);
+  cyl(0.012, 0.012, 1.1, gold, { y: 1.62, z: 0.95 }, 6, tub);
+  const ring = new THREE.Group(); ring.position.y = 2.15; ring.scale.set(0.47, 1, 0.93); tub.add(ring);
+  ring.add(mesh(new THREE.TorusGeometry(0.92, 0.014, 5, 40), gold, { rx: Math.PI / 2, cast: false }));
+  ring.add(mesh(new THREE.CylinderGeometry(0.92, 0.9, 1.35, 20, 1, true, Math.PI / 2 - 0.75, 1.5), lace, { y: -0.68, cast: false }));
+  // a tub tray across the foot end: candle, soap and a romance novel
+  box(0.82, 0.03, 0.16, oak, { y: 0.775, z: 0.45 }, tub);
+  cyl(0.03, 0.03, 0.08, mat('#fff3d6'), { x: -0.18, y: 0.83, z: 0.45 }, 8, tub);
+  const flame = mesh(new THREE.ConeGeometry(0.012, 0.04, 6), mat('#ffcf6a', { emissive: '#ffb347', emissiveIntensity: 2 }), { x: -0.18, y: 0.89, z: 0.45, cast: false }); tub.add(flame);
+  box(0.09, 0.03, 0.06, mat('#f6c6d6'), { x: 0.02, y: 0.805, z: 0.45 }, tub);
+  box(0.12, 0.03, 0.09, mat('#c45d7a'), { x: 0.2, y: 0.805, z: 0.45, ry: 0.3 }, tub);
+  // rubber duck: floats on the bath water, sits on the rim when the tub is empty
+  const duck = new THREE.Group(); tub.add(duck);
+  duck.add(mesh(new THREE.SphereGeometry(0.06, 10, 8), mat('#ffd35c', { flatShading: false }), { sx: 1.1, sz: 1.3 }));
+  duck.add(mesh(new THREE.SphereGeometry(0.04, 10, 8), mat('#ffd35c', { flatShading: false }), { y: 0.06, z: 0.04 }));
+  duck.add(mesh(new THREE.ConeGeometry(0.014, 0.035, 5), mat('#f59a4f'), { y: 0.06, z: 0.09, rx: Math.PI / 2 }));
+  addBox(HX + TUB.x, HZ + TUB.z, 0.8, 1.72);
+  rug(TUB.x - 0.72, TUB.z - 0.05, 0.32, 0.55, ['#f2c4bb', '#fbe9e2', '#f2c4bb']); // fluffy bath mat
+  const tubSeat = {
+    id: 'tub', label: 'Take a bubble bath 🛁', kind: 'tub', noun: 'bathtub', lap: false, noCat: false,
+    sitPos: toWorld(TUB.x, TUB.z - 0.28).setY(FLOOR + 0.3 - 0.5), heading: 0,
+    front: toWorld(TUB.x - 0.72, TUB.z - 0.1), catPos: toWorld(TUB.x - 0.36, TUB.z + 0.35).setY(FLOOR + 0.74), catHeading: Math.PI / 2, catFront: toWorld(TUB.x - 0.72, TUB.z + 0.35),
+  };
+
+  // --- pull-chain high-tank toilet in the front corner ---
+  const TX = XLB + 0.48, TZ = IZ - 0.42;
+  const toilet = new THREE.Group(); toilet.position.set(TX, 0, TZ); g.add(toilet);
+  toilet.add(mesh(new THREE.CylinderGeometry(0.12, 0.17, 0.3, 14), porcelain, { y: 0.15, z: 0.05, sz: 1.2 }));
+  toilet.add(mesh(new THREE.CylinderGeometry(0.21, 0.15, 0.14, 18), porcelain, { y: 0.35, z: -0.04, sz: 1.25 }));
+  const bowlWater = mesh(new THREE.CircleGeometry(0.16, 24), new THREE.MeshStandardMaterial({ map: swirlTex(), color: '#bfe6f5', emissive: '#6cc4ef', emissiveIntensity: 0.15, roughness: 0.1 }), { y: 0.405, z: -0.04, rx: -Math.PI / 2, sy: 1.2, cast: false });
+  toilet.add(bowlWater);
+  toilet.add(mesh(new THREE.TorusGeometry(0.175, 0.035, 6, 24), oak, { y: 0.43, z: -0.04, rx: Math.PI / 2, sy: 1.22 }));             // oak seat
+  toilet.add(mesh(new THREE.BoxGeometry(0.38, 0.5, 0.03), oak, { y: 0.68, z: 0.2, rx: -0.12 }));                                      // lid, up
+  toilet.add(mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.45, 8), gold, { y: 1.15, z: 0.28 }));                                   // flush pipe
+  const tank = new THREE.Group(); tank.position.set(0, 1.95, 0.27); toilet.add(tank);
+  tank.add(mesh(new THREE.BoxGeometry(0.52, 0.3, 0.2), oak));
+  [-1, 1].forEach((s) => tank.add(mesh(new THREE.BoxGeometry(0.54, 0.025, 0.22), gold, { y: s * 0.12, cast: false })));
+  tank.add(mesh(new THREE.BoxGeometry(0.2, 0.04, 0.04), gold, { x: 0.3, y: -0.08, z: -0.02 }));                                       // lever arm
+  const chain = new THREE.Group(); chain.position.set(0.39, -0.1, -0.02); tank.add(chain);
+  for (let i = 0; i < 9; i++) chain.add(mesh(new THREE.TorusGeometry(0.012, 0.004, 4, 6), gold, { y: -i * 0.06, ry: (i % 2) * Math.PI / 2, cast: false }));
+  chain.add(mesh(new THREE.CylinderGeometry(0.02, 0.026, 0.09, 8), porcelain, { y: -0.6 }));                                         // porcelain pull handle
+  addBox(HX + TX, HZ + TZ + 0.02, 0.46, 0.74);
+  const toiletSeat = {
+    id: 'toilet', label: 'Use the toilet 🚽', kind: 'toilet', noun: 'toilet', lap: false,
+    sitPos: toWorld(TX, TZ - 0.06).setY(FLOOR + 0.44 - 0.5), heading: Math.PI,
+    front: toWorld(TX, TZ - 0.7), catPos: toWorld(TX + 0.55, TZ - 0.45), catHeading: -Math.PI / 2, catFront: toWorld(TX + 0.55, TZ - 0.75),
+  };
+  // a crocheted toilet-roll doll on a little white stand (pure granny chic)
+  const doll = new THREE.Group(); doll.position.set(TX + 0.52, 0, IZ - 0.2); g.add(doll);
+  doll.add(mesh(new THREE.BoxGeometry(0.3, 0.55, 0.24), mat('#fbf6ec'), { y: 0.275 }));
+  doll.add(mesh(new THREE.ConeGeometry(0.13, 0.2, 14), mat('#f3a5b8'), { y: 0.65 }));
+  doll.add(mesh(new THREE.TorusGeometry(0.12, 0.022, 5, 16), mat('#ffffff'), { y: 0.56, rx: Math.PI / 2, cast: false }));
+  doll.add(mesh(new THREE.SphereGeometry(0.045, 10, 8), mat('#f9d6bf', { flatShading: false }), { y: 0.78 }));
+  doll.add(mesh(new THREE.SphereGeometry(0.05, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat('#f3a5b8'), { y: 0.79 }));
+  addBox(HX + TX + 0.52, HZ + IZ - 0.2, 0.32, 0.28);
+
+  // --- pedestal sink with brass taps, gilded oval mirror, tulip sconces, perfume on a doily ---
   const sinkPX = 3.2;
-  cyl(0.07, 0.12, 0.78, porcelain, { x: sinkPX, y: 0.39, z: ZMID + 0.32 }, 12);
+  cyl(0.07, 0.13, 0.78, porcelain, { x: sinkPX, y: 0.39, z: ZMID + 0.32 }, 12);
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; cyl(0.012, 0.02, 0.7, porcelain, { x: sinkPX + Math.cos(a) * 0.085, y: 0.4, z: ZMID + 0.32 + Math.sin(a) * 0.085 }, 5); } // fluting
   add(mesh(new THREE.SphereGeometry(0.27, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), porcelain, { x: sinkPX, y: 0.86, z: ZMID + 0.36, rx: Math.PI, sy: 0.45 }));
   box(0.56, 0.05, 0.42, porcelain, { x: sinkPX, y: 0.87, z: ZMID + 0.3 });
-  cyl(0.015, 0.015, 0.16, brass, { x: sinkPX, y: 0.97, z: ZMID + 0.14 }, 6);
+  add(mesh(new THREE.CircleGeometry(0.19, 20), mat('#e7f2f6', { roughness: 0.2 }), { x: sinkPX, y: 0.896, z: ZMID + 0.36, rx: -Math.PI / 2, sy: 0.8, cast: false }));
+  cyl(0.016, 0.016, 0.14, gold, { x: sinkPX, y: 0.96, z: ZMID + 0.14 }, 6);
+  cyl(0.014, 0.012, 0.13, gold, { x: sinkPX, y: 1.02, z: ZMID + 0.2, rx: Math.PI / 2 }, 6);
+  [-1, 1].forEach((s) => { cyl(0.012, 0.012, 0.07, gold, { x: sinkPX + s * 0.13, y: 0.93, z: ZMID + 0.16 }, 6); add(mesh(new THREE.SphereGeometry(0.022, 6, 5), mat(s < 0 ? '#e05f6f' : '#5f9ee0'), { x: sinkPX + s * 0.13, y: 0.975, z: ZMID + 0.16, cast: false })); });
   addCircle(HX + sinkPX, HZ + ZMID + 0.32, 0.3);
-  const mirrorGrp = new THREE.Group(); mirrorGrp.position.set(sinkPX, 1.55, ZMID + PT / 2 + 0.03);
-  mirrorGrp.add(mesh(new THREE.CircleGeometry(0.3, 24), mat('#c9a24a'), { sy: 1.3, cast: false }));
-  mirrorGrp.add(mesh(new THREE.CircleGeometry(0.26, 24), mat('#dff0f5', { metalness: 0.6, roughness: 0.1, flatShading: false }), { z: 0.005, sy: 1.3, cast: false }));
+  const mirrorGrp = new THREE.Group(); mirrorGrp.position.set(sinkPX, 1.6, ZMID + PT / 2 + 0.03);
+  mirrorGrp.add(mesh(new THREE.CircleGeometry(0.31, 28), gold, { sy: 1.3, cast: false }));
+  mirrorGrp.add(mesh(new THREE.CircleGeometry(0.26, 28), mat('#dff0f5', { metalness: 0.6, roughness: 0.1, flatShading: false }), { z: 0.005, sy: 1.3, cast: false }));
+  for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2; mirrorGrp.add(mesh(new THREE.SphereGeometry(0.028, 6, 5), gold, { x: Math.cos(a) * 0.3, y: Math.sin(a) * 0.39, z: 0.01, cast: false })); } // beaded gilt frame
+  [-1, 1].forEach((s) => mirrorGrp.add(mesh(new THREE.TorusGeometry(0.06, 0.016, 5, 10), gold, { x: s * 0.06, y: 0.47, z: 0.01, sx: 1.4, cast: false }))); // the bow on top
+  [-1, 1].forEach((s) => { // brass sconces with pink tulip glass
+    mirrorGrp.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.16, 5), gold, { x: s * 0.5, y: 0.0, z: 0.06, rx: Math.PI / 2, cast: false }));
+    mirrorGrp.add(mesh(new THREE.ConeGeometry(0.07, 0.12, 10, 1, true), mat('#ffd6e0', { emissive: '#ffc0d0', emissiveIntensity: 0.8, side: THREE.DoubleSide }), { x: s * 0.5, y: 0.06, z: 0.14, rx: Math.PI, cast: false }));
+  });
+  mirrorGrp.add(mesh(new THREE.BoxGeometry(0.62, 0.025, 0.12), mat('#e8f4f6', { transparent: true, opacity: 0.7 }), { y: -0.47, z: 0.06, cast: false })); // glass shelf
+  mirrorGrp.add(mesh(new THREE.CircleGeometry(0.1, 16), mat('#ffffff'), { y: -0.455, z: 0.06, rx: -Math.PI / 2, cast: false }));                 // doily
+  [['#f3a5c0', -0.1], ['#c8aaf2', 0.0], ['#f7d27a', 0.12]].forEach(([c, x], i) => {
+    mirrorGrp.add(mesh(new THREE.SphereGeometry(0.035, 10, 8), mat(c, { transparent: true, opacity: 0.85, flatShading: false }), { x, y: -0.42, z: 0.06, sy: i === 1 ? 1.4 : 1, cast: false }));
+    mirrorGrp.add(mesh(new THREE.CylinderGeometry(0.01, 0.012, 0.03, 6), gold, { x, y: -0.37 + (i === 1 ? 0.015 : 0), z: 0.06, cast: false }));
+  });
   wallBath.add(mirrorGrp); // hangs on the wall, so it fades with it
   // towel rack + fluffy towels on the bath side of the living|bath wall
-  const towelGrp = new THREE.Group(); towelGrp.position.set(XLB + PT / 2 + 0.06, 1.25, 2.7);
-  towelGrp.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.7, 6), brass, { rx: Math.PI / 2, cast: false }));
+  const towelGrp = new THREE.Group(); towelGrp.position.set(XLB + PT / 2 + 0.06, 1.25, 2.05);
+  towelGrp.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.7, 6), gold, { rx: Math.PI / 2, cast: false }));
   towelGrp.add(mesh(new THREE.BoxGeometry(0.04, 0.55, 0.32), mat('#f2c4bb'), { y: -0.26, z: -0.17 }));
   towelGrp.add(mesh(new THREE.BoxGeometry(0.04, 0.45, 0.28), mat('#cfe6d6'), { y: -0.22, z: 0.18 }));
+  towelGrp.add(mesh(new THREE.BoxGeometry(0.045, 0.06, 0.3), mat('#ffffff'), { y: -0.5, z: -0.17, cast: false })); // lace trim
   wallLB.add(towelGrp);
-  rug(3.0, 2.4, 0.45, 0.32, ['#a9b98e', '#fbf6ec']);
-  // little potted fern + soap dish on a shelf
+  // window with ruffled lace cafe curtains, a potted fern in the corner
   smallWin('front', 3.2, 1.45, IZ - 0.02, Math.PI, 0.6, 0.58);
+  [-1, 1].forEach((s) => wmesh('front', new THREE.PlaneGeometry(0.34, 0.42), lace, { x: 3.2 + s * 0.2, y: 1.3, z: IZ - 0.08, ry: Math.PI, cast: false }));
+  wmesh('front', new THREE.PlaneGeometry(0.8, 0.12), lace, { x: 3.2, y: 1.72, z: IZ - 0.085, ry: Math.PI, cast: false }); // valance
   box(0.3, 0.3, 0.3, mat('#c97b5a'), { x: IX - 0.25, y: 0.15, z: 0.4 });
-  add(mesh(new THREE.IcosahedronGeometry(0.22, 0), mat('#7fa868'), { x: IX - 0.25, y: 0.45, z: 0.4 }));
+  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; add(mesh(new THREE.ConeGeometry(0.06, 0.5, 4), mat(i % 2 ? '#6f9e58' : '#86b86a'), { x: IX - 0.25 + Math.cos(a) * 0.12, y: 0.52, z: 0.4 + Math.sin(a) * 0.12, rx: Math.sin(a) * 0.7, rz: -Math.cos(a) * 0.7 })); }
   addCircle(HX + IX - 0.25, HZ + 0.4, 0.22);
+
+  /* ---------- running water: kitchen sink, bathroom sink and the tub faucet ---------- */
+  const streamMat = new THREE.MeshStandardMaterial({ color: '#bfe9fb', emissive: '#7fd0f2', emissiveIntensity: 0.5, transparent: true, opacity: 0.75, roughness: 0.05, depthWrite: false });
+  const dropMat = new THREE.MeshStandardMaterial({ color: '#d8f3ff', emissive: '#9fdcf5', emissiveIntensity: 0.6, transparent: true, opacity: 0.9 });
+  const makeStream = (parent, x, y0, z, y1) => {
+    const s = new THREE.Group(); s.position.set(x, y1, z); parent.add(s); s.visible = false;
+    const col = mesh(new THREE.CylinderGeometry(0.012, 0.016, 1, 8, 1, true), streamMat, { y: 0.5, cast: false }); s.add(col);
+    const drops = []; for (let i = 0; i < 6; i++) { const d = mesh(new THREE.SphereGeometry(0.016, 6, 4), dropMat, { cast: false }); s.add(d); drops.push(d); }
+    const splash = []; for (let i = 0; i < 6; i++) { const d = mesh(new THREE.SphereGeometry(0.012, 5, 4), dropMat, { cast: false }); s.add(d); splash.push(d); }
+    return { s, col, drops, splash, y0, y1, on: 0, setBottom(y) { this.y1 = y; s.position.y = y; } };
+  };
+  const streams = {
+    kitchen: makeStream(g, sinkX, 1.14, backZ - 0.08, 0.89),
+    bath: makeStream(g, sinkPX, 1.0, ZMID + 0.27, 0.9),
+    tub: makeStream(tub, 0, 1.0, 0.71, 0.3),
+  };
+  let tubLevel = 0, tubTarget = 0, flushT = 0, chainT = 0;
+  // dirty dishes stacked on the corner counter, left of the kitchen sink (cooking and eating add more)
+  const dishes = [];
+  const plateM = mat('#fbf6ec', { flatShading: false }), rimM = mat('#e59a8f');
+  for (let i = 0; i < 6; i++) {
+    const p = new THREE.Group(); p.position.set(-3.88 + (i % 2) * 0.015, 0.905 + i * 0.026, backZ + 0.02 + ((i * 7) % 3) * 0.01); g.add(p);
+    p.add(mesh(new THREE.CylinderGeometry(0.13, 0.09, 0.022, 16), plateM, { cast: false }));
+    p.add(mesh(new THREE.TorusGeometry(0.115, 0.006, 4, 16), rimM, { y: 0.012, rx: Math.PI / 2, cast: false }));
+    if (i % 2) p.add(mesh(new THREE.SphereGeometry(0.03, 5, 4), mat('#c98f4f'), { x: 0.04, y: 0.02, sy: 0.4, cast: false })); // crumbs of stew
+    dishes.push(p);
+  }
+  [[-3.62, 0.0], [-3.6, 0.14]].forEach(([x, dz]) => { const m = new THREE.Group(); m.position.set(x, 0.95, backZ + dz); g.add(m); m.add(mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.1, 10), mat('#f4ead2', { flatShading: false }), { cast: false })); m.add(mesh(new THREE.TorusGeometry(0.03, 0.01, 4, 8), mat('#f4ead2'), { x: 0.055, ry: Math.PI / 2, cast: false })); dishes.push(m); });
+  const setDishes = (n) => dishes.forEach((d, i) => (d.visible = i < n));
+  setDishes(0);
 
   /* ================= LIVING ROOM ================= */
   // cast-iron woodstove on a brick hearth (left wall) with a flickering fire
@@ -682,6 +839,21 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
     coffeePos: toWorld(potX + 0.05, backZ + 0.75),      // stand here to pour a cup
     coffeePot: toWorld(potX, backZ - 0.08).setY(FLOOR + 1.2),
     setCoffeeReady(v) { perking = v ? 1 : 0; },
+    // plumbing: where she stands, and the little animated bits
+    sinks: {
+      kitchen: { stand: toWorld(sinkX, backZ + 0.72), basin: toWorld(sinkX, backZ + 0.03).setY(FLOOR + 0.9), heading: Math.PI },
+      bath: { stand: toWorld(sinkPX, ZMID + 0.95), basin: toWorld(sinkPX, ZMID + 0.36).setY(FLOOR + 0.9), heading: Math.PI },
+    },
+    tubSeat, toiletSeat,
+    tubPos: toWorld(TUB.x, TUB.z).setY(FLOOR + 0.6),
+    toiletPos: toWorld(TX, TZ - 0.04).setY(FLOOR + 0.42),
+    roomAt: (x, z) => roomOf(x, z),
+    setWater(name, on) { streams[name].on = on ? 1 : 0; },
+    setTub(level) { tubTarget = Math.max(0, Math.min(1, level)); },
+    tubLevel: () => tubLevel,      // (functions, not getters: world.js spreads this object)
+    flush() { flushT = 2.6; chainT = 0.8; },
+    flushing: () => flushT > 0,
+    setDishes,
     rooms: ROOMS, roomOf, links,
     bedTop: { x: HX + bedX, y: FLOOR + 0.6, z: HZ + bedZ },
     catBeds: [catBedA, catBedB].map((v) => toWorld(v.x, v.z).setY(FLOOR + 0.05)),
@@ -710,6 +882,32 @@ export function buildCottageInterior(house, { HX, HZ, W, D, H, T, FLOOR, walls }
         p.scale.setScalar(0.6 + k * 1.3);
         p.material.opacity = 0.5 * (1 - k) * perking;
       }
+      // running water: a wobbly stream, drops sliding down it and a little splash in the basin
+      for (const st of Object.values(streams)) {
+        st.s.visible = st.on > 0;
+        if (!st.on) continue;
+        const L = Math.max(0.05, st.y0 - st.y1);
+        st.col.scale.set(1 + Math.sin(t * 40) * 0.12, L, 1 + Math.cos(t * 37) * 0.12); st.col.position.y = L / 2;
+        st.drops.forEach((d, i) => { const k = (t * 2.2 + i / st.drops.length) % 1; d.position.set(Math.sin(i * 3 + t * 9) * 0.006, L * (1 - k), 0); });
+        st.splash.forEach((d, i) => { const k = (t * 1.6 + i / st.splash.length) % 1, a = i * 1.05 + Math.floor(t * 1.6 + i / 6) * 0.7; d.position.set(Math.cos(a) * k * 0.09, Math.sin(k * Math.PI) * 0.05, Math.sin(a) * k * 0.09); d.scale.setScalar(1 - k * 0.6); });
+      }
+      // the tub fills while the faucet runs (and drains when she gets out)
+      streams.tub.on = tubLevel < tubTarget - 0.02 ? 1 : 0;
+      tubLevel += Math.max(-dt * 0.5, Math.min(dt * 0.35, tubTarget - tubLevel));
+      const wy = 0.3 + tubLevel * 0.3;
+      water.visible = tubLevel > 0.01; water.position.y = wy; water.scale.setScalar(rAt(wy) * 0.93);
+      streams.tub.setBottom(wy);
+      foam.visible = tubLevel > 0.3; foam.position.y = wy; foam.scale.set(1, Math.min(1, tubLevel * 1.4), 1);
+      foam.children.forEach((b, i) => (b.position.y = 0.02 + (i % 2) * 0.03 + Math.sin(t * 2 + i) * 0.01));
+      if (tubLevel > 0.05) duck.position.set(0.06 + Math.sin(t * 0.7) * 0.08, wy + 0.03 + Math.sin(t * 2.3) * 0.01, 0.2 + Math.cos(t * 0.5) * 0.1);
+      else duck.position.set(0.3, 0.78, -0.55);
+      duck.rotation.y = tubLevel > 0.05 ? t * 0.4 : -0.6;
+      flame.scale.set(1, 0.85 + Math.sin(t * 13) * 0.15, 1);
+      // flushing: the chain tugs down, the water swirls round and round
+      flushT = Math.max(0, flushT - dt); chainT = Math.max(0, chainT - dt);
+      chain.position.y = -0.1 - Math.sin((chainT / 0.8) * Math.PI) * 0.12;
+      bowlWater.rotation.z += dt * (flushT > 0 ? 14 * Math.min(1, flushT) : 0);
+      bowlWater.material.color.set(flushT > 0.3 ? '#8fd3ee' : '#bfe6f5');
       // the woodstove fire flickers
       const f = 0.8 + Math.sin(t * 11) * 0.12 + Math.sin(t * 23.7) * 0.08;
       fireMat.emissiveIntensity = 1.3 + f * 0.6; fireLight.intensity = 1.2 + f * 0.8;

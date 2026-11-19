@@ -31,6 +31,7 @@ export const SHOP = [
   { id: 'veggieSeeds', name: 'Veggie seeds', desc: '2 carrot, 1 cabbage, 1 pumpkin (your meals)', price: 4, icon: 'carrot', give: { seeds: { carrot: 2, cabbage: 1, pumpkin: 1 } } },
   { id: 'chamomileSeeds', name: 'Chamomile seeds', desc: '2 packets: speeds up remedies', price: 3, icon: 'chamomile', give: { seeds: { chamomile: 2 } } },
 ];
+export const DISHES_MAX = 8;
 export const SUPPLY_LABELS = { medicine: 'Medicine', shot: 'Shots', bandage: 'Bandages' };
 
 export function defaultState(tileCount) {
@@ -43,6 +44,7 @@ export function defaultState(tileCount) {
     coins: 60,                                        // sanctuary coins: adoption fees + the donation jar
     supplies: { medicine: 3, shot: 1, bandage: 2 },   // clinic supplies (order more at the Farmers Market)
     meals: 2,                                         // home-cooked meals for Granny herself
+    dishes: 0,                                        // dirty dishes stacked by the kitchen sink (cooking and eating make more)
     lady: { hunger: 85, energy: 100, coffee: 0, perk: 0 }, // her own soft needs; coffee = seconds of zoom left, perk = seconds until a fresh pot
     adopted: [], visitor: null, nextCat: 4,
     water: 10, waterMax: 10,                          // watering can
@@ -50,7 +52,7 @@ export function defaultState(tileCount) {
     mail: { seeds: {}, day: 0 },                      // seed packets waiting in the mailbox; day = last morning mail came
     market: { pending: null, parcels: [] },           // Farmers Market: ordered but not yet on the porch, and parcels waiting on the porch
     // tile.state: 'grass' | 'plowed' | 'planted'; growth 0..1 (1 = ripe, and it stays ripe); wet resets each dawn
-    tiles: Array.from({ length: tileCount }, () => ({ state: 'grass', crop: null, growth: 0, wet: false })),
+    tiles: Array.from({ length: tileCount }, () => ({ state: 'grass', crop: null, growth: 0, wet: false, used: 1 })), // used = last day the plot was worked
     stats: { plowed: 0, planted: 0, watered: 0, harvested: 0, cooked: 0 },
     // the cats (filled in by cats.js), vet cases, the journal and the litter box
     cats: [], cases: [], journal: { moments: [], vetXP: 0 }, litter: 0, flags: {},
@@ -107,9 +109,9 @@ export function restoreState(saved, tileCount) {
     if (!isObj(t)) return { state: 'grass', crop: null, growth: 0, wet: false };
     const st = ['grass', 'plowed', 'planted'].includes(t.state) ? t.state : 'grass';
     const crop = st === 'planted' && CROPS[t.crop] ? t.crop : null;
-    return { ...t, state: crop || st !== 'planted' ? st : 'plowed', crop, growth: crop ? Math.min(1, Math.max(0, num(t.growth, 0))) : 0, wet: !!t.wet };
+    return { ...t, state: crop || st !== 'planted' ? st : 'plowed', crop, growth: crop ? Math.min(1, Math.max(0, num(t.growth, 0))) : 0, wet: !!t.wet, used: Math.min(out.day, Math.max(0, Math.floor(num(t.used, out.day)))) };
   });
-  while (tiles.length < tileCount) tiles.push({ state: 'grass', crop: null, growth: 0, wet: false });
+  while (tiles.length < tileCount) tiles.push({ state: 'grass', crop: null, growth: 0, wet: false, used: out.day });
   out.tiles = tiles;
   // cats: only well-formed entries (cats.js fills in any missing needs/fields)
   out.cats = out.cats.filter((c) => isObj(c) && typeof c.id === 'string').map((c) => {
@@ -137,6 +139,9 @@ export function restoreState(saved, tileCount) {
   const mk = isObj(out.market) ? out.market : {};
   out.market = { pending: cleanGive(mk.pending), parcels: (Array.isArray(mk.parcels) ? mk.parcels : []).map(cleanGive).filter(Boolean).slice(0, 12) };
   delete out.seedBoxDay;
+  out.dishes = Math.min(DISHES_MAX, Math.max(0, Math.floor(out.dishes)));
+  out.lady.hunger = Math.min(100, Math.max(0, out.lady.hunger));
+  out.lady.energy = Math.min(100, Math.max(0, out.lady.energy));
   out.lady.coffee = Math.min(COFFEE_SECONDS, Math.max(0, +out.lady.coffee || 0));
   out.lady.perk = Math.min(COFFEE_PERK, Math.max(0, +out.lady.perk || 0));
   if (!isObj(out.ladyPos) || !Number.isFinite(out.ladyPos.x) || !Number.isFinite(out.ladyPos.z)) out.ladyPos = null;

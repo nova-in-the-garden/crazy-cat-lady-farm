@@ -62,14 +62,14 @@ export function createCatLady() {
 
   /* --- Arms (pivot at the shoulder) --- */
   const arms = [];
-  let handAnchor = null;
+  let handAnchor = null, leftHand = null;
   [-1, 1].forEach((s) => {
     const sh = new THREE.Group(); sh.position.set(s * 0.24, 1.2, 0);
     const inner = new THREE.Group(); inner.rotation.z = s * 0.14; sh.add(inner);
     inner.add(mesh(new THREE.CapsuleGeometry(0.065, 0.3, 4, 10), mat(C.cardigan, { flatShading: false }), { y: -0.2 }));
     inner.add(mesh(new THREE.TorusGeometry(0.06, 0.022, 6, 12), mat(C.cardiganDark), { y: -0.38, rx: Math.PI / 2 }));
     inner.add(mesh(new THREE.SphereGeometry(0.06, 10, 8), mat(C.skin, { flatShading: false }), { y: -0.44 }));
-    if (s > 0) { const hand = new THREE.Group(); hand.position.y = -0.46; inner.add(hand); handAnchor = hand; }
+    const hand = new THREE.Group(); hand.position.y = -0.46; inner.add(hand); if (s > 0) handAnchor = hand; else leftHand = hand;
     body.add(sh); arms.push(sh);
   });
 
@@ -214,12 +214,20 @@ export function createCatLady() {
     const closed = blinkTimer < 0.12;
     eyes.forEach((e) => (e.scale.y = closed ? 0.12 : 1));
     if (blinkTimer < 0) blinkTimer = 2 + Math.random() * 3;
+    // emotes, chores, baths and fainting take over the pose last
+    if (pose) pose(parts, t, dt);
+    else if (posed) { posed = false; body.rotation.y = 0; head.rotation.x = 0; head.position.y = 1.55; }
+    if (pose) posed = true;
   }
+  let pose = null, posed = false;
+  const parts = { group, body, head, arms, legs, hand: handAnchor, leftHand, eyes, blob };
+  /** fn(parts, t, dt) runs after the normal animation each frame (null = back to normal). */
+  function setPose(fn) { pose = fn || null; }
   function wave() { waveTime = 2.2; }
   function act() { actTime = 0.5; }
   function setSitting(v) { sitting = !!v; }
   function drink() { drinkTime = 2.4; setTool(toolName); }
 
   group.traverse((o) => { if (o.isMesh) o.userData.isLady = true; });
-  return { group, headAnchor, update, wave, act, drink, setTool, setSitting, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
+  return { group, headAnchor, update, wave, act, drink, setTool, setSitting, setPose, parts, get tool() { return toolName; }, get hasPose() { return !!pose; }, get sitting() { return sitting; }, get drinking() { return drinkTime > 0; } };
 }

@@ -1,10 +1,13 @@
 // The garden plot: a grid of tiles you Plow, Sow, Water and Harvest.
 // Crops only grow while their soil is watered (soil dries every dawn), and once ripe
 // they stay ripe forever until you pick them. Nothing ever wilts.
+// A plowed plot left empty and unused (not sown, watered or harvested) grows weeds on its 2nd day
+// and goes back to grass on its 3rd (then it needs plowing again). Plots with crops are never affected.
 import * as THREE from 'three';
 import { mat, mesh } from './util.js';
 import { CROPS } from './state.js';
 
+export const WEEDS_DAY = 2, REVERT_DAYS = 3;
 export const GRID = { x0: -14, z0: 0, cols: 6, rows: 4, size: 1 }; // inside the garden fence
 
 export function tileCenter(i) {
@@ -89,6 +92,7 @@ export class Garden {
     const grassM = new THREE.MeshStandardMaterial({ color: '#bfe2a0', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const dropM = mat('#6cc4ef', { emissive: '#6cc4ef', emissiveIntensity: 0.6, flatShading: false });
     const starM = mat('#ffe27a', { emissive: '#ffd34d', emissiveIntensity: 0.9 });
+    const weedM = mat('#5e9a3f'), dandM = mat('#ffd23c'), fluffM = mat('#ffffff');
     for (let i = 0; i < state.tiles.length; i++) {
       const c = tileCenter(i);
       const g = new THREE.Group(); g.position.copy(c); scene.add(g);
@@ -102,8 +106,16 @@ export class Garden {
       drop.add(mesh(new THREE.SphereGeometry(0.06, 10, 8), dropM, { y: 0, cast: false }));
       drop.add(mesh(new THREE.ConeGeometry(0.05, 0.09, 10), dropM, { y: 0.06, cast: false }));
       const star = mesh(new THREE.OctahedronGeometry(0.08, 0), starM, { cast: false });
-      g.add(grass, soil, drop, star);
-      this.tiles.push({ g, grass, soil, soilMat, drop, star, crop: null, key: '' });
+      // weeds: little spiky tufts and a dandelion or two (shown on unused plowed plots, day 2)
+      const weeds = new THREE.Group();
+      for (let k = 0; k < 6; k++) {
+        const a = k * 2.1 + i, r = 0.12 + ((k * 37 + i * 11) % 23) / 70;
+        const tuft = new THREE.Group(); tuft.position.set(Math.cos(a) * r, 0.08, Math.sin(a) * r); weeds.add(tuft);
+        for (let b = 0; b < 4; b++) tuft.add(mesh(new THREE.ConeGeometry(0.02, 0.16 + (b % 2) * 0.06, 3), weedM, { x: Math.cos(b * 1.6) * 0.025, y: 0.08, z: Math.sin(b * 1.6) * 0.025, rx: Math.sin(b * 1.6) * 0.45, rz: -Math.cos(b * 1.6) * 0.45, cast: false }));
+        if (k % 3 === 0) tuft.add(mesh(new THREE.SphereGeometry(0.035, 6, 5), k % 2 ? fluffM : dandM, { y: 0.22, cast: false }));
+      }
+      g.add(grass, soil, drop, star, weeds);
+      this.tiles.push({ g, grass, soil, soilMat, drop, star, weeds, crop: null, key: '' });
       this.refresh(i);
     }
     // highlight square for the targeted tile
@@ -129,6 +141,22 @@ export class Garden {
     }
     v.drop.visible = t.state === 'planted' && stage < 3 && !t.wet;
     v.star.visible = stage === 3;
+    v.weeds.visible = this.weedy(i);
+    v.soilMat.color.set(t.wet ? '#6e4a33' : v.weeds.visible ? '#9c7a55' : '#a87650');
+  }
+  /** Days since a plowed plot was last used (sown, watered, harvested or plowed). */
+  idleDays(i) { const t = this.state.tiles[i]; return t.state === 'plowed' ? this.state.day - (t.used ?? this.state.day) : 0; }
+  weedy(i) { return this.state.tiles[i].state === 'plowed' && !this.state.tiles[i].wet && this.idleDays(i) >= WEEDS_DAY; }
+  /** Mark a plot as worked today. */
+  touch(i) { this.state.tiles[i].used = this.state.day; this.refresh(i); }
+  /** Dawn: unused plowed plots slowly go wild. Returns the plots that went back to grass. */
+  ageAll() {
+    const back = [];
+    this.state.tiles.forEach((t, i) => {
+      if (t.state === 'plowed' && this.idleDays(i) >= REVERT_DAYS) { t.state = 'grass'; t.wet = false; back.push(i); }
+      this.refresh(i);
+    });
+    return back;
   }
   refreshAll() { for (let i = 0; i < this.tiles.length; i++) this.refresh(i); }
 

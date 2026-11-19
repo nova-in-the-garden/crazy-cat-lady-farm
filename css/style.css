@@ -487,3 +487,34 @@ body.exam-open #sleep-btn { display: none !important; }
 .shop-order { margin: 8px 2px 0; padding: 8px 12px; border-radius: 14px; background: #fff3e0; color: #7a4a2a; font-size: 0.9rem; }
 .shop-order:empty { display: none; }
 .shop-order span { color: #3f9a8b; }
+
+/* ---------- starving Granny: the hunger bar flashes ---------- */
+.gpanel .lady-row .mini i.starving { background: linear-gradient(90deg, #ff8fa6, #e0445f); animation: starve 0.7s ease-in-out infinite; min-width: 4px; }
+.gpanel .lady-row.starving .lady-ico { animation: starve 0.7s ease-in-out infinite; }
+.gpanel .lady-row.flash { animation: hungerflash 0.4s ease-in-out 6; border-radius: 8px; }
+@keyframes starve { 50% { opacity: 0.35; } }
+@keyframes hungerflash { 50% { background: rgba(255, 120, 150, 0.45); box-shadow: 0 0 0 3px rgba(255, 120, 150, 0.35); } }
+#banner.warn { border-color: #f2a0b4; color: #b03a5b; font-size: 1.25rem; }
+
+/* ---------- emotes: the button + the wheel ---------- */
+#emote-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 9px; border-radius: 999px; border: 3px solid #fff; background: rgba(255, 248, 239, 0.95);
+  color: var(--ink); font: 600 0.95rem Fredoka, sans-serif; cursor: pointer; box-shadow: var(--shadow); }
+#emote-btn .ico { font-size: 1.15rem; }
+#emote-btn kbd { font: 600 0.72rem Fredoka, sans-serif; background: #fbe3ea; border-radius: 5px; padding: 1px 5px; }
+#emote-btn.hidden, #emote-wheel.hidden { display: none; }
+#emote-wheel { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(60, 40, 60, 0.18); }
+#emote-wheel .wheel-ring { position: relative; width: min(440px, 92vw); height: min(440px, 92vw); border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 250, 244, 0.97) 0 30%, rgba(255, 240, 245, 0.92) 31% 100%); border: 3px solid #f3c9d6; box-shadow: 0 10px 40px rgba(91, 66, 86, 0.3); }
+#emote-wheel button { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%;
+  transform: translate(calc(var(--x) * min(155px, 32vw)), calc(var(--y) * min(155px, 32vw))); border: 2px solid #f3c9d6; background: #fffaf4; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #5b4256; font: 600 0.72rem/1.05 Fredoka, sans-serif; padding: 4px; transition: transform 0.12s, background 0.12s; }
+#emote-wheel button:hover { background: #ffe8ef; transform: translate(calc(var(--x) * min(155px, 32vw)), calc(var(--y) * min(155px, 32vw))) scale(1.08); }
+#emote-wheel button .e { font-size: 1.9rem; line-height: 1; }
+#emote-wheel button kbd { position: absolute; top: 2px; right: 8px; font-size: 0.65rem; color: #b38fa8; }
+#emote-wheel .wheel-hub { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #8d7388; font: 500 0.85rem Fredoka, sans-serif; }
+#emote-wheel .wheel-hub b { font-size: 1.3rem; color: #c95c74; }
+#emote-wheel .wheel-hub small { display: block; margin-top: 4px; font-size: 0.7rem; }
+@media (max-width: 640px), (pointer: coarse) {
+  #emote-btn { padding: 5px 9px; font-size: 0.8rem; } #emote-btn kbd { display: none; }
+  #emote-wheel button { width: 74px; height: 74px; margin: -37px 0 0 -37px; font-size: 0.62rem; } #emote-wheel button .e { font-size: 1.5rem; }
+}
